@@ -177,8 +177,8 @@ As features grow, keep the codebase modular and expandable:
 - [x] Excel/Office file preview via SheetJS client-side renderer with DataTable (sort, search, filter, pagination)
 - [x] Rich markdown renderer (parsed HTML preview instead of raw text)
 - [x] JSON viewer with syntax highlighting and collapsible tree
-- [ ] Track which device uploaded each file (record source device in metadata)
-- [ ] File metadata storage — use OS-level extended attributes (xattr) or an external sidecar store (JSON/SQLite) for custom metadata per file
+- [x] Track which device uploaded each file (record source IP in .meta.json sidecar)
+- [x] File metadata storage — JSON sidecar store (.meta.json) with per-file metadata
 
 ### M2.2: Process Manager — Deep Observability
 Architecture note: split process stats into two tiers — **passive** (low-overhead, shown for all rows: CPU, MEM, user, uptime) and **active** (on-demand behind a button: GPU usage, disk I/O, open files, network sockets). Expandable row pattern for detailed view.
@@ -204,11 +204,11 @@ Architecture note: split process stats into two tiers — **passive** (low-overh
 - [ ] First operator tasks: backup monitor, disk space alert
 
 ### M2.3: Smart Lights — Enhanced
-- [ ] Pull detailed bulb info on discovery (firmware version, model, signal strength, room/group name)
-- [ ] Bulb naming — allow user-assigned names (stored in metadata/localStorage)
-- [ ] Scene presets — save and recall color/brightness combinations
-- [ ] Group control — control multiple bulbs at once
-- [ ] Bulb status polling — periodic state refresh to detect external changes
+- [x] Pull detailed bulb info on discovery (firmware version, module name, signal/RSSI)
+- [x] Bulb naming — user-assigned names stored in localStorage, double-click to rename
+- [x] Scene presets — 16 Wiz scene buttons (Cozy, Warm White, Party, Ocean, etc.)
+- [x] Group control — select all / individual checkboxes, group ON/OFF/brightness
+- [x] Bulb status polling — 5s auto-refresh toggle to detect external changes
 
 ### M5: UI & Polish
 - [x] Page navigation loading spinner — shimmer bar on route transitions (SvelteKit `navigating` store)
