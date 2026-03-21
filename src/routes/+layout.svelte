@@ -37,6 +37,11 @@
 	<header>
 		<button class="menu-toggle" onclick={() => (sidebarOpen = !sidebarOpen)} aria-label="Toggle menu">☰</button>
 		<h1>Home Server</h1>
+		<div class="system-stats">
+			<span class="stat" title="Memory usage">MEM {data.system.memUsedPercent}%</span>
+			<span class="stat" title="CPU load average (1m)">LOAD {data.system.loadAvg}</span>
+			<span class="stat" title="System uptime">{data.system.uptime}h up</span>
+		</div>
 		<button class="theme-toggle" onclick={toggleTheme} aria-label="Toggle theme">
 			{$theme === 'dark' ? '☀' : '☾'}
 		</button>
@@ -86,9 +91,22 @@
 	}
 
 	.device-info {
-		font-size: 0.8rem;
+		font-size: 0.75rem;
 		color: var(--text-muted);
-		font-family: monospace;
+		font-family: 'JetBrains Mono', monospace;
+	}
+
+	.system-stats {
+		display: flex;
+		gap: 12px;
+	}
+
+	.stat {
+		font-size: 0.65rem;
+		font-family: 'JetBrains Mono', monospace;
+		color: var(--text-faint);
+		letter-spacing: 0.02em;
+		cursor: default;
 	}
 
 	.theme-toggle {
@@ -195,6 +213,10 @@
 	@media (max-width: 640px) {
 		.menu-toggle {
 			display: block;
+		}
+
+		.system-stats {
+			display: none;
 		}
 
 		nav {

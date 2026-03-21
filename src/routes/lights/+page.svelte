@@ -17,11 +17,12 @@
 	let selectedBulbs = $state<Set<string>>(new Set());
 	let selectAll = $state(false);
 
-	const WIZ_SCENES: Record<number, string> = {
-		6: 'Cozy', 11: 'Warm White', 12: 'Daylight', 13: 'Cool White',
-		14: 'Night Light', 15: 'Focus', 16: 'Relax', 29: 'Candlelight',
-		1: 'Ocean', 2: 'Romance', 3: 'Sunset', 4: 'Party',
-		5: 'Fireplace', 7: 'Forest', 9: 'Wake Up', 10: 'Bedtime'
+	const WIZ_SCENES: Record<string, Record<number, string>> = {
+		'Functional': { 11: 'Warm White', 12: 'Daylight', 13: 'Cool White', 14: 'Night Light', 15: 'Focus', 16: 'Relax' },
+		'Ambient': { 6: 'Cozy', 29: 'Candlelight', 30: 'Golden White', 2: 'Romance', 5: 'Fireplace' },
+		'Nature': { 1: 'Ocean', 7: 'Forest', 20: 'Spring', 21: 'Summer', 22: 'Fall', 23: 'Deep Dive', 24: 'Jungle', 25: 'Mojito' },
+		'Festive': { 3: 'Sunset', 4: 'Party', 26: 'Club', 27: 'Christmas', 28: 'Halloween', 32: 'Steampunk' },
+		'Dynamic': { 8: 'Pastel Colors', 9: 'Wake Up', 10: 'Bedtime', 17: 'True Colors', 18: 'TV Time', 31: 'Pulse' }
 	};
 
 	let debounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -101,6 +102,14 @@
 		bulb.color = null;
 		bulb.colorTemp = null;
 		setBulb(bulb.ip, { sceneId });
+	}
+
+	function allSceneIds(): Record<number, string> {
+		const all: Record<number, string> = {};
+		for (const group of Object.values(WIZ_SCENES)) {
+			Object.assign(all, group);
+		}
+		return all;
 	}
 
 	function colorHex(bulb: WizBulb): string {
@@ -220,30 +229,34 @@
 						{#if bulbs.length > 1}
 							<input type="checkbox" checked={selectedBulbs.has(bulb.mac)} onchange={() => toggleSelect(bulb.mac)} class="bulb-checkbox" />
 						{/if}
-						<div>
-							{#if renamingMac === bulb.mac}
-								<input
-									class="rename-input"
-									type="text"
-									bind:value={renameValue}
-									onkeydown={(e) => { if (e.key === 'Enter') submitRename(bulb.mac); if (e.key === 'Escape') renamingMac = null; }}
-									onblur={() => submitRename(bulb.mac)}
-								/>
-							{:else}
-								<span class="bulb-name" role="button" tabindex="0" ondblclick={() => startRename(bulb)} onkeydown={(e) => { if (e.key === 'Enter') startRename(bulb); }}>{bulbName(bulb)}</span>
-							{/if}
-							<span class="bulb-ip">{bulb.ip}</span>
-							{#if bulb.fwVersion}
-								<span class="bulb-fw">fw {bulb.fwVersion}</span>
-							{/if}
-							{#if bulb.rssi != null}
-								<span class="bulb-signal">signal: {bulb.rssi}dBm</span>
-							{/if}
+						<div class="bulb-details">
+							<div class="bulb-header">
+								{#if renamingMac === bulb.mac}
+									<input
+										class="rename-input"
+										type="text"
+										bind:value={renameValue}
+										onkeydown={(e) => { if (e.key === 'Enter') submitRename(bulb.mac); if (e.key === 'Escape') renamingMac = null; }}
+										onblur={() => submitRename(bulb.mac)}
+									/>
+								{:else}
+									<span class="bulb-name" role="button" tabindex="0" ondblclick={() => startRename(bulb)} onkeydown={(e) => { if (e.key === 'Enter') startRename(bulb); }}>{bulbName(bulb)}</span>
+								{/if}
+								<button class="toggle" class:on={bulb.state} onclick={() => toggleBulb(bulb)}>
+									{bulb.state ? 'ON' : 'OFF'}
+								</button>
+							</div>
+							<div class="bulb-meta">
+								<span>{bulb.ip}</span>
+								{#if bulb.moduleName}<span>{bulb.moduleName}</span>{/if}
+								{#if bulb.fwVersion}<span>fw {bulb.fwVersion}</span>{/if}
+								{#if bulb.rssi != null}<span>{bulb.rssi}dBm</span>{/if}
+								{#if bulb.sceneId && allSceneIds()[bulb.sceneId]}
+									<span class="current-scene">Scene: {allSceneIds()[bulb.sceneId]}</span>
+								{/if}
+							</div>
 						</div>
 					</div>
-					<button class="toggle" class:on={bulb.state} onclick={() => toggleBulb(bulb)}>
-						{bulb.state ? 'ON' : 'OFF'}
-					</button>
 				</div>
 
 				{#if bulb.state}
@@ -269,16 +282,20 @@
 							</div>
 						</div>
 
-						<div class="control-row scenes-row">
-							<span class="control-label">Scene</span>
-							<div class="scene-presets">
-								{#each Object.entries(WIZ_SCENES) as [id, name]}
-									<button
-										class:active={bulb.sceneId === parseInt(id)}
-										onclick={() => setScene(bulb, parseInt(id))}
-									>{name}</button>
-								{/each}
-							</div>
+						<div class="scenes-section">
+							{#each Object.entries(WIZ_SCENES) as [category, scenes]}
+								<div class="scene-category">
+									<span class="scene-category-label">{category}</span>
+									<div class="scene-presets">
+										{#each Object.entries(scenes) as [id, name]}
+											<button
+												class:active={bulb.sceneId === parseInt(id)}
+												onclick={() => setScene(bulb, parseInt(id))}
+											>{name}</button>
+										{/each}
+									</div>
+								</div>
+							{/each}
 						</div>
 					</div>
 				{/if}
@@ -312,14 +329,16 @@
 	.bulb-card.off { opacity: 0.6; }
 	.bulb-card.selected { border-color: #58a6ff; }
 
-	.bulb-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+	.bulb-top { margin-bottom: 12px; }
 	.bulb-info { display: flex; align-items: flex-start; gap: 8px; }
-	.bulb-checkbox { margin-top: 3px; }
-	.bulb-name { font-size: 0.85rem; font-weight: 500; cursor: pointer; }
-	.bulb-name:hover { color: #58a6ff; }
-	.bulb-ip { display: block; font-size: 0.7rem; color: #8b949e; font-family: monospace; }
-	.bulb-fw { display: block; font-size: 0.65rem; color: #484f58; }
-	.bulb-signal { display: block; font-size: 0.65rem; color: #484f58; }
+	.bulb-checkbox { margin-top: 5px; }
+	.bulb-details { flex: 1; }
+	.bulb-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+	.bulb-name { font-size: 1rem; font-weight: 600; cursor: pointer; }
+	.bulb-name:hover { color: var(--accent, #58a6ff); }
+	.bulb-meta { display: flex; flex-wrap: wrap; gap: 4px 10px; }
+	.bulb-meta span { font-size: 0.7rem; color: var(--text-faint, #484f58); font-family: monospace; }
+	.current-scene { color: var(--accent, #58a6ff) !important; font-weight: 500; }
 
 	.rename-input { width: 140px; padding: 2px 6px; font-size: 0.85rem; border-radius: 4px; border: 1px solid #58a6ff; background: #0d1117; color: #e1e4e8; font-family: inherit; }
 
@@ -338,6 +357,8 @@
 	.temp-presets button:hover, .scene-presets button:hover { border-color: #58a6ff; }
 	.temp-presets button.active, .scene-presets button.active { background: #1f6feb33; border-color: #58a6ff; color: #58a6ff; }
 
-	.scenes-row { align-items: flex-start; }
+	.scenes-section { padding-top: 10px; border-top: 1px solid var(--border-subtle, #21262d); display: flex; flex-direction: column; gap: 8px; }
+	.scene-category { display: flex; align-items: flex-start; gap: 10px; }
+	.scene-category-label { font-size: 0.7rem; color: var(--text-muted, #8b949e); width: 70px; flex-shrink: 0; padding-top: 4px; text-transform: uppercase; letter-spacing: 0.03em; }
 	.scene-presets { max-width: 100%; }
 </style>

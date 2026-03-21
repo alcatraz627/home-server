@@ -9,11 +9,31 @@
 	let disk = $state(initialDisk);
 
 	let showForm = $state(false);
+	let showTemplates = $state(false);
 	let formName = $state('');
 	let formCommand = $state('');
 	let formTimeout = $state(300);
 	let formRetries = $state(3);
 	let formSchedule = $state('');
+
+	const TEMPLATES = [
+		{ name: 'Disk Space Alert', command: "df -h / | awk 'NR==2 {if ($5+0 > 90) {echo \"ALERT: disk at $5\"; exit 1} else {echo \"OK: $5 used\"}}'", timeout: 15, retries: 0, schedule: '0 */6 * * *', desc: 'Alert if root disk exceeds 90%' },
+		{ name: 'Memory Check', command: "vm_stat | awk '/Pages free/ {free=$3} /Pages active/ {active=$3} END {printf \"Free: %.0f MB, Active: %.0f MB\\n\", free*4096/1048576, active*4096/1048576}'", timeout: 10, retries: 0, schedule: '*/30 * * * *', desc: 'Report free and active memory' },
+		{ name: 'Service Health Check', command: 'curl -sf http://localhost:5555/api/tailscale > /dev/null && echo "OK" || echo "FAILED"', timeout: 10, retries: 3, schedule: '*/5 * * * *', desc: 'Verify the Home Server API is responding' },
+		{ name: 'Log Rotation', command: 'find /tmp -name "*.log" -mtime +7 -delete && echo "Cleaned old logs"', timeout: 30, retries: 0, schedule: '0 3 * * 0', desc: 'Delete log files older than 7 days' },
+		{ name: 'Tailscale Status', command: '/Applications/Tailscale.app/Contents/MacOS/Tailscale status', timeout: 10, retries: 0, schedule: null, desc: 'Show all connected tailnet devices' },
+		{ name: 'Git Repo Status', command: 'cd ~/Code && for d in */; do echo "=== $d ===" && git -C "$d" status -s 2>/dev/null; done', timeout: 30, retries: 0, schedule: null, desc: 'Check git status across all repos in ~/Code' },
+	];
+
+	function applyTemplate(t: typeof TEMPLATES[0]) {
+		formName = t.name;
+		formCommand = t.command;
+		formTimeout = t.timeout;
+		formRetries = t.retries;
+		formSchedule = t.schedule || '';
+		showTemplates = false;
+		showForm = true;
+	}
 
 	let expandedTask = $state<string | null>(null);
 
@@ -85,7 +105,10 @@
 	<h2>Operator Tasks</h2>
 	<div class="controls">
 		<button class="btn" onclick={refresh}>Refresh</button>
-		<button class="btn" onclick={() => (showForm = !showForm)}>
+		<button class="btn" onclick={() => { showTemplates = !showTemplates; if (showTemplates) showForm = false; }}>
+			Templates
+		</button>
+		<button class="btn" onclick={() => { showForm = !showForm; if (showForm) showTemplates = false; }}>
 			{showForm ? 'Cancel' : 'New Task'}
 		</button>
 	</div>
@@ -106,6 +129,19 @@
 				</div>
 			{/each}
 		</div>
+	</div>
+{/if}
+
+{#if showTemplates}
+	<div class="template-grid">
+		{#each TEMPLATES as t}
+			<button class="template-card" onclick={() => applyTemplate(t)}>
+				<strong>{t.name}</strong>
+				<span class="template-desc">{t.desc}</span>
+				<code class="template-cmd">{t.command.slice(0, 60)}{t.command.length > 60 ? '...' : ''}</code>
+				{#if t.schedule}<span class="template-schedule">cron: {t.schedule}</span>{/if}
+			</button>
+		{/each}
 	</div>
 {/if}
 
@@ -212,6 +248,14 @@
 	.task-command { font-size: 0.75rem; color: #8b949e; display: block; margin-bottom: 4px; }
 	.task-meta { font-size: 0.7rem; color: #484f58; }
 	.task-schedule { color: var(--accent, #58a6ff); }
+
+	.template-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; margin-bottom: 16px; }
+	.template-card { background: var(--bg-secondary, #161b22); border: 1px solid var(--border, #30363d); border-radius: 8px; padding: 12px 14px; text-align: left; cursor: pointer; display: flex; flex-direction: column; gap: 4px; font-family: inherit; color: var(--text-primary, #e1e4e8); transition: border-color 0.15s; }
+	.template-card:hover { border-color: var(--accent, #58a6ff); }
+	.template-card strong { font-size: 0.85rem; }
+	.template-desc { font-size: 0.75rem; color: var(--text-muted, #8b949e); }
+	.template-cmd { font-size: 0.65rem; color: var(--text-faint, #484f58); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.template-schedule { font-size: 0.65rem; color: var(--accent, #58a6ff); }
 	.task-actions { display: flex; gap: 6px; }
 
 	.last-run { display: flex; align-items: center; gap: 8px; margin-top: 10px; padding-top: 8px; border-top: 1px solid #21262d; }

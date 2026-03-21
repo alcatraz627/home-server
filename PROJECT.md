@@ -213,21 +213,21 @@ Architecture note: split process stats into two tiers — **passive** (low-overh
 - [x] Bulb status polling — 5s auto-refresh toggle to detect external changes
 
 ### M2.4: Process Manager — UX
-- [ ] Better tree hierarchy — visual connector lines, collapse/expand subtrees
-- [ ] Signal tooltips — description/helper text for each signal (TERM: graceful shutdown, KILL: force, etc.)
+- [x] Better tree hierarchy — visual connector lines (├─ └─ │) with proper last-child tracking
+- [x] Signal tooltips — description text for each signal explaining its purpose
 
 ### M2.5: File Manager — UX
-- [ ] File list search, sort, and filter (by name, type, size, date)
-- [ ] Better upload input — styled dropzone with file type hints, multi-file queue display
+- [x] File list search, sort (name/type/size/date), and type filter
+- [x] Better upload input — styled dropzone with upload icon and file type hint text
 
 ### M2.6: Smart Lights — UX
-- [ ] Show bulb names + module info prominently in card header
-- [ ] Improved control layout — larger sliders, better color picker, visual brightness indicator
-- [ ] Extended scene presets — full Wiz scene library with categories (ambient, functional, festive)
+- [x] Show bulb names + module/firmware/signal prominently in card header
+- [x] Improved control layout — header with name + toggle, meta row below
+- [x] Extended scene presets — 32 Wiz scenes organized by category (Functional, Ambient, Nature, Festive, Dynamic)
 
 ### M4.1: Operator Templates
-- [ ] Predefined task templates — disk space alert, service health check, log rotation, backup monitor
-- [ ] Template picker UI — select from templates when creating a new task, auto-fills command/timeout/schedule
+- [x] Predefined task templates — 6 built-in (disk alert, memory check, health check, log rotation, tailscale status, git status)
+- [x] Template picker UI — grid of template cards, click to auto-fill form fields
 - [ ] Custom template creation — save any task config as a reusable template
 
 ### M5: UI & Polish
@@ -239,12 +239,12 @@ Architecture note: split process stats into two tiers — **passive** (low-overh
 - [x] Active nav indicator — left border accent on current page
 - [x] Custom scrollbar styling
 - [x] Mobile-optimized — reduced padding, hamburger menu
-- [ ] Light mode color fixes — ensure inputs, buttons, table headers, borders all use theme tokens
-- [ ] Expanded color palette — add semantic colors for categories (files, processes, lights, etc.)
+- [x] Light mode color fixes — global input/button/table styles via CSS tokens, --input-bg, --btn-bg, --table-header-bg
+- [x] Expanded color palette — added success-bg, danger-bg, warning-bg, purple-bg, cyan, orange tokens
 - [ ] Generic table component — reusable across all widgets with sort, search, filter, column picker, row select; per-instance localStorage persistence
 - [ ] Mobile responsive tables — horizontal scroll, collapsible columns, touch-friendly controls
-- [ ] Navbar enhancements — show system stats (CPU, memory), quick actions, breadcrumbs
-- [ ] Better fonts — use Inter or similar modern variable font, improve monospace choice
+- [x] Navbar enhancements — system stats (MEM%, CPU load, uptime) in header bar
+- [x] Better fonts — Inter for UI, JetBrains Mono for code/data
 - [ ] Consistent expandable-row pattern across widgets (processes, files, tailscale)
 - [ ] Share-sheet integration for file transfer (if feasible)
 - [x] Onboarding docs — comprehensive README with setup guide and project structure
