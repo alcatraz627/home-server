@@ -40,8 +40,12 @@
 		<button class="menu-toggle" onclick={() => (sidebarOpen = !sidebarOpen)} aria-label="Toggle menu">☰</button>
 		<h1>Home Server</h1>
 		<div class="system-stats">
-			<span class="stat" title="Memory usage">MEM {data.system.memUsedPercent}%</span>
-			<span class="stat" title="CPU load average (1m)">LOAD {data.system.loadAvg}</span>
+			<span class="stat" title="Memory usage" style="color: {data.system.memUsedPercent >= 90 ? 'var(--danger)' : data.system.memUsedPercent >= 70 ? 'var(--warning)' : 'var(--success)'}">
+				MEM {data.system.memUsedPercent}%
+			</span>
+			<span class="stat" title="CPU load average (1m)" style="color: {(data.system.loadAvg / data.system.cpuCount) >= 0.9 ? 'var(--danger)' : (data.system.loadAvg / data.system.cpuCount) >= 0.7 ? 'var(--warning)' : 'var(--success)'}">
+				LOAD {data.system.loadAvg}
+			</span>
 			<span class="stat" title="System uptime">{data.system.uptime}h up</span>
 		</div>
 		<button class="theme-toggle" onclick={toggleTheme} aria-label="Toggle theme">
@@ -106,11 +110,12 @@
 	}
 
 	.stat {
-		font-size: 0.65rem;
+		font-size: 0.75rem;
+		font-weight: 600;
 		font-family: 'JetBrains Mono', monospace;
-		color: var(--text-faint);
 		letter-spacing: 0.02em;
 		cursor: default;
+		transition: color 0.3s;
 	}
 
 	.theme-toggle {
