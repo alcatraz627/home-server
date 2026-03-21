@@ -269,6 +269,11 @@ See [docs/claude-keeper.md](docs/claude-keeper.md) for full planning document.
 - [ ] Terminal preview — show latest output line from active terminal tab, one-click to open
 - [ ] Quick links — jump to any widget's most recent/starred items
 
+### Theme Fixes (Priority)
+- [ ] Dark mode — increase contrast for muted labels (`--text-muted`, `--text-faint` too dim, bump brightness)
+- [ ] Light mode — cards, buttons, table headers still rendering with dark colors (components using hardcoded `#161b22` / `#21262d` instead of `var(--bg-secondary)` / `var(--btn-bg)`)
+- [ ] Audit all component styles — replace remaining hardcoded hex colors with CSS custom properties
+
 ### Toast Notification System
 - [ ] Global toast component — success (green), warning (yellow), error (red) toasts with auto-dismiss
 - [ ] Wire toasts to file operations — upload success, delete success, rename success, upload error
