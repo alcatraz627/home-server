@@ -199,10 +199,11 @@ Architecture note: split process stats into two tiers — **passive** (low-overh
 - [ ] Success/failure notifications
 
 ### M4: Operator Framework
-- [ ] Task definition format (config-based)
-- [ ] Task runner with logging, retry, and timeout
+- [x] Task definition format — JSON config with name, command, timeout, retries
+- [x] Task runner with logging, retry (exponential backoff), and timeout
+- [x] Disk space monitoring — visual bar chart on tasks page
 - [ ] Notification pipeline (WhatsApp or ntfy.sh)
-- [ ] First operator tasks: backup monitor, disk space alert
+- [ ] Cron-based task scheduling
 
 ### M2.3: Smart Lights — Enhanced
 - [x] Pull detailed bulb info on discovery (firmware version, module name, signal/RSSI)

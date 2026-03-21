@@ -38,6 +38,13 @@
 			status: 'active'
 		},
 		{
+			id: 'tasks',
+			title: 'Tasks',
+			href: '/tasks',
+			description: 'Operator task runner and disk alerts',
+			status: 'active'
+		},
+		{
 			id: 'backups',
 			title: 'Backups',
 			href: '/backups',

@@ -13,6 +13,7 @@
 		{ href: '/processes', label: 'Processes', icon: '⊞' },
 		{ href: '/tailscale', label: 'Tailscale', icon: '⊶' },
 		{ href: '/backups', label: 'Backups', icon: '⟲' },
+		{ href: '/tasks', label: 'Tasks', icon: '⚙' },
 		{ href: '/terminal', label: 'Terminal', icon: '▶' }
 	];
 </script>
