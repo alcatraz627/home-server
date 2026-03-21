@@ -8,7 +8,9 @@
 	type EnrichedFile = FileInfo & { meta: FileMetadata | null };
 
 	let { data } = $props<{ data: PageData }>();
-	let files = $state<EnrichedFile[]>(data.files);
+	// svelte-ignore state_referenced_locally
+	const { files: initialFiles, currentPath } = data;
+	let files = $state<EnrichedFile[]>(initialFiles);
 	let dragOver = $state(false);
 	let uploading = $state(false);
 	let uploadProgress = $state(0);
@@ -39,12 +41,12 @@
 	}
 
 	function previewUrl(filename: string): string {
-		const params = data.currentPath ? `?path=${encodeURIComponent(data.currentPath)}&preview=true` : '?preview=true';
+		const params = currentPath ? `?path=${encodeURIComponent(currentPath)}&preview=true` : '?preview=true';
 		return `/api/files/${encodeURIComponent(filename)}${params}`;
 	}
 
 	function downloadUrl(filename: string): string {
-		const params = data.currentPath ? `?path=${encodeURIComponent(data.currentPath)}` : '';
+		const params = currentPath ? `?path=${encodeURIComponent(currentPath)}` : '';
 		return `/api/files/${encodeURIComponent(filename)}${params}`;
 	}
 
@@ -111,7 +113,7 @@
 			renamingFile = null;
 			return;
 		}
-		const params = data.currentPath ? `?path=${encodeURIComponent(data.currentPath)}` : '';
+		const params = currentPath ? `?path=${encodeURIComponent(currentPath)}` : '';
 		const res = await fetch(`/api/files/${encodeURIComponent(oldName)}${params}`, {
 			method: 'PATCH',
 			headers: { 'Content-Type': 'application/json' },
@@ -132,7 +134,7 @@
 		uploadProgress = 0;
 		const formData = new FormData();
 		formData.append('file', file);
-		if (data.currentPath) formData.append('path', data.currentPath);
+		if (currentPath) formData.append('path', currentPath);
 		const xhr = new XMLHttpRequest();
 		xhr.upload.onprogress = (e) => {
 			if (e.lengthComputable) uploadProgress = Math.round((e.loaded / e.total) * 100);
@@ -172,7 +174,7 @@
 	}
 
 	async function refreshFiles() {
-		const params = data.currentPath ? `?path=${encodeURIComponent(data.currentPath)}` : '';
+		const params = currentPath ? `?path=${encodeURIComponent(currentPath)}` : '';
 		const res = await fetch(`/api/files${params}`);
 		files = await res.json();
 	}
@@ -186,7 +188,7 @@
 	async function deleteFile(filename: string) {
 		confirmingDelete = null;
 		if (confirmTimer) clearTimeout(confirmTimer);
-		const params = data.currentPath ? `?path=${encodeURIComponent(data.currentPath)}` : '';
+		const params = currentPath ? `?path=${encodeURIComponent(currentPath)}` : '';
 		const res = await fetch(`/api/files/${encodeURIComponent(filename)}${params}`, {
 			method: 'DELETE'
 		});

@@ -3,7 +3,9 @@
 	import type { WizBulb } from '$lib/server/wiz';
 
 	let { data } = $props<{ data: PageData }>();
-	let bulbs = $state<WizBulb[]>(data.bulbs);
+	// svelte-ignore state_referenced_locally
+	const { bulbs: initialBulbs } = data;
+	let bulbs = $state<WizBulb[]>(initialBulbs);
 	let discovering = $state(false);
 	let polling = $state(false);
 	let pollInterval: ReturnType<typeof setInterval> | null = null;

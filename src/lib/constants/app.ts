@@ -10,5 +10,5 @@
  */
 export const APP = {
 	title: 'Home Server',
-	version: '1.1.0-clear-helm-14',
+	version: '1.1.1-still-lake-9',
 } as const;

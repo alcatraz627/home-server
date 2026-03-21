@@ -3,8 +3,10 @@
 	import type { BackupStatus, BackupConfig } from '$lib/server/backups';
 
 	let { data } = $props<{ data: PageData }>();
+	// svelte-ignore state_referenced_locally
 	let statuses = $state<BackupStatus[]>(data.statuses);
-	let rsyncAvailable = data.rsyncAvailable;
+	// svelte-ignore state_referenced_locally
+	const rsyncAvailable = data.rsyncAvailable;
 
 	// New backup form
 	let showForm = $state(false);

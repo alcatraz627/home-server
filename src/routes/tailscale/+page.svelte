@@ -3,8 +3,10 @@
 	import type { TailscaleDevice } from '$lib/server/tailscale';
 
 	let { data } = $props<{ data: PageData }>();
-	let devices = $state<TailscaleDevice[]>(data.devices);
-	let error = $state<string | undefined>(data.error);
+	// svelte-ignore state_referenced_locally
+	const { devices: initialDevices, error: initialError } = data;
+	let devices = $state<TailscaleDevice[]>(initialDevices);
+	let error = $state<string | undefined>(initialError);
 	let refreshing = $state(false);
 
 	async function refresh() {

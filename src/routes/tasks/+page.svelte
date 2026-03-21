@@ -3,8 +3,10 @@
 	import type { TaskStatus } from '$lib/server/operator';
 
 	let { data } = $props<{ data: PageData }>();
-	let statuses = $state<TaskStatus[]>(data.statuses);
-	let disk = $state(data.disk);
+	// svelte-ignore state_referenced_locally
+	const { statuses: initialStatuses, disk: initialDisk } = data;
+	let statuses = $state<TaskStatus[]>(initialStatuses);
+	let disk = $state(initialDisk);
 
 	let showForm = $state(false);
 	let formName = $state('');

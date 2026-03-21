@@ -3,7 +3,9 @@
 	import type { ProcessInfo, ProcessDetail } from '$lib/server/processes';
 
 	let { data } = $props<{ data: PageData }>();
-	let processes = $state<ProcessInfo[]>(data.processes);
+	// svelte-ignore state_referenced_locally
+	const { processes: initialProcesses } = data;
+	let processes = $state<ProcessInfo[]>(initialProcesses);
 	let filter = $state('');
 	let autoRefresh = $state(false);
 	let refreshRate = $state(5);
