@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { LayoutData } from './$types';
 	import { APP } from '$lib/constants/app';
+	import { navigating } from '$app/stores';
 
 	let { data, children } = $props<{ data: LayoutData; children: any }>();
 	let sidebarOpen = $state(false);
@@ -37,6 +38,9 @@
 		</nav>
 
 		<main>
+			{#if $navigating}
+				<div class="loading-bar"></div>
+			{/if}
 			{@render children()}
 		</main>
 	</div>
@@ -141,6 +145,24 @@
 		flex: 1;
 		padding: 24px;
 		overflow-y: auto;
+		position: relative;
+	}
+
+	.loading-bar {
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		height: 3px;
+		background: linear-gradient(90deg, transparent, #58a6ff, transparent);
+		background-size: 200% 100%;
+		animation: shimmer 1.2s ease-in-out infinite;
+		z-index: 50;
+	}
+
+	@keyframes shimmer {
+		0% { background-position: -200% 0; }
+		100% { background-position: 200% 0; }
 	}
 
 	@media (max-width: 640px) {

@@ -211,7 +211,7 @@ Architecture note: split process stats into two tiers — **passive** (low-overh
 - [ ] Bulb status polling — periodic state refresh to detect external changes
 
 ### M5: UI & Polish
-- [ ] Page navigation loading spinner — show immediate spinner on route transitions (SvelteKit `navigating` store)
+- [x] Page navigation loading spinner — shimmer bar on route transitions (SvelteKit `navigating` store)
 - [ ] Design system — reusable components (buttons, cards, tables, modals, inputs, toggles)
 - [ ] Dark / light mode toggle with theme persistence
 - [ ] Transitions and animations (page transitions, loading states, micro-interactions)
