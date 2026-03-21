@@ -196,6 +196,47 @@
 		toast.success(`${targets.length} bulbs → ${action}`);
 	}
 
+	// Room grouping (localStorage)
+	let rooms = $state<Record<string, string>>(loadRooms());
+	let editingRoom = $state<string | null>(null);
+	let roomValue = $state('');
+
+	function loadRooms(): Record<string, string> {
+		if (typeof localStorage === 'undefined') return {};
+		try { return JSON.parse(localStorage.getItem('hs:bulb-rooms') || '{}'); }
+		catch { return {}; }
+	}
+
+	function saveRoom(mac: string, room: string) {
+		rooms = { ...rooms, [mac]: room };
+		if (typeof localStorage !== 'undefined') localStorage.setItem('hs:bulb-rooms', JSON.stringify(rooms));
+	}
+
+	let allRooms = $derived([...new Set(Object.values(rooms))].filter(Boolean).sort());
+	let roomFilter = $state('');
+
+	let filteredBulbs = $derived.by(() => {
+		if (!roomFilter) return bulbs;
+		return bulbs.filter(b => rooms[b.mac] === roomFilter);
+	});
+
+	// Quick presets
+	const QUICK_PRESETS = [
+		{ label: 'All Off', action: () => groupAction({ state: false }), icon: '⏻' },
+		{ label: 'Movie Mode', action: () => { groupAction({ dimming: 15 }); groupAction({ temp: 2700 }); }, icon: '🎬' },
+		{ label: 'Work Mode', action: () => { groupAction({ dimming: 80 }); groupAction({ temp: 5000 }); }, icon: '💼' },
+		{ label: 'All On 100%', action: () => { groupAction({ state: true }); groupAction({ dimming: 100 }); }, icon: '☀' },
+	];
+
+	// Power estimate (~10W per bulb at full brightness)
+	function estimatePower(): string {
+		const totalWatts = bulbs.reduce((sum, b) => {
+			if (!b.state) return sum;
+			return sum + (b.brightness / 100) * 10;
+		}, 0);
+		return totalWatts.toFixed(1);
+	}
+
 	// Rename
 	let renamingMac = $state<string | null>(null);
 	let renameValue = $state('');
@@ -233,6 +274,19 @@
 	</div>
 </div>
 
+<!-- Quick Presets -->
+{#if bulbs.length > 0}
+	<div class="quick-presets">
+		{#each QUICK_PRESETS as preset}
+			<button class="preset-btn" onclick={() => { selectedBulbs = new Set(bulbs.map(b => b.mac)); preset.action(); }} disabled={bulbs.length === 0}>
+				<span class="preset-icon">{preset.icon}</span> {preset.label}
+			</button>
+		{/each}
+		<span class="power-est" title="Estimated power consumption">⚡ {estimatePower()}W</span>
+	</div>
+{/if}
+
+<!-- Room Filter + Group Controls -->
 {#if bulbs.length > 1}
 	<div class="group-controls">
 		<label class="select-all">
@@ -241,11 +295,19 @@
 		</label>
 		{#if selectedBulbs.size > 0}
 			<span class="group-info">{selectedBulbs.size} selected</span>
-			<button class="btn btn-sm" onclick={() => groupAction({ state: true })}>All ON</button>
-			<button class="btn btn-sm" onclick={() => groupAction({ state: false })}>All OFF</button>
+			<button class="btn btn-sm" onclick={() => groupAction({ state: true })}>ON</button>
+			<button class="btn btn-sm" onclick={() => groupAction({ state: false })}>OFF</button>
 			<button class="btn btn-sm" onclick={() => groupAction({ dimming: 100 })}>100%</button>
 			<button class="btn btn-sm" onclick={() => groupAction({ dimming: 50 })}>50%</button>
 			<button class="btn btn-sm" onclick={() => groupAction({ dimming: 10 })}>10%</button>
+		{/if}
+		{#if allRooms.length > 0}
+			<div class="room-filter">
+				<button class="btn btn-sm" class:active={!roomFilter} onclick={() => (roomFilter = '')}>All</button>
+				{#each allRooms as room}
+					<button class="btn btn-sm" class:active={roomFilter === room} onclick={() => (roomFilter = roomFilter === room ? '' : room)}>{room}</button>
+				{/each}
+			</div>
 		{/if}
 	</div>
 {/if}
@@ -263,8 +325,11 @@
 	</div>
 {:else}
 	<div class="bulb-grid">
-		{#each bulbs as bulb}
+		{#each filteredBulbs as bulb}
 			<div class="bulb-card" class:off={!bulb.state} class:selected={selectedBulbs.has(bulb.mac)}>
+				<!-- Color swatch header -->
+				<div class="bulb-swatch" style="background: {bulb.state ? (bulb.color ? colorHex(bulb) : bulb.colorTemp ? `color-mix(in srgb, #ff9329 ${Math.round((1 - (bulb.colorTemp - 2700) / 3800) * 100)}%, #b4d7ff)` : 'var(--warning)') : 'var(--border)'}; opacity: {bulb.state ? (bulb.brightness / 100) * 0.7 + 0.3 : 0.2}"></div>
+
 				<div class="bulb-top">
 					<div class="bulb-info">
 						{#if bulbs.length > 1}
@@ -289,8 +354,9 @@
 							</div>
 							<div class="bulb-meta">
 								<span>{bulb.ip}</span>
-								{#if bulb.moduleName}<span>{bulb.moduleName}</span>{/if}
-								{#if bulb.fwVersion}<span>fw {bulb.fwVersion}</span>{/if}
+								{#if rooms[bulb.mac]}
+									<span class="room-tag">{rooms[bulb.mac]}</span>
+								{/if}
 								{#if bulb.rssi != null}<span>{bulb.rssi}dBm</span>{/if}
 								{#if bulb.sceneId && allSceneIds()[bulb.sceneId]}
 									<span class="current-scene">Scene: {allSceneIds()[bulb.sceneId]}</span>
@@ -300,13 +366,30 @@
 					</div>
 				</div>
 
+				<!-- Room assignment -->
+				<div class="room-assign">
+					{#if editingRoom === bulb.mac}
+						<input class="room-input" type="text" bind:value={roomValue} placeholder="Room name..."
+							onkeydown={(e) => { if (e.key === 'Enter') { saveRoom(bulb.mac, roomValue.trim()); editingRoom = null; } if (e.key === 'Escape') editingRoom = null; }}
+							onblur={() => { saveRoom(bulb.mac, roomValue.trim()); editingRoom = null; }}
+						/>
+					{:else}
+						<button class="room-btn" onclick={() => { editingRoom = bulb.mac; roomValue = rooms[bulb.mac] || ''; }}>
+							{rooms[bulb.mac] || '+ Room'}
+						</button>
+					{/if}
+				</div>
+
 				{#if bulb.state}
 					<div class="bulb-controls">
-						<label class="control-row">
+						<label class="control-row brightness-row">
 							<span class="control-label">Brightness</span>
+							<div class="brightness-arc">
+								<div class="arc-track" style="background: conic-gradient(from 200deg, {bulb.color ? colorHex(bulb) : 'var(--accent)'} {bulb.brightness * 2.8}deg, var(--border-subtle) 0deg)"></div>
+								<span class="arc-value">{bulb.brightness}%</span>
+							</div>
 							<input type="range" min="10" max="100" value={bulb.brightness}
 								oninput={(e) => handleBrightness(bulb, e)} />
-							<span class="control-value">{bulb.brightness}%</span>
 						</label>
 
 						<div class="control-row">
@@ -355,22 +438,33 @@
 	.btn.active { border-color: var(--success); color: var(--success); }
 	.btn-sm { padding: 4px 10px; font-size: 0.75rem; }
 
+	/* Quick presets */
+	.quick-presets { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+	.preset-btn { display: flex; align-items: center; gap: 6px; padding: 8px 16px; font-size: 0.8rem; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-secondary); color: var(--text-secondary); cursor: pointer; font-family: inherit; transition: all 0.15s; }
+	.preset-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--text-primary); }
+	.preset-icon { font-size: 1rem; }
+	.power-est { font-size: 0.75rem; color: var(--warning); font-family: 'JetBrains Mono', monospace; margin-left: auto; }
+
 	.group-controls { display: flex; gap: 8px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; padding: 10px 14px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; }
 	.select-all { font-size: 0.8rem; color: var(--text-muted); display: flex; align-items: center; gap: 6px; cursor: pointer; }
 	.group-info { font-size: 0.75rem; color: var(--accent); }
+	.room-filter { display: flex; gap: 4px; margin-left: auto; }
 
 	.empty { text-align: center; padding: 40px; }
 	.empty p { color: var(--text-muted); }
 	.hint { font-size: 0.8rem; margin-top: 8px; }
 
-	.bulb-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+	.bulb-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
 
-	.bulb-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 16px; transition: border-color 0.15s; }
+	.bulb-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 10px; padding: 0; overflow: hidden; transition: border-color 0.15s; }
 	.bulb-card:hover { border-color: var(--text-faint); }
-	.bulb-card.off { opacity: 0.6; }
+	.bulb-card.off { opacity: 0.65; }
 	.bulb-card.selected { border-color: var(--accent); }
 
-	.bulb-top { margin-bottom: 12px; }
+	/* Color swatch */
+	.bulb-swatch { height: 6px; transition: background 0.3s, opacity 0.3s; }
+
+	.bulb-top { margin-bottom: 12px; padding: 16px 16px 0; }
 	.bulb-info { display: flex; align-items: flex-start; gap: 8px; }
 	.bulb-checkbox { margin-top: 5px; }
 	.bulb-details { flex: 1; }
@@ -386,7 +480,20 @@
 	.toggle { padding: 4px 12px; font-size: 0.75rem; font-weight: 600; border-radius: 12px; border: 1px solid var(--border); background: var(--btn-bg); color: var(--text-muted); cursor: pointer; font-family: monospace; }
 	.toggle.on { background: var(--success); border-color: var(--success); color: #fff; }
 
-	.bulb-controls { display: flex; flex-direction: column; gap: 10px; padding-top: 12px; border-top: 1px solid var(--border-subtle); }
+	/* Room assignment */
+	.room-assign { padding: 0 16px 4px; }
+	.room-btn { background: none; border: 1px dashed var(--border); border-radius: 4px; color: var(--text-faint); font-size: 0.65rem; padding: 2px 8px; cursor: pointer; font-family: inherit; }
+	.room-btn:hover { border-color: var(--accent); color: var(--accent); }
+	.room-input { width: 120px; padding: 2px 6px; font-size: 0.7rem; border-radius: 4px; border: 1px solid var(--accent); background: var(--input-bg); color: var(--text-primary); font-family: inherit; }
+	.room-tag { color: var(--purple) !important; font-weight: 500; }
+
+	/* Brightness arc */
+	.brightness-row { flex-wrap: wrap; }
+	.brightness-arc { width: 48px; height: 48px; border-radius: 50%; position: relative; flex-shrink: 0; }
+	.arc-track { width: 100%; height: 100%; border-radius: 50%; }
+	.arc-value { position: absolute; inset: 6px; background: var(--bg-secondary); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.6rem; font-family: 'JetBrains Mono', monospace; color: var(--text-primary); font-weight: 600; }
+
+	.bulb-controls { display: flex; flex-direction: column; gap: 10px; padding: 12px 16px 16px; border-top: 1px solid var(--border-subtle); }
 	.control-row { display: flex; align-items: center; gap: 10px; }
 	.control-label { font-size: 0.75rem; color: var(--text-muted); width: 70px; flex-shrink: 0; }
 	.control-value { font-size: 0.75rem; color: var(--text-muted); font-family: monospace; width: 40px; text-align: right; }
