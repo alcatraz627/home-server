@@ -40,9 +40,9 @@
 		{
 			id: 'backups',
 			title: 'Backups',
-			href: '#',
+			href: '/backups',
 			description: 'Phone backup status and controls',
-			status: 'coming-soon'
+			status: 'active'
 		}
 	];
 </script>

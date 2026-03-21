@@ -192,9 +192,10 @@ Architecture note: split process stats into two tiers — **passive** (low-overh
 - [ ] Web-based terminal (SSH) — xterm.js + server-side PTY, accessible from browser like Render's shell (consider node-pty or similar)
 
 ### M3: Backups
-- [ ] Incremental backup from phone to laptop/Pi
-- [ ] Backup scheduling (cron)
-- [ ] Backup status widget on dashboard
+- [x] Incremental backup via rsync — configurable source/dest/excludes
+- [x] Manual trigger with live status polling
+- [x] Backup status widget — last run status, files/bytes transferred, error details
+- [ ] Backup scheduling (cron integration)
 - [ ] Success/failure notifications
 
 ### M4: Operator Framework
