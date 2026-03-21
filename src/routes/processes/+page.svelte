@@ -26,6 +26,64 @@
 	let selectedSignal = $state<string>('TERM');
 	let confirmTimer: ReturnType<typeof setTimeout> | null = null;
 
+	// Common process name reference
+	const PROCESS_HELP: Record<string, string> = {
+		'mds_stores': 'Spotlight metadata server — indexes files for search',
+		'mds': 'Spotlight metadata daemon',
+		'mdworker': 'Spotlight indexing worker process',
+		'WindowServer': 'macOS display/compositor — manages all windows',
+		'kernel_task': 'macOS kernel — thermal management, memory pressure',
+		'launchd': 'macOS init system — root process (PID 1)',
+		'loginwindow': 'Manages user login session',
+		'Finder': 'macOS file manager',
+		'Dock': 'macOS Dock and Mission Control',
+		'coreaudiod': 'Core Audio daemon — manages sound I/O',
+		'bluetoothd': 'Bluetooth daemon',
+		'airportd': 'Wi-Fi management daemon',
+		'distnoted': 'Distributed notification daemon',
+		'cfprefsd': 'Preferences daemon — reads/writes .plist files',
+		'trustd': 'Certificate trust evaluation daemon',
+		'opendirectoryd': 'Directory services (user accounts, groups)',
+		'node': 'Node.js JavaScript runtime',
+		'python3': 'Python 3 interpreter',
+		'postgres': 'PostgreSQL database server',
+		'redis-server': 'Redis in-memory data store',
+		'nginx': 'Nginx web server / reverse proxy',
+		'sshd': 'SSH server daemon',
+		'tailscaled': 'Tailscale VPN daemon',
+	};
+
+	function getProcessHelp(name: string): string | null {
+		return PROCESS_HELP[name] || null;
+	}
+
+	// CPU/MEM history for sparklines (per PID)
+	let history = $state<Map<number, { cpu: number[]; mem: number[] }>>(new Map());
+	const MAX_HISTORY = 20;
+
+	function recordHistory() {
+		for (const p of processes) {
+			const entry = history.get(p.pid) || { cpu: [], mem: [] };
+			entry.cpu = [...entry.cpu.slice(-(MAX_HISTORY - 1)), p.cpu];
+			entry.mem = [...entry.mem.slice(-(MAX_HISTORY - 1)), p.mem];
+			history.set(p.pid, entry);
+		}
+		history = new Map(history);
+	}
+
+	// Record on each refresh
+	$effect(() => {
+		processes.length; // dependency
+		recordHistory();
+	});
+
+	function sparklinePath(values: number[], width: number, height: number): string {
+		if (values.length < 2) return '';
+		const max = Math.max(...values, 1);
+		const step = width / (values.length - 1);
+		return values.map((v, i) => `${i === 0 ? 'M' : 'L'}${i * step},${height - (v / max) * height}`).join(' ');
+	}
+
 	const DISPLAY_LIMIT = 50;
 	let showAll = $state(false);
 
@@ -276,6 +334,9 @@
 		{#if expandedPid === proc.pid}
 			<div class="detail-panel">
 				<div class="detail-passive">
+					{#if getProcessHelp(proc.name)}
+						<div class="process-help">ℹ {getProcessHelp(proc.name)}</div>
+					{/if}
 					<div class="detail-grid">
 						<span class="detail-label">PPID</span><span>{proc.ppid}</span>
 						<span class="detail-label">VSZ</span><span>{formatMem(proc.vsz)}</span>
@@ -283,6 +344,18 @@
 						<span class="detail-label">State</span><span>{proc.state}</span>
 						<span class="detail-label">Started</span><span>{proc.startTime}</span>
 					</div>
+					{#if history.get(proc.pid)?.cpu && history.get(proc.pid)!.cpu.length > 1}
+						<div class="sparkline-row">
+							<span class="detail-label">CPU</span>
+							<svg class="sparkline" viewBox="0 0 80 20" preserveAspectRatio="none">
+								<path d={sparklinePath(history.get(proc.pid)!.cpu, 80, 20)} fill="none" stroke="var(--accent)" stroke-width="1.5"/>
+							</svg>
+							<span class="detail-label">MEM</span>
+							<svg class="sparkline" viewBox="0 0 80 20" preserveAspectRatio="none">
+								<path d={sparklinePath(history.get(proc.pid)!.mem, 80, 20)} fill="none" stroke="var(--purple)" stroke-width="1.5"/>
+							</svg>
+						</div>
+					{/if}
 					<div class="detail-command">
 						<span class="detail-label">Command</span>
 						<code>{proc.command}</code>
@@ -616,6 +689,28 @@
 		font-size: 0.75rem;
 		font-family: monospace;
 		padding: 4px 0;
+	}
+
+	.process-help {
+		font-size: 0.75rem;
+		color: var(--accent);
+		padding: 6px 10px;
+		background: var(--accent-bg);
+		border-radius: 6px;
+		margin-bottom: 8px;
+	}
+
+	.sparkline-row {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		margin-top: 8px;
+	}
+
+	.sparkline {
+		width: 80px;
+		height: 20px;
+		flex-shrink: 0;
 	}
 
 	.env-list div { padding: 1px 0; word-break: break-all; }
