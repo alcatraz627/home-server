@@ -224,9 +224,11 @@
 	{#each displayed as proc}
 		{@const node = viewMode === 'tree' && 'depth' in proc ? proc as TreeNode : null}
 		{@const depth = node?.depth ?? 0}
-		<div class="process-row" class:starred={starred.has(proc.pid)} class:expanded={expandedPid === proc.pid}>
+		<!-- svelte-ignore a11y_click_events_have_key_events -->
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<div class="process-row" class:starred={starred.has(proc.pid)} class:expanded={expandedPid === proc.pid} onclick={() => toggleExpand(proc.pid)}>
 			<span class="col-star">
-				<button class="star-btn" class:active={starred.has(proc.pid)} onclick={() => toggleStar(proc.pid)} title="Star">
+				<button class="star-btn" class:active={starred.has(proc.pid)} onclick={(e) => { e.stopPropagation(); toggleStar(proc.pid); }} title="Star">
 					{starred.has(proc.pid) ? '★' : '☆'}
 				</button>
 			</span>
@@ -240,9 +242,7 @@
 						<span class="tree-branch">{node.isLast ? '└' : '├'}─</span>
 					</span>
 				{/if}
-				<button class="expand-btn" onclick={() => toggleExpand(proc.pid)}>
-					{expandedPid === proc.pid ? '▼' : '▸'}
-				</button>
+				<span class="expand-indicator">{expandedPid === proc.pid ? '▼' : '▸'}</span>
 				{proc.name}
 			</span>
 			<span class="col-cpu" class:hot={proc.cpu > 50}>{proc.cpu.toFixed(1)}</span>
@@ -250,10 +250,10 @@
 			<span class="col-rss">{formatMem(proc.rss)}</span>
 			<span class="col-state">{proc.state}</span>
 			<span class="col-user">{proc.user}</span>
-			<span class="col-actions">
+			<span class="col-actions" onclick={(e) => e.stopPropagation()}>
 				<select class="signal-select" bind:value={selectedSignal} title={SIGNAL_INFO[selectedSignal]}>
 					{#each SIGNALS as sig}
-						<option value={sig} title={SIGNAL_INFO[sig]}>{sig}</option>
+						<option value={sig}>{sig}</option>
 					{/each}
 				</select>
 				{#if confirmingSignal === proc.pid}
@@ -263,6 +263,9 @@
 				{/if}
 			</span>
 		</div>
+		{#if expandedPid === proc.pid}
+			<div class="signal-hint">{SIGNAL_INFO[selectedSignal]}</div>
+		{/if}
 		{#if expandedPid === proc.pid}
 			<div class="detail-panel">
 				<div class="detail-passive">
@@ -283,6 +286,10 @@
 					{#if activeDetail && activeDetail.pid === proc.pid}
 						<div class="detail-grid">
 							<span class="detail-label">Threads</span><span>{activeDetail.threads}</span>
+							{#if activeDetail.connections.length > 0}
+								<span class="detail-label">Ports</span>
+								<span>{activeDetail.connections.map(c => { const m = c.match(/:(\d+)$/); return m ? m[1] : null; }).filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).join(', ') || 'N/A'}</span>
+							{/if}
 						</div>
 						{#if activeDetail.openFiles.length > 0}
 							<details class="detail-section">
@@ -449,16 +456,23 @@
 	.star-btn.active { color: #d2a8ff; }
 	.star-btn:hover { color: #d2a8ff; }
 
-	.expand-btn {
-		background: none;
-		border: none;
-		cursor: pointer;
-		color: #484f58;
+	.process-row { cursor: pointer; }
+
+	.expand-indicator {
+		color: var(--text-faint, #484f58);
 		font-size: 0.7rem;
-		padding: 0 4px 0 0;
+		margin-right: 4px;
+		flex-shrink: 0;
 	}
 
-	.expand-btn:hover { color: var(--text-primary, #e1e4e8); }
+	.signal-hint {
+		padding: 4px 16px 4px 110px;
+		font-size: 0.65rem;
+		color: var(--text-faint, #484f58);
+		font-style: italic;
+		border-top: 1px dashed var(--border-subtle, #21262d);
+		background: var(--bg-inset, #0d1117);
+	}
 
 	.tree-connectors {
 		display: inline-flex;

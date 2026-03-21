@@ -1,14 +1,19 @@
 <script lang="ts">
 	import type { PageData } from './$types';
 	import type { WizBulb } from '$lib/server/wiz';
+	import { onMount } from 'svelte';
 
 	let { data } = $props<{ data: PageData }>();
-	// svelte-ignore state_referenced_locally
-	const { bulbs: initialBulbs } = data;
-	let bulbs = $state<WizBulb[]>(initialBulbs);
-	let discovering = $state(false);
+	let bulbs = $state<WizBulb[]>([]);
+	let discovering = $state(true);
 	let polling = $state(false);
 	let pollInterval: ReturnType<typeof setInterval> | null = null;
+	let initialLoad = $state(true);
+
+	onMount(async () => {
+		await rediscover();
+		initialLoad = false;
+	});
 
 	// Bulb names stored in localStorage
 	let bulbNames = $state<Record<string, string>>(loadNames());
@@ -215,10 +220,16 @@
 	</div>
 {/if}
 
-{#if bulbs.length === 0}
+{#if initialLoad}
+	<div class="loading-state">
+		<div class="spinner"></div>
+		<p>Scanning for Wiz bulbs on the network...</p>
+		<p class="hint">This takes about 3 seconds</p>
+	</div>
+{:else if bulbs.length === 0}
 	<div class="empty">
 		<p>No Wiz bulbs found on the network.</p>
-		<p class="hint">Make sure your bulbs are powered on and connected to the same network.</p>
+		<p class="hint">Make sure your bulbs are powered on and connected to the same Wi-Fi network.</p>
 	</div>
 {:else}
 	<div class="bulb-grid">
@@ -361,4 +372,20 @@
 	.scene-category { display: flex; align-items: flex-start; gap: 10px; }
 	.scene-category-label { font-size: 0.7rem; color: var(--text-muted, #8b949e); width: 70px; flex-shrink: 0; padding-top: 4px; text-transform: uppercase; letter-spacing: 0.03em; }
 	.scene-presets { max-width: 100%; }
+
+	.loading-state { text-align: center; padding: 60px 20px; }
+	.loading-state p { color: var(--text-muted, #8b949e); font-size: 0.9rem; }
+
+	.spinner {
+		width: 32px; height: 32px;
+		border: 3px solid var(--border, #30363d);
+		border-top-color: var(--accent, #58a6ff);
+		border-radius: 50%;
+		animation: spin 0.8s linear infinite;
+		margin: 0 auto 16px;
+	}
+
+	@keyframes spin {
+		to { transform: rotate(360deg); }
+	}
 </style>
