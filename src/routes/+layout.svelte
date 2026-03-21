@@ -1,10 +1,15 @@
 <script lang="ts">
+	import '../app.css';
 	import type { LayoutData } from './$types';
 	import { APP } from '$lib/constants/app';
-	import { navigating } from '$app/stores';
+	import { navigating, page } from '$app/stores';
+	import { onMount } from 'svelte';
+	import { theme, toggleTheme, initTheme } from '$lib/theme';
 
 	let { data, children } = $props<{ data: LayoutData; children: any }>();
 	let sidebarOpen = $state(false);
+
+	onMount(() => { initTheme(); });
 
 	const nav = [
 		{ href: '/', label: 'Dashboard', icon: '⌂' },
@@ -16,6 +21,12 @@
 		{ href: '/tasks', label: 'Tasks', icon: '⚙' },
 		{ href: '/terminal', label: 'Terminal', icon: '▶' }
 	];
+
+	function isActive(href: string): boolean {
+		const path = $page.url.pathname;
+		if (href === '/') return path === '/';
+		return path.startsWith(href);
+	}
 </script>
 
 <svelte:head>
@@ -24,15 +35,18 @@
 
 <div class="app">
 	<header>
-		<button class="menu-toggle" onclick={() => (sidebarOpen = !sidebarOpen)}>☰</button>
+		<button class="menu-toggle" onclick={() => (sidebarOpen = !sidebarOpen)} aria-label="Toggle menu">☰</button>
 		<h1>Home Server</h1>
+		<button class="theme-toggle" onclick={toggleTheme} aria-label="Toggle theme">
+			{$theme === 'dark' ? '☀' : '☾'}
+		</button>
 		<span class="device-info">{data.device.hostname}</span>
 	</header>
 
 	<div class="body">
 		<nav class:open={sidebarOpen}>
 			{#each nav as item}
-				<a href={item.href} onclick={() => (sidebarOpen = false)}>
+				<a href={item.href} class:active={isActive(item.href)} onclick={() => (sidebarOpen = false)}>
 					<span class="nav-icon">{item.icon}</span>
 					{item.label}
 				</a>
@@ -50,18 +64,6 @@
 </div>
 
 <style>
-	:global(*) {
-		margin: 0;
-		padding: 0;
-		box-sizing: border-box;
-	}
-
-	:global(body) {
-		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-		background: #0f1117;
-		color: #e1e4e8;
-	}
-
 	.app {
 		display: flex;
 		flex-direction: column;
@@ -73,8 +75,8 @@
 		align-items: center;
 		gap: 12px;
 		padding: 12px 20px;
-		background: #161b22;
-		border-bottom: 1px solid #30363d;
+		background: var(--bg-secondary);
+		border-bottom: 1px solid var(--border);
 	}
 
 	header h1 {
@@ -85,15 +87,30 @@
 
 	.device-info {
 		font-size: 0.8rem;
-		color: #8b949e;
+		color: var(--text-muted);
 		font-family: monospace;
+	}
+
+	.theme-toggle {
+		background: none;
+		border: 1px solid var(--border);
+		border-radius: 6px;
+		color: var(--text-primary);
+		font-size: 1rem;
+		cursor: pointer;
+		padding: 4px 8px;
+		transition: border-color 0.15s;
+	}
+
+	.theme-toggle:hover {
+		border-color: var(--accent);
 	}
 
 	.menu-toggle {
 		display: none;
 		background: none;
 		border: none;
-		color: #e1e4e8;
+		color: var(--text-primary);
 		font-size: 1.3rem;
 		cursor: pointer;
 	}
@@ -106,8 +123,8 @@
 
 	nav {
 		width: 200px;
-		background: #161b22;
-		border-right: 1px solid #30363d;
+		background: var(--bg-secondary);
+		border-right: 1px solid var(--border);
 		padding: 12px 0;
 		display: flex;
 		flex-direction: column;
@@ -119,21 +136,28 @@
 		align-items: center;
 		gap: 10px;
 		padding: 10px 20px;
-		color: #c9d1d9;
+		color: var(--text-secondary);
 		text-decoration: none;
 		font-size: 0.9rem;
-		transition: background 0.15s;
+		transition: background 0.15s, color 0.15s;
+		border-left: 3px solid transparent;
 	}
 
 	nav a:hover {
-		background: #1f2937;
+		background: var(--bg-hover);
+	}
+
+	nav a.active {
+		color: var(--accent);
+		border-left-color: var(--accent);
+		background: var(--accent-bg);
 	}
 
 	.version-tag {
 		margin-top: auto;
 		padding: 8px 20px;
 		font-size: 0.65rem;
-		color: #484f58;
+		color: var(--text-faint);
 		font-family: monospace;
 		letter-spacing: 0.03em;
 	}
@@ -157,7 +181,7 @@
 		left: 0;
 		right: 0;
 		height: 3px;
-		background: linear-gradient(90deg, transparent, #58a6ff, transparent);
+		background: linear-gradient(90deg, transparent, var(--accent), transparent);
 		background-size: 200% 100%;
 		animation: shimmer 1.2s ease-in-out infinite;
 		z-index: 50;
@@ -185,6 +209,10 @@
 
 		nav.open {
 			transform: translateX(0);
+		}
+
+		main {
+			padding: 16px;
 		}
 	}
 </style>

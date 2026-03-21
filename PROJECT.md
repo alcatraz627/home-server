@@ -213,12 +213,14 @@ Architecture note: split process stats into two tiers — **passive** (low-overh
 - [x] Bulb status polling — 5s auto-refresh toggle to detect external changes
 
 ### M5: UI & Polish
-- [x] Page navigation loading spinner — shimmer bar on route transitions (SvelteKit `navigating` store)
-- [ ] Design system — reusable components (buttons, cards, tables, modals, inputs, toggles)
-- [ ] Dark / light mode toggle with theme persistence
-- [ ] Transitions and animations (page transitions, loading states, micro-interactions)
-- [ ] Accessibility best practices (keyboard nav, focus management, ARIA)
-- [ ] Mobile-optimized dashboard
+- [x] Page navigation loading spinner — shimmer bar on route transitions
+- [x] CSS custom properties design system — all colors via `var(--token)` tokens
+- [x] Dark / light mode toggle with localStorage persistence
+- [x] Page transitions — fadeIn animation on route changes
+- [x] Focus-visible styles for keyboard navigation
+- [x] Active nav indicator — left border accent on current page
+- [x] Custom scrollbar styling
+- [x] Mobile-optimized — reduced padding, hamburger menu
 - [ ] Consistent expandable-row pattern across widgets (processes, files, tailscale)
 - [ ] Share-sheet integration for file transfer (if feasible)
 - [ ] Onboarding docs — "how to set this up from scratch"
