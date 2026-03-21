@@ -265,69 +265,99 @@ See [docs/claude-keeper.md](docs/claude-keeper.md) for full planning document.
 
 ---
 
+## Completed (v1.11.0)
+
+- [x] Dark/light mode contrast fix — bumped `--text-muted`/`--text-faint`, replaced 59 hardcoded hex colors across 10 files
+- [x] Toast notification system — global component with success/warning/error/info, wired to all user actions
+- [x] Dashboard rebuild — system stats cards (CPU/MEM/disk with thresholds), task/backup/keeper status, quick-access grid
+- [x] Navbar stats — bigger font, color-coded by severity thresholds (green/yellow/red)
+- [x] Template Run button — creates + immediately executes task from template cards
+- [x] 50 new templates — security, Docker, Git, DB, macOS, SSL, user-mgmt, watchdog, log-analysis, file-integrity
+- [x] Task list UI — inline status badges (running/success/failed/scheduled/idle), timestamps, quick-run button
+- [x] Smart lights — color swatch headers, brightness arc rings, room grouping (localStorage), quick presets, power estimate
+- [x] CronBuilder component — visual frequency picker, human-readable descriptions, next-run preview, enable/disable toggle
+- [x] Tailscale — clickable IPs (copy), expandable device rows, MagicDNS, mDNS hostnames
+- [x] Process manager — command reference helper (22 processes), CPU/MEM sparkline history
+- [x] File manager — star/favorite files, bulk select, file size visualization bars
+- [x] Backup configs — edit existing configs, delete with confirm, toast feedback
+- [x] Prettier + plugin-svelte — `.prettierrc` (2-space, single quotes, 120 width), pre-commit hook, initial format pass
+
+---
+
 ## Remaining Todos
 
-### Dashboard Overhaul
-- [ ] Live dashboard — system stats (CPU, MEM, disk), running tasks/backups status, starred bulbs quick-toggle, starred files quick-access
-- [ ] Terminal preview — show latest output line from active terminal tab, one-click to open
-- [ ] Quick links — jump to any widget's most recent/starred items
+### T1 — Toast & Error Reporting (quick wins)
+- [ ] Toast dedupe — add unique `key` param; if a toast with the same key exists, replace it instead of stacking (e.g. "running task..." shouldn't stack)
+- [ ] API error toasts — wrap all `fetch()` calls in pages with try/catch, show `toast.error(message)` on non-ok responses. Cover: files (upload/rename/delete/mkdir), processes (signal), lights (setBulb), backups (create/edit/delete/trigger), tasks (create/run/delete), keeper (CRUD)
+- [ ] Server-side error detail — in API route handlers that run shell commands (`child_process.exec`, `execSync`), catch stderr and return it in the JSON error response so the UI can display the actual failure reason
 
-### Theme Fixes (Priority)
-- [ ] Dark mode — increase contrast for muted labels (`--text-muted`, `--text-faint` too dim, bump brightness)
-- [ ] Light mode — cards, buttons, table headers still rendering with dark colors (components using hardcoded `#161b22` / `#21262d` instead of `var(--bg-secondary)` / `var(--btn-bg)`)
-- [ ] Audit all component styles — replace remaining hardcoded hex colors with CSS custom properties
+### T2 — New Pages
+- [ ] **Documentation page** (`/docs`) — server-side reads all `.md` files from the repo root and `docs/` directory. Renders as a list of expandable sections with the filename as title, rendered markdown content inside. Use the existing markdown renderer from `$lib/renderers/markdown.ts`
+- [ ] **UI Showcase page** (`/showcase`) — static demo page showing the design system: buttons (all variants), cards (single + grid layout), DataTable with sample data (sort/search/filter), terminal-like component mock, color palette with all CSS vars, typography samples. Useful for design consistency review
+- [ ] **Peripherals page** (`/peripherals`) — manage WiFi and Bluetooth on the server machine. Backend: `networksetup -listallhardwareports`, `networksetup -listpreferredwirelessnetworks`, `networksetup -setairportpower`, `system_profiler SPBluetoothDataType`. Frontend: list networks/devices, scan button, connect/disconnect. Responsive layout. macOS-focused with Linux fallback stubs
 
-### Toast Notification System
-- [ ] Global toast component — success (green), warning (yellow), error (red) toasts with auto-dismiss
-- [ ] Wire toasts to file operations — upload success, delete success, rename success, upload error
-- [ ] Wire toasts to process operations — signal sent, kill confirmed
-- [ ] Wire toasts to backup/task triggers — started, completed, failed
-- [ ] Wire toasts to API errors — any failed fetch shows error toast with message
+### T3 — Terminal Improvements
+- [ ] **Tab renaming** — double-click a tab label to edit inline (same pattern as bulb rename). Store in tab object
+- [ ] **Allow 0 tabs** — when last tab is closed, show an empty placeholder with a "New Terminal" button instead of auto-creating
+- [ ] **Mouse middle-click kill** — `mousedown` event on tab with `event.button === 1` should close/kill that tab
+- [ ] **Persistent sessions** — keep PTY sessions alive on the server even when the browser disconnects. On reconnect, reattach to existing session by ID. Server stores a map of `sessionId → pty` that survives page navigation. Only kill PTY when explicitly closed or server restarts
 
-### Navbar Improvements
-- [ ] Make system stats more visible — slightly larger font, color-coded (green/yellow/red based on thresholds)
-- [ ] Show auto-refresh indicator — which widgets are auto-refreshing and at what interval
-- [ ] Click stats to expand — show more detail (per-core CPU, memory breakdown)
+### T4 — Empty State Placeholders
+- [ ] Add an empty state component with icon, message, and primary action button to: Terminal (no tabs), Keeper (no requests), Tasks (no tasks), Backups (no configs), Files (empty directory). Use consistent design: centered, muted icon, descriptive text, accent-colored CTA button
 
-### Operator Scheduling UX
-- [ ] Cron expression builder — visual picker for common patterns (every N minutes, daily at time, weekly)
-- [ ] Next-run preview — show when the cron will next trigger
-- [ ] Schedule enable/disable toggle per task without deleting the expression
-- [ ] Cron validation with human-readable description ("Every day at 2:00 AM")
+### T5 — Dashboard Enrichment
+- [ ] Richer dashboard — terminal preview (latest output line from active session, click to open), starred files quick-access list, starred bulbs with toggle, recent task runs timeline, disk usage mini-charts. Make the dashboard feel like a command center, not just a nav page
 
-### Smart Lights — Continued
-- [ ] Bigger, more visual bulb cards — show a color swatch/gradient reflecting current state
-- [ ] Brightness as a visual arc/ring rather than a plain slider
-- [ ] Bulb grouping by room — user-defined rooms in localStorage
-- [ ] Quick presets bar — "All off", "Movie mode", "Work mode" as one-click buttons
-- [ ] Show power consumption estimate based on brightness/state
+### T6 — Process Page: System Monitor
+- [ ] **System monitor graphs** — add a collapsible section at the top of the process page with real-time charts for: CPU usage (all cores), Memory (used/free/cached), Network I/O (bytes in/out per second), Disk I/O (read/write per second). Backend: new `/api/system/stats` endpoint that returns a snapshot. Frontend polls every 2s, stores last 60 data points, renders as SVG line charts. GPU info if available (`system_profiler SPDisplaysDataType`)
+- [ ] **CPU/MEM toggle** — in the process table, add a toggle button to switch between percentage (%) and absolute values (MB for memory, time for CPU). Column header clicks should sort by the displayed metric
+- [ ] **Column sort/filter** — make process table columns sortable (click header to sort asc/desc). Add a column filter dropdown to show/hide columns
 
-### Tailscale Enhancements
-- [ ] Clickable IP addresses — copy to clipboard on click
-- [ ] Show local hostnames (mDNS .local names) alongside Tailscale hostnames
-- [ ] Show open ports per device (requires active scan — behind a button)
-- [ ] Device detail expandable row — OS version, Tailscale version, last seen, exit node status
+### T7 — Disk Info Fix + Enhancement
+- [ ] **Fix duplicate "/"** — the `getSystemDiskUsage()` function in `src/lib/server/operator.ts` likely returns both `/` and `/System/Volumes/Data` (macOS APFS quirk) which both report as mounted on `/`. Deduplicate by mount point, preferring the real root
+- [ ] **More disk info everywhere** — show filesystem type (APFS/ext4), device name, total inodes, read-only status. In the dashboard disk cards and the tasks page disk section
 
-### File Manager — Continued
-- [ ] Move files between directories — drag-and-drop or "Move to..." dialog
-- [ ] Star/favorite files — persist in metadata, show on dashboard
-- [ ] Bulk operations — select multiple files, bulk delete/move/download as zip
-- [ ] File size visualization — bar chart of largest files/directories
+### T8 — Starring System (Universal)
+- [ ] **Generic star store** — create `$lib/stars.ts` with a localStorage-backed store that manages starred items by type (`process`, `file`, `bulb`, `backup`, `task`, `device`). API: `toggle(type, id)`, `isStarred(type, id)`, `getStarred(type)`
+- [ ] **Star animation** — when toggling star, add a brief scale+rotate CSS animation (keyframe: scale 1→1.3→1, rotate 0→15°→0, ~300ms). Use a shared `.star-btn` class
+- [ ] **Wire to all entity types** — add star buttons to: file rows, bulb cards, backup cards, task cards, tailscale device rows. Starred items sort to top in their respective lists
 
-### Process Manager — Continued
-- [ ] Command reference helper — expandable section explaining common process names (e.g., "mds_stores = Spotlight indexing")
-- [ ] Show listening ports in passive tier (quick `lsof -i -P | grep LISTEN` per-process)
-- [ ] Process resource history — sparkline of CPU/MEM over last N refreshes
+### T9 — Global Theme & Font Control
+- [ ] **Theme settings panel** — accessible from navbar (gear icon or settings page). Controls: accent color picker (preset swatches + custom hex), font size (12/14/16px), font family toggle (Inter / System / Mono), border radius scale (sharp/rounded/pill). Persist in localStorage under `hs:theme-config`, apply via CSS custom property overrides on `:root`
+- [ ] **Contrast mode** — optional high-contrast toggle that further bumps text brightness and border visibility
 
-### Backups — Continued
-- [ ] Edit existing backup configs
-- [ ] Delete backup configs
-- [ ] Cross-device backups — rsync over Tailscale SSH (source: `user@tailscale-host:/path`)
-- [ ] Backup diff preview — show what would be transferred before running
+### T10 — Mobile Experience
+- [ ] **Drawer sidebar** — on mobile (<640px), the sidebar becomes a bottom drawer that slides up on tap. Show icons only in collapsed state, full labels when expanded. Swipe-down to dismiss
+- [ ] **Touch compatibility** — ensure all interactive elements have minimum 44px touch targets. Replace hover-dependent interactions with tap equivalents. Test: sliders, color pickers, table rows, template cards
+- [ ] **PWA setup** — create `manifest.json` (name, icons, theme_color, display: standalone), service worker for offline shell caching, add `<link rel="manifest">` to app.html. Register for push notifications via ntfy.sh (already integrated on backend). Add "Install App" prompt banner on mobile
 
-### Cross-Cutting
-- [ ] Generic table component — reusable sort/search/filter/column-picker/pagination, localStorage per instance
-- [ ] Mobile responsive tables — horizontal scroll, collapsible columns
-- [ ] Consistent expandable-row component — shared across processes, files, tailscale
-- [ ] Share-sheet integration — Web Share Target API (requires HTTPS + PWA manifest)
-- [ ] Custom template creation — save any task config as reusable template
+### T11 — Desktop App Experience
+- [ ] **Installable Chrome app** — manifest.json with `display: standalone` enables Chrome "Install" prompt. Add `beforeinstallprompt` handler to show a custom install banner
+- [ ] **Offline support** — service worker caches app shell (HTML/CSS/JS). API calls gracefully degrade with "offline" state indicators. Dashboard shows cached last-known values
+
+### T12 — Tailscale: More Device Info
+- [ ] **Extended device data** — backend: use `tailscale status --json` to get full device details (Tailscale version, created date, last seen, key expiry, is exit node, is relay, advertised routes, tags, user/login name). Frontend: show all fields in the expanded detail row. Add a "last seen" relative time and key expiry warning badge
+
+### T13 — Keeper: Agent Integration (Architecture)
+- [ ] **Simplified status flow** — replace current 6-status flow with: `draft` → `ready` → `running` → `halted` → `done`. User creates in draft, marks as ready. Agent picks up ready items
+- [ ] **Agent execution** — when status becomes `ready`, server spawns a Claude Code subprocess (`npx claude-code --print` or equivalent). Store PID, stream stdout/stderr to a log file. Show live log output in the expanded card view
+- [ ] **Back-and-forth chat** — add a message input at the bottom of the expanded running/halted card. User messages are appended to the agent's stdin. Agent responses stream back to the log. This allows iterative guidance
+- [ ] **Status transitions** — agent can write `[STATUS:halted]` or `[STATUS:done]` to signal status changes. User can click "Resume" (spawns new agent with existing context/log as input) or "Mark Done" (greys out, hidden behind "Show completed" toggle)
+- [ ] **Log persistence** — store agent logs in `~/.home-server/keeper-logs/{requestId}.log`
+
+### T14 — Multi-Computer Support (Plan Required)
+- [ ] **Architecture plan** — design how the app manages multiple machines. Options: (A) Each machine runs its own Home Server instance, one acts as "hub" that proxies API calls to others via Tailscale IPs. (B) Single server with SSH-based remote execution (`ssh user@host command`). (C) Agent-based: lightweight agent on each machine that reports to the hub. Recommend option (A) with a device selector in the navbar that switches the API base URL
+- [ ] **Device selector in navbar** — dropdown showing Tailscale devices. Selecting a device sets a `targetHost` context. All API calls prefix with `http://{tailscaleIP}:5555` when remote. Local device is default
+- [ ] **Cross-device backups** — rsync over Tailscale SSH (`rsync -avz user@100.x.y.z:/path /local/dest`). Already partially designed in backup config (just needs remote source support)
+
+### T15 — Animations Plan
+- [ ] **Page transitions** — enhance existing `fadeIn` with slide direction based on nav position (left→right when going deeper, right→left when going back). Use `navigating` store for direction detection
+- [ ] **Card enter animations** — stagger grid card appearances using `animation-delay` based on index (`i * 50ms`). Apply to dashboard, templates, bulb grid, file list
+- [ ] **Micro-interactions** — button press scale (0.97), toggle switches with spring easing, expanding rows with height transition (not just display toggle), toast slide-in from right, loading skeleton shimmer for async content
+- [ ] **Star animation** — scale+rotate burst on toggle (already specced in T8)
+- [ ] **Theme transition** — smooth cross-fade when toggling dark/light mode (currently instant via CSS transition on `background`/`color`, extend to all color properties)
+- [ ] **Loading states** — skeleton screens for pages that fetch data (processes, lights, tailscale). Show grey pulsing placeholder shapes matching the eventual layout
+
+### T16 — Cross-Device Backup Enhancement
+- [ ] Backup diff preview — dry-run rsync (`rsync -avzn`) and show what would transfer before actually running
+- [ ] Cross-device source — allow backup source to be `user@tailscale-host:/path` for remote machines
