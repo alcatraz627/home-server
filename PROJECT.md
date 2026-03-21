@@ -250,9 +250,10 @@ Architecture note: split process stats into two tiers — **passive** (low-overh
 - [x] Onboarding docs — comprehensive README with setup guide and project structure
 
 ### M5.1: Terminal Fixes
-- [ ] Fix terminal WebSocket connection reliability (reconnect on drop, error handling)
-- [ ] Tab support — multiple terminal tabs in the UI, switch between sessions
-- [ ] Terminal toolbar — clear, copy output, font size controls
+- [x] Auto-reconnect on WebSocket drop (3s retry)
+- [x] Tab support — multiple terminal tabs, add/close/switch, independent sessions
+- [x] Terminal toolbar — clear, font size +/- controls
+- [x] Per-tab connection status indicator (green/red dot)
 
 ### M6: Claude Keeper
 See [docs/claude-keeper.md](docs/claude-keeper.md) for full planning document.
