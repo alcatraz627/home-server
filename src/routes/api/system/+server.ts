@@ -1,6 +1,5 @@
 import { json } from '@sveltejs/kit';
 import os from 'node:os';
-import { execSync } from 'node:child_process';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async () => {
@@ -19,38 +18,13 @@ export const GET: RequestHandler = async () => {
     };
   });
 
-  // Network I/O
-  let networkIO = { bytesIn: 0, bytesOut: 0 };
-  try {
-    const ifaces = os.networkInterfaces();
-    // On macOS, use netstat for actual bytes
-    const raw = execSync('netstat -ib 2>/dev/null | head -20', { encoding: 'utf-8', timeout: 2000 });
-    const lines = raw.trim().split('\n');
-    for (const line of lines.slice(1)) {
-      const parts = line.trim().split(/\s+/);
-      if (parts[0] === 'en0' || parts[0] === 'en1') {
-        const ibytes = parseInt(parts[6]) || 0;
-        const obytes = parseInt(parts[9]) || 0;
-        if (ibytes > networkIO.bytesIn) {
-          networkIO = { bytesIn: ibytes, bytesOut: obytes };
-        }
-      }
-    }
-  } catch {
-    // Fallback — no network data
-  }
-
-  // Disk I/O (macOS: iostat)
-  let diskIO = { readsPerSec: 0, writesPerSec: 0 };
-  try {
-    const raw = execSync('iostat -d 2>/dev/null | tail -1', { encoding: 'utf-8', timeout: 1000 });
-    const parts = raw.trim().split(/\s+/);
-    if (parts.length >= 3) {
-      diskIO = { readsPerSec: parseFloat(parts[0]) || 0, writesPerSec: parseFloat(parts[1]) || 0 };
-    }
-  } catch {
-    // Fallback
-  }
+  // Network I/O from os.networkInterfaces (cumulative bytes not available,
+  // but we can show interface count and status)
+  const ifaces = os.networkInterfaces();
+  const activeIfaces = Object.entries(ifaces)
+    .filter(([name]) => !name.startsWith('lo'))
+    .flatMap(([, addrs]) => addrs || [])
+    .filter((a) => a.family === 'IPv4' && !a.internal);
 
   return json({
     timestamp: Date.now(),
@@ -66,8 +40,11 @@ export const GET: RequestHandler = async () => {
       used: totalMem - freeMem,
       usedPercent: Math.round(((totalMem - freeMem) / totalMem) * 100),
     },
-    network: networkIO,
-    disk: diskIO,
+    network: {
+      interfaces: activeIfaces.length,
+      bytesIn: 0,
+      bytesOut: 0,
+    },
     uptime: os.uptime(),
   });
 };

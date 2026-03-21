@@ -1,7 +1,6 @@
 import { json } from '@sveltejs/kit';
+import { env } from '$env/dynamic/private';
 import type { RequestHandler } from './$types';
-
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 
 const SYSTEM_PROMPT = `You are an AI assistant embedded in the Home Server dashboard — a SvelteKit app that manages files, smart lights (Wiz), processes, Tailscale VPN, backups (rsync), scheduled tasks, and a terminal.
 
@@ -14,9 +13,13 @@ Help the user with:
 Keep responses concise (2-4 sentences for simple questions, more for complex ones). Use markdown for code snippets.`;
 
 export const POST: RequestHandler = async ({ request }) => {
+  const ANTHROPIC_API_KEY = env.ANTHROPIC_API_KEY;
   if (!ANTHROPIC_API_KEY) {
     return json(
-      { reply: 'ANTHROPIC_API_KEY is not set. Add it to your environment to enable AI chat.' },
+      {
+        reply:
+          'ANTHROPIC_API_KEY is not set.\n\nTo enable AI chat, run the server with:\n```\nANTHROPIC_API_KEY=sk-ant-... npm run dev\n```\nOr add it to a `.env` file in the project root.',
+      },
       { status: 200 },
     );
   }
