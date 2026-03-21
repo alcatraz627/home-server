@@ -71,6 +71,68 @@
 		{ name: 'Git Repo Status', command: 'cd ~/Code && for d in */; do echo "=== $d ===" && git -C "$d" status -s 2>/dev/null; done', timeout: 30, retries: 0, schedule: null, desc: 'Check git status across all repos in ~/Code', tags: ['maintenance'] },
 		{ name: 'System Uptime Report', command: 'echo "Uptime: $(uptime)"; echo "Boot: $(who -b 2>/dev/null || last reboot | head -1)"; echo "Users: $(who | wc -l | tr -d \" \") logged in"', timeout: 10, retries: 0, schedule: '0 8 * * *', desc: 'Daily system uptime and login summary', tags: ['observability'] },
 		{ name: 'Backup Disk Health', command: 'diskutil info /Volumes/* 2>/dev/null | grep -E "Name|Total|Free|SMART" || lsblk -o NAME,SIZE,FSAVAIL,FSUSE% 2>/dev/null', timeout: 15, retries: 0, schedule: '0 6 * * *', desc: 'Check health of mounted volumes', tags: ['observability', 'disk', 'recovery'] },
+
+		// Security / Audit
+		{ name: 'World-Writable Files', command: 'find / -type f -perm -002 2>/dev/null | head -20', timeout: 60, retries: 0, schedule: null, desc: 'Locate world-writable files in the system', tags: ['security', 'audit'] },
+		{ name: 'Login History', command: 'last -20 2>/dev/null || lastlog -t 20', timeout: 15, retries: 0, schedule: null, desc: 'Show recent login history', tags: ['security', 'audit'] },
+		{ name: 'Firewall Status', command: 'sudo pfctl -s all 2>/dev/null | head -20 || sudo ufw status 2>/dev/null || echo "No firewall found"', timeout: 15, retries: 0, schedule: null, desc: 'Check firewall rules and state', tags: ['security'] },
+		{ name: 'SSH Key Audit', command: 'find ~ -name "*.pub" -o -name "id_*" 2>/dev/null | grep -v ".git"', timeout: 20, retries: 0, schedule: null, desc: 'Locate SSH keys in home directory', tags: ['security', 'audit'] },
+		{ name: 'Failed Auth Attempts', command: 'grep "Failed password" /var/log/auth.log 2>/dev/null | tail -10 || log show --predicate \'eventMessage contains "invalid"\' --last 1h 2>/dev/null | tail -10', timeout: 15, retries: 0, schedule: null, desc: 'Show recent failed authentication attempts', tags: ['security', 'log-analysis'] },
+		{ name: 'SUID Binaries Check', command: 'find /usr/bin /usr/local/bin -perm -u+s -type f 2>/dev/null', timeout: 30, retries: 0, schedule: null, desc: 'Audit SUID binaries for security concerns', tags: ['security', 'audit'] },
+
+		// Docker
+		{ name: 'Docker Containers', command: 'docker ps -a --format "table {{.Names}}\\t{{.Status}}\\t{{.Image}}" 2>/dev/null || echo "Docker not available"', timeout: 15, retries: 1, schedule: null, desc: 'List all Docker containers with status', tags: ['docker'] },
+		{ name: 'Docker Images', command: 'docker images --format "table {{.Repository}}:{{.Tag}}\\t{{.Size}}" 2>/dev/null || echo "Docker not available"', timeout: 15, retries: 1, schedule: null, desc: 'Show all Docker images and sizes', tags: ['docker'] },
+		{ name: 'Docker Disk Usage', command: 'docker system df 2>/dev/null || echo "Docker not available"', timeout: 20, retries: 1, schedule: null, desc: 'Display Docker system disk usage', tags: ['docker', 'disk'] },
+		{ name: 'Docker Prune', command: 'docker system prune -a --volumes -f 2>/dev/null && echo "Pruned" || echo "Docker not available"', timeout: 120, retries: 0, schedule: null, desc: 'Remove all unused Docker resources', tags: ['docker', 'maintenance'] },
+		{ name: 'Docker Latest Logs', command: 'docker logs --tail=50 $(docker ps -q | head -1) 2>/dev/null || echo "No running containers"', timeout: 15, retries: 0, schedule: null, desc: 'Fetch last 50 lines of latest container logs', tags: ['docker', 'log-analysis'] },
+
+		// Git
+		{ name: 'Git Repo Sizes', command: 'du -sh .git 2>/dev/null && du -sh . 2>/dev/null || echo "Not a git repo"', timeout: 15, retries: 0, schedule: null, desc: 'Show Git repo and working directory size', tags: ['git'] },
+		{ name: 'Stale Git Branches', command: 'git branch -vv 2>/dev/null | grep ": gone\\]" || echo "No stale branches"', timeout: 15, retries: 0, schedule: null, desc: 'Find branches with deleted upstream tracking', tags: ['git', 'maintenance'] },
+		{ name: 'Git Recent Activity', command: 'git log --oneline -10 2>/dev/null || echo "Not a git repo"', timeout: 15, retries: 0, schedule: null, desc: 'Show last 10 commits', tags: ['git'] },
+		{ name: 'Git Uncommitted Changes', command: 'git status --short 2>/dev/null | wc -l | xargs -I{} echo "{} uncommitted changes"', timeout: 10, retries: 0, schedule: null, desc: 'Count uncommitted changes in working directory', tags: ['git'] },
+		{ name: 'Git GC', command: 'git gc --aggressive --prune=now 2>/dev/null && echo "GC completed" || echo "Not a git repo"', timeout: 120, retries: 0, schedule: null, desc: 'Run aggressive garbage collection on Git repo', tags: ['git', 'maintenance'] },
+
+		// Database
+		{ name: 'SQLite Check', command: 'sqlite3 :memory: "SELECT sqlite_version();" && echo "SQLite OK" || echo "SQLite not available"', timeout: 10, retries: 0, schedule: null, desc: 'Verify SQLite installation and version', tags: ['database'] },
+		{ name: 'PostgreSQL Databases', command: 'psql -l -t 2>/dev/null || echo "PostgreSQL not accessible"', timeout: 15, retries: 1, schedule: null, desc: 'List PostgreSQL databases and sizes', tags: ['database'] },
+		{ name: 'Redis Info', command: 'redis-cli info server 2>/dev/null || echo "Redis not running"', timeout: 10, retries: 1, schedule: null, desc: 'Display Redis server information', tags: ['database'] },
+		{ name: 'MySQL Status', command: 'mysql -e "SELECT VERSION();" 2>/dev/null || echo "MySQL not running"', timeout: 15, retries: 1, schedule: null, desc: 'Check MySQL/MariaDB connection and version', tags: ['database'] },
+
+		// macOS
+		{ name: 'Homebrew Update', command: 'brew update && brew outdated || echo "Homebrew not available"', timeout: 60, retries: 0, schedule: null, desc: 'Update Homebrew and list outdated packages', tags: ['macos', 'maintenance'] },
+		{ name: 'System Profiler', command: 'system_profiler SPHardwareDataType SPSoftwareDataType 2>/dev/null | head -30', timeout: 30, retries: 0, schedule: null, desc: 'Display hardware and software system info', tags: ['macos'] },
+		{ name: 'Installed Apps', command: 'ls /Applications | wc -l | xargs -I{} echo "{} apps" && ls /Applications | head -20', timeout: 15, retries: 0, schedule: null, desc: 'Count and list installed applications', tags: ['macos'] },
+		{ name: 'Spotlight Status', command: 'mdutil -s / 2>/dev/null || echo "Spotlight status unavailable"', timeout: 15, retries: 0, schedule: null, desc: 'Check macOS Spotlight indexing status', tags: ['macos'] },
+		{ name: 'Power Settings', command: 'pmset -g 2>/dev/null || echo "Power settings unavailable"', timeout: 15, retries: 0, schedule: null, desc: 'Display current power management settings', tags: ['macos'] },
+
+		// SSL / Certs
+		{ name: 'SSL Cert Expiry', command: 'echo | openssl s_client -servername example.com -connect example.com:443 2>/dev/null | openssl x509 -noout -dates', timeout: 20, retries: 0, schedule: null, desc: 'Check SSL certificate expiration date', tags: ['ssl', 'security'] },
+		{ name: 'Generate Self-Signed Cert', command: 'openssl req -x509 -newkey rsa:4096 -keyout /tmp/key.pem -out /tmp/cert.pem -days 365 -nodes -subj "/CN=localhost" && echo "Generated in /tmp/"', timeout: 30, retries: 0, schedule: null, desc: 'Generate self-signed SSL certificate', tags: ['ssl', 'maintenance'] },
+		{ name: 'Localhost Cert Check', command: 'echo | openssl s_client -connect localhost:443 2>/dev/null | openssl x509 -noout -text | head -20 || echo "No SSL on localhost:443"', timeout: 15, retries: 0, schedule: null, desc: 'Check SSL cert served by localhost', tags: ['ssl'] },
+
+		// User Management
+		{ name: 'System Users', command: 'dscl . -list /Users | grep -v "^_" 2>/dev/null || awk -F: \'$3 >= 1000 {print $1}\' /etc/passwd', timeout: 10, retries: 0, schedule: null, desc: 'List non-system user accounts', tags: ['user-mgmt', 'audit'] },
+		{ name: 'Last Login Times', command: 'lastlog -t 30 2>/dev/null || last | head -20', timeout: 15, retries: 0, schedule: null, desc: 'Show user last login times', tags: ['user-mgmt', 'audit'] },
+		{ name: 'User Groups', command: 'id && groups', timeout: 10, retries: 0, schedule: null, desc: 'Show current user ID and group memberships', tags: ['user-mgmt'] },
+
+		// Service Watchdog
+		{ name: 'Launchctl Services', command: 'launchctl list 2>/dev/null | head -20 || systemctl list-units --type=service --state=running 2>/dev/null | head -20', timeout: 15, retries: 0, schedule: null, desc: 'List managed services (macOS/Linux)', tags: ['watchdog'] },
+		{ name: 'Port Connectivity Check', command: 'for port in 80 443 3000 5555 8080; do (echo > /dev/tcp/localhost/$port) 2>/dev/null && echo "Port $port: OPEN" || echo "Port $port: CLOSED"; done', timeout: 30, retries: 0, schedule: null, desc: 'Check if common ports are accessible', tags: ['watchdog', 'network'] },
+		{ name: 'Health Endpoint Ping', command: 'curl -sf -o /dev/null -w "%{http_code}" http://localhost:5555/api/tailscale && echo " OK" || echo "FAILED"', timeout: 10, retries: 1, schedule: '*/5 * * * *', desc: 'Ping Home Server health endpoint', tags: ['watchdog'] },
+
+		// Log Analysis
+		{ name: 'System Error Log', command: 'log show --last 1h --predicate \'messageType == error\' 2>/dev/null | tail -20 || grep -i "error\\|fatal" /var/log/syslog 2>/dev/null | tail -20', timeout: 20, retries: 0, schedule: null, desc: 'Extract errors from recent system logs', tags: ['log-analysis'] },
+		{ name: 'Log File Sizes', command: 'du -sh /var/log/* 2>/dev/null | sort -h | tail -10', timeout: 15, retries: 0, schedule: null, desc: 'Show top 10 largest log files', tags: ['log-analysis', 'disk'] },
+		{ name: 'Auth Log Analysis', command: 'grep -c "Failed password" /var/log/auth.log 2>/dev/null | xargs -I{} echo "{} failed attempts" || echo "Auth log not available"', timeout: 15, retries: 0, schedule: null, desc: 'Count failed logins from auth log', tags: ['log-analysis', 'security'] },
+		{ name: 'Recent Warnings', command: 'log show --last 1h --predicate \'messageType == warning\' 2>/dev/null | tail -15 || grep -i "warning" /var/log/syslog 2>/dev/null | tail -15', timeout: 20, retries: 0, schedule: null, desc: 'Extract warnings from recent system logs', tags: ['log-analysis'] },
+
+		// File Integrity
+		{ name: 'Recent File Changes', command: 'find /etc -type f -mtime -1 -ls 2>/dev/null | head -20 || echo "No recent changes in /etc"', timeout: 20, retries: 0, schedule: '0 6 * * *', desc: 'Find files in /etc modified in last 24 hours', tags: ['file-integrity', 'security'] },
+		{ name: 'Broken Symlinks', command: 'find /usr/local -type l -exec test ! -e {} \\; -print 2>/dev/null | head -20 || echo "No broken symlinks"', timeout: 30, retries: 0, schedule: null, desc: 'Find broken symlinks in /usr/local', tags: ['file-integrity'] },
+		{ name: 'File Permission Audit', command: 'find /usr/local/bin -type f -perm -u+s 2>/dev/null | head -20 || echo "No SUID files found"', timeout: 30, retries: 0, schedule: null, desc: 'Find setuid files that could pose risks', tags: ['file-integrity', 'security'] },
+		{ name: 'Home Dir Size Breakdown', command: 'du -sh ~/* 2>/dev/null | sort -h | tail -15', timeout: 30, retries: 0, schedule: null, desc: 'Show size of each directory in home', tags: ['file-integrity', 'disk'] },
 	];
 
 	// Template search/filter/pagination
@@ -109,6 +171,48 @@
 		formSchedule = t.schedule || '';
 		showTemplates = false;
 		showForm = true;
+	}
+
+	async function runTemplate(t: Template) {
+		try {
+			const res = await fetch('/api/tasks', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					name: t.name,
+					command: t.command,
+					timeout: t.timeout,
+					maxRetries: t.retries,
+					schedule: t.schedule
+				})
+			});
+			if (!res.ok) throw new Error('Failed to create task');
+			const created = await res.json();
+			showTemplates = false;
+			toast.info(`Running "${t.name}"...`);
+			await refresh();
+			// Immediately run
+			const taskId = created.id || statuses.find(s => s.config.name === t.name)?.config.id;
+			if (taskId) {
+				expandedTask = taskId;
+				await fetch('/api/tasks', {
+					method: 'PUT',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ taskId })
+				});
+				const poll = setInterval(async () => {
+					await refresh();
+					const s = statuses.find(s => s.config.id === taskId);
+					if (!s?.isRunning) {
+						clearInterval(poll);
+						if (s?.lastRun?.status === 'success') toast.success(`"${t.name}" completed`);
+						else if (s?.lastRun?.status) toast.error(`"${t.name}" ${s.lastRun.status}`);
+					}
+				}, 1000);
+			}
+		} catch (e: any) {
+			toast.error(e.message || 'Failed to run template');
+		}
 	}
 
 	let expandedTask = $state<string | null>(null);
@@ -293,19 +397,22 @@
 		</div>
 		<div class="template-grid">
 			{#each pagedTemplates as t}
-				<button class="template-card" onclick={() => applyTemplate(t)}>
-					<strong>{t.name}</strong>
-					<span class="template-desc">{t.desc}</span>
-					<code class="template-cmd">{t.command.slice(0, 70)}{t.command.length > 70 ? '...' : ''}</code>
-					<div class="template-footer">
-						<div class="template-tags">
-							{#each t.tags as tag}
-								<span class="template-tag">{tag}</span>
-							{/each}
+				<div class="template-card">
+					<button class="template-body" onclick={() => applyTemplate(t)}>
+						<strong>{t.name}</strong>
+						<span class="template-desc">{t.desc}</span>
+						<code class="template-cmd">{t.command.slice(0, 70)}{t.command.length > 70 ? '...' : ''}</code>
+						<div class="template-footer">
+							<div class="template-tags">
+								{#each t.tags as tag}
+									<span class="template-tag">{tag}</span>
+								{/each}
+							</div>
+							{#if t.schedule}<span class="template-schedule">{t.schedule}</span>{/if}
 						</div>
-						{#if t.schedule}<span class="template-schedule">{t.schedule}</span>{/if}
-					</div>
-				</button>
+					</button>
+					<button class="template-run-btn" onclick={() => runTemplate(t)} title="Create and run immediately">▶ Run</button>
+				</div>
 			{/each}
 		</div>
 		{#if filteredTemplates.length === 0}
@@ -384,21 +491,37 @@
 	{/if}
 	<div class="task-list">
 		{#each pagedStatuses as status}
-			<div class="task-card">
+			<div class="task-card" class:task-running={status.isRunning}>
 				<div class="task-top">
 					<div class="task-info">
-						<h3>{status.config.name}</h3>
+						<div class="task-title-row">
+							<h3>{status.config.name}</h3>
+							{#if status.isRunning}
+								<span class="status-badge badge-running">running</span>
+							{:else if status.lastRun?.status === 'success'}
+								<span class="status-badge badge-success">success</span>
+							{:else if status.lastRun?.status === 'failed' || status.lastRun?.status === 'timeout'}
+								<span class="status-badge badge-failed">{status.lastRun.status}</span>
+							{:else if status.config.schedule}
+								<span class="status-badge badge-scheduled">scheduled</span>
+							{:else}
+								<span class="status-badge badge-idle">idle</span>
+							{/if}
+						</div>
 						<code class="task-command">{status.config.command}</code>
 						<div class="task-meta">
 							timeout: {status.config.timeout}s · retries: {status.config.maxRetries}
 							{#if status.config.schedule}
 								· <span class="task-schedule">cron: {status.config.schedule}</span>
 							{/if}
+							{#if status.lastRun}
+								· <span class="task-timestamp">{new Date(status.lastRun.startedAt).toLocaleString()}</span>
+							{/if}
 						</div>
 					</div>
 					<div class="task-actions">
-						<button class="btn btn-sm" onclick={() => runTask(status.config.id)} disabled={status.isRunning}>
-							{status.isRunning ? 'Running...' : 'Run'}
+						<button class="btn btn-sm btn-run" onclick={() => runTask(status.config.id)} disabled={status.isRunning}>
+							{status.isRunning ? '⏳' : '▶'}
 						</button>
 						<button class="btn btn-sm" onclick={() => (expandedTask = expandedTask === status.config.id ? null : status.config.id)}>
 							{expandedTask === status.config.id ? '▲' : '▼'}
@@ -410,7 +533,7 @@
 				{#if status.lastRun}
 					<div class="last-run">
 						<span class="run-dot" style="color: {statusColor(status.lastRun.status)}">●</span>
-						<span class="run-status">{status.lastRun.status}</span>
+						<span class="run-status" style="color: {statusColor(status.lastRun.status)}">{status.lastRun.status}</span>
 						{#if status.lastRun.duration}
 							<span class="run-duration">{formatDuration(status.lastRun.duration)}</span>
 						{/if}
@@ -497,12 +620,31 @@
 
 	.empty { color: var(--text-muted); text-align: center; padding: 40px; }
 	.task-list { display: flex; flex-direction: column; gap: 10px; }
-	.task-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; }
+	.task-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; transition: border-color 0.15s; }
+	.task-card.task-running { border-color: var(--warning); }
 	.task-top { display: flex; justify-content: space-between; align-items: flex-start; }
-	.task-info h3 { font-size: 0.95rem; margin-bottom: 4px; }
+	.task-title-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+	.task-info h3 { font-size: 0.95rem; }
 	.task-command { font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 4px; }
 	.task-meta { font-size: 0.7rem; color: var(--text-faint); }
 	.task-schedule { color: var(--accent); }
+	.task-timestamp { color: var(--text-faint); }
+
+	.status-badge { font-size: 0.6rem; padding: 2px 8px; border-radius: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
+	.badge-running { background: var(--warning-bg); color: var(--warning); animation: pulse 1s ease-in-out infinite alternate; }
+	.badge-success { background: var(--success-bg); color: var(--success); }
+	.badge-failed { background: var(--danger-bg); color: var(--danger); }
+	.badge-scheduled { background: var(--accent-bg); color: var(--accent); }
+	.badge-idle { background: var(--bg-hover); color: var(--text-faint); }
+	@keyframes pulse { from { opacity: 0.7; } to { opacity: 1; } }
+
+	.btn-run { font-size: 0.75rem; }
+	.btn-run:not(:disabled):hover { border-color: var(--success); color: var(--success); }
+
+	/* Template card with run button */
+	.template-body { text-align: left; cursor: pointer; display: flex; flex-direction: column; gap: 4px; font-family: inherit; color: var(--text-primary); background: none; border: none; padding: 0; width: 100%; }
+	.template-run-btn { margin-top: 6px; padding: 4px 10px; font-size: 0.7rem; border-radius: 6px; border: 1px solid var(--border); background: var(--btn-bg); color: var(--success); cursor: pointer; font-family: inherit; align-self: flex-start; transition: all 0.15s; }
+	.template-run-btn:hover { background: var(--success-bg); border-color: var(--success); }
 
 	.template-section { margin-bottom: 16px; }
 	.template-filters { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
@@ -515,7 +657,7 @@
 	.tag-btn.active { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); }
 
 	.template-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
-	.template-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; text-align: left; cursor: pointer; display: flex; flex-direction: column; gap: 4px; font-family: inherit; color: var(--text-primary); transition: border-color 0.15s; }
+	.template-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; transition: border-color 0.15s; }
 	.template-card:hover { border-color: var(--accent); }
 	.template-card strong { font-size: 0.85rem; }
 	.template-desc { font-size: 0.75rem; color: var(--text-muted); line-height: 1.4; }
