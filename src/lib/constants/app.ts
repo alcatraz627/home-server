@@ -10,5 +10,5 @@
  */
 export const APP = {
 	title: 'Home Server',
-	version: '1.6.0-stone-arch-7',
+	version: '1.6.1-quiet-brook-15',
 } as const;

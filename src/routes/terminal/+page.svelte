@@ -181,8 +181,10 @@
 <div class="terminal-page">
 	<div class="terminal-header">
 		<div class="tab-bar">
+			<!-- svelte-ignore a11y_click_events_have_key_events -->
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
 			{#each tabs as tab, i}
-				<button
+				<div
 					class="tab"
 					class:active={activeTab === i}
 					onclick={() => switchTab(i)}
@@ -192,7 +194,7 @@
 					{#if tabs.length > 1}
 						<button class="tab-close" onclick={(e) => { e.stopPropagation(); closeTab(i); }}>×</button>
 					{/if}
-				</button>
+				</div>
 			{/each}
 			<button class="tab tab-add" onclick={addTab}>+</button>
 		</div>

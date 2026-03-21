@@ -10,7 +10,7 @@ function webSocketPlugin(): Plugin {
 				try {
 					const ws = await import('ws');
 					const terminalModule = await server.ssrLoadModule('/src/lib/server/terminal.ts');
-					const { createSession, getSession, resizeSession } = terminalModule;
+					const { createSession, getSession, resizeSession } = terminalModule as any;
 
 					const wss = new ws.WebSocketServer({ noServer: true });
 
@@ -31,7 +31,7 @@ function webSocketPlugin(): Plugin {
 
 							wsConn.send(JSON.stringify({ type: 'session', id: session.id }));
 
-							const dataHandler = session.pty.onData((data: string) => {
+							const dataHandler = session.onData((data: string) => {
 								if (wsConn.readyState === ws.WebSocket.OPEN) {
 									wsConn.send(JSON.stringify({ type: 'output', data }));
 								}
@@ -40,7 +40,7 @@ function webSocketPlugin(): Plugin {
 							wsConn.on('message', (raw: any) => {
 								try {
 									const msg = JSON.parse(raw.toString());
-									if (msg.type === 'input') session.pty.write(msg.data);
+									if (msg.type === 'input') session.write(msg.data);
 									else if (msg.type === 'resize') resizeSession(session.id, msg.cols, msg.rows);
 								} catch {}
 							});
