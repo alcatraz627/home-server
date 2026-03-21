@@ -792,7 +792,7 @@
       if (!res.ok) throw new Error('Failed to create task');
       const created = await res.json();
       showTemplates = false;
-      toast.info(`Running "${t.name}"...`);
+      toast.info(`Running "${t.name}"...`, { key: `task-run-${t.name}` });
       await refresh();
       // Immediately run
       const taskId = created.id || statuses.find((s) => s.config.name === t.name)?.config.id;
@@ -908,7 +908,7 @@
   async function runTask(taskId: string) {
     expandedTask = taskId;
     const taskName = statuses.find((s) => s.config.id === taskId)?.config.name || taskId;
-    toast.info(`Running "${taskName}"...`);
+    toast.info(`Running "${taskName}"...`, { key: `task-run-${taskId}` });
     await fetch('/api/tasks', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },

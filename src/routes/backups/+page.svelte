@@ -131,7 +131,7 @@
     runningIds.add(configId);
     runningIds = new Set(runningIds);
     const config = statuses.find((s) => s.config.id === configId)?.config;
-    toast.info(`Backup "${config?.name || configId}" started`);
+    toast.info(`Backup "${config?.name || configId}" started`, { key: `backup-${configId}` });
     await fetch('/api/backups', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
