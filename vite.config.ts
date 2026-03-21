@@ -1,52 +1,52 @@
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig, loadEnv } from 'vite';
-import type { Plugin } from 'vite';
+import type { Plugin, ViteDevServer } from 'vite';
 
 function webSocketPlugin(): Plugin {
 	return {
 		name: 'websocket-terminal',
-		configureServer(server) {
-			server.httpServer?.on('listening', () => {
+		configureServer(server: ViteDevServer) {
+			server.httpServer?.on('listening', async () => {
 				try {
-					// Dynamic require to avoid Vite transforming the imports
-					const { WebSocketServer } = require('ws');
-					const { createSession, getSession, resizeSession } = require('./src/lib/server/terminal');
+					const ws = await import('ws');
+					const terminalModule = await server.ssrLoadModule('/src/lib/server/terminal.ts');
+					const { createSession, getSession, resizeSession } = terminalModule;
 
-					const wss = new WebSocketServer({ noServer: true });
+					const wss = new ws.WebSocketServer({ noServer: true });
 
 					server.httpServer!.on('upgrade', (request: any, socket: any, head: any) => {
-						const url = new URL(request.url || '', `http://${request.headers.host}`);
+						const pathname = new URL(request.url || '', `http://${request.headers.host}`).pathname;
 
-						// Only handle our terminal path — let Vite handle /__vite_hmr
-						if (url.pathname === '/ws/terminal') {
-							wss.handleUpgrade(request, socket, head, (ws: any) => {
-								const cols = parseInt(url.searchParams.get('cols') || '80');
-								const rows = parseInt(url.searchParams.get('rows') || '24');
-								const sessionParam = url.searchParams.get('session');
+						// Only handle our terminal path — let Vite handle its own HMR
+						if (pathname !== '/ws/terminal') return;
 
-								let session = sessionParam ? getSession(sessionParam) : undefined;
-								if (!session) session = createSession(cols, rows);
+						wss.handleUpgrade(request, socket, head, (wsConn: any) => {
+							const url = new URL(request.url || '', `http://${request.headers.host}`);
+							const cols = parseInt(url.searchParams.get('cols') || '80');
+							const rows = parseInt(url.searchParams.get('rows') || '24');
+							const sessionParam = url.searchParams.get('session');
 
-								ws.send(JSON.stringify({ type: 'session', id: session.id }));
+							let session = sessionParam ? getSession(sessionParam) : undefined;
+							if (!session) session = createSession(cols, rows);
 
-								const dataHandler = session.pty.onData((data: string) => {
-									if (ws.readyState === 1) {
-										ws.send(JSON.stringify({ type: 'output', data }));
-									}
-								});
+							wsConn.send(JSON.stringify({ type: 'session', id: session.id }));
 
-								ws.on('message', (raw: any) => {
-									try {
-										const msg = JSON.parse(raw.toString());
-										if (msg.type === 'input') session.pty.write(msg.data);
-										else if (msg.type === 'resize') resizeSession(session.id, msg.cols, msg.rows);
-									} catch {}
-								});
-
-								ws.on('close', () => dataHandler.dispose());
+							const dataHandler = session.pty.onData((data: string) => {
+								if (wsConn.readyState === ws.WebSocket.OPEN) {
+									wsConn.send(JSON.stringify({ type: 'output', data }));
+								}
 							});
-						}
-						// Don't destroy socket for non-matching paths — Vite HMR needs it
+
+							wsConn.on('message', (raw: any) => {
+								try {
+									const msg = JSON.parse(raw.toString());
+									if (msg.type === 'input') session.pty.write(msg.data);
+									else if (msg.type === 'resize') resizeSession(session.id, msg.cols, msg.rows);
+								} catch {}
+							});
+
+							wsConn.on('close', () => dataHandler.dispose());
+						});
 					});
 
 					console.log('WebSocket terminal server attached');

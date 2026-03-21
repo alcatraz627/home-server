@@ -126,6 +126,36 @@
 		return new Date(iso).toLocaleDateString();
 	}
 
+	// Expanded detail
+	let expandedId = $state<string | null>(null);
+	let editingResult = $state('');
+
+	function toggleExpand(id: string) {
+		if (expandedId === id) {
+			expandedId = null;
+		} else {
+			expandedId = id;
+			const req = requests.find(r => r.id === id);
+			editingResult = req?.result || '';
+		}
+	}
+
+	async function saveResult(id: string) {
+		await fetch('/api/keeper', {
+			method: 'PUT',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ id, result: editingResult })
+		});
+		await refresh();
+	}
+
+	let copiedResult = $state<string | null>(null);
+	async function copyResult(id: string, text: string) {
+		await navigator.clipboard.writeText(text);
+		copiedResult = id;
+		setTimeout(() => { copiedResult = null; }, 2000);
+	}
+
 	// Confirm delete
 	let confirmingDelete = $state<string | null>(null);
 	let confirmTimer: ReturnType<typeof setTimeout> | null = null;
@@ -244,27 +274,25 @@
 {:else}
 	<div class="request-list">
 		{#each filtered as req}
-			<div class="request-card" class:done={req.status === 'done'} class:rejected={req.status === 'rejected'}>
+			<!-- svelte-ignore a11y_click_events_have_key_events -->
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<div class="request-card" class:done={req.status === 'done'} class:rejected={req.status === 'rejected'} class:expanded={expandedId === req.id} onclick={() => toggleExpand(req.id)}>
 				<div class="request-top">
 					<div class="request-info">
 						<div class="request-title-row">
 							<span class="request-status-dot" style="background: {statusColor(req.status)}"></span>
+							<span class="expand-indicator">{expandedId === req.id ? '▼' : '▸'}</span>
 							<h3>{req.title}</h3>
 							<span class="scope-badge">{scopeLabel(req.scope)}</span>
 						</div>
 						<p class="request-goal">{req.goal}</p>
-						{#if req.details}
-							<p class="request-details">{req.details}</p>
-						{/if}
 						<div class="request-meta">
 							<span>Created {formatDate(req.createdAt)}</span>
-							{#if req.completedAt}
-								<span>Completed {formatDate(req.completedAt)}</span>
-							{/if}
+							{#if req.completedAt}<span>Completed {formatDate(req.completedAt)}</span>{/if}
+							{#if req.result}<span class="has-result">Has output</span>{/if}
 						</div>
 					</div>
-					<div class="request-actions">
-						<!-- Status workflow buttons -->
+					<div class="request-actions" onclick={(e) => e.stopPropagation()}>
 						{#if req.status === 'backlog'}
 							<button class="btn btn-sm" onclick={() => updateStatus(req.id, 'ready')}>Mark Ready</button>
 						{:else if req.status === 'ready'}
@@ -275,7 +303,7 @@
 							<button class="btn btn-sm btn-success" onclick={() => updateStatus(req.id, 'done')}>Accept</button>
 							<button class="btn btn-sm" onclick={() => updateStatus(req.id, 'ready')}>Reject</button>
 						{/if}
-						<button class="btn btn-sm" onclick={() => startEdit(req)} title="Edit">Edit</button>
+						<button class="btn btn-sm" onclick={() => startEdit(req)}>Edit</button>
 						{#if confirmingDelete === req.id}
 							<button class="btn btn-sm btn-confirm" onclick={() => confirmDelete(req.id)}>sure?</button>
 						{:else}
@@ -283,10 +311,41 @@
 						{/if}
 					</div>
 				</div>
-				{#if req.result}
-					<div class="request-result">
-						<span class="result-label">Result</span>
-						<p>{req.result}</p>
+
+				{#if expandedId === req.id}
+					<div class="request-detail" onclick={(e) => e.stopPropagation()}>
+						{#if req.details}
+							<div class="detail-section">
+								<span class="detail-label">Details</span>
+								<p class="detail-text">{req.details}</p>
+							</div>
+						{/if}
+
+						<div class="detail-section">
+							<div class="detail-header">
+								<span class="detail-label">Output / Notes</span>
+								<div class="detail-actions">
+									{#if editingResult}
+										<button class="btn btn-xs" onclick={() => copyResult(req.id, editingResult)}>
+											{copiedResult === req.id ? 'Copied!' : 'Copy'}
+										</button>
+									{/if}
+									<button class="btn btn-xs btn-primary" onclick={() => saveResult(req.id)}>Save</button>
+								</div>
+							</div>
+							<textarea
+								class="result-editor"
+								bind:value={editingResult}
+								rows="6"
+								placeholder="Paste agent output, notes, or results here..."
+							></textarea>
+						</div>
+
+						<div class="detail-info">
+							<span>ID: {req.id}</span>
+							<span>Priority: {req.priority}</span>
+							<span>Updated: {formatDate(req.updatedAt)}</span>
+						</div>
 					</div>
 				{/if}
 			</div>
@@ -362,9 +421,24 @@
 	.request-meta { font-size: 0.65rem; color: var(--text-faint, #484f58); display: flex; gap: 12px; }
 	.request-actions { display: flex; flex-wrap: wrap; gap: 4px; flex-shrink: 0; }
 
-	.request-result { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border-subtle, #21262d); }
-	.result-label { font-size: 0.65rem; color: var(--text-faint, #484f58); text-transform: uppercase; letter-spacing: 0.03em; }
-	.request-result p { font-size: 0.8rem; color: var(--text-secondary, #c9d1d9); margin-top: 4px; }
+	.request-card { cursor: pointer; }
+	.request-card.expanded { border-color: var(--accent, #58a6ff); }
+	.expand-indicator { color: var(--text-faint, #484f58); font-size: 0.7rem; flex-shrink: 0; }
+	.has-result { color: var(--accent, #58a6ff); }
+
+	/* Expanded detail panel */
+	.request-detail { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-subtle, #21262d); display: flex; flex-direction: column; gap: 12px; cursor: default; }
+	.detail-section { display: flex; flex-direction: column; gap: 4px; }
+	.detail-label { font-size: 0.7rem; color: var(--text-faint, #484f58); text-transform: uppercase; letter-spacing: 0.03em; }
+	.detail-text { font-size: 0.8rem; color: var(--text-secondary, #c9d1d9); white-space: pre-wrap; }
+	.detail-header { display: flex; justify-content: space-between; align-items: center; }
+	.detail-actions { display: flex; gap: 4px; }
+	.btn-xs { padding: 2px 8px; font-size: 0.65rem; border-radius: 4px; }
+
+	.result-editor { width: 100%; padding: 10px; font-size: 0.8rem; border-radius: 6px; border: 1px solid var(--border, #30363d); background: var(--code-bg, #0d1117); color: var(--text-primary, #e1e4e8); font-family: 'JetBrains Mono', monospace; resize: vertical; min-height: 100px; }
+	.result-editor:focus { outline: none; border-color: var(--accent, #58a6ff); }
+
+	.detail-info { display: flex; gap: 16px; font-size: 0.65rem; color: var(--text-faint, #484f58); font-family: 'JetBrains Mono', monospace; }
 
 	@media (max-width: 640px) {
 		.request-top { flex-direction: column; }
