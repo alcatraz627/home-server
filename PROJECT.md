@@ -101,18 +101,18 @@ The system operates through three distinct roles. Each role has its own responsi
 - Recover gracefully from failures (retry with backoff, then alert)
 
 **Runtime Rules:**
-- [ ] Every task must be idempotent — safe to re-run without side effects
-- [ ] Every task must have a timeout — no runaway processes
-- [ ] Every task must log: start time, end time, outcome, errors
-- [ ] Failed tasks retry up to 3 times with exponential backoff, then alert the user
-- [ ] Never delete user data without explicit confirmation (even in automated flows)
+- [x] Every task must be idempotent — safe to re-run without side effects
+- [x] Every task must have a timeout — no runaway processes
+- [x] Every task must log: start time, end time, outcome, errors
+- [x] Failed tasks retry up to 3 times with exponential backoff, then alert the user
+- [x] Never delete user data without explicit confirmation (even in automated flows)
 - [ ] Resource limits: operator tasks must not consume more than 25% CPU / 512MB RAM on shared devices
-- [ ] Notification rules:
+- [x] Notification rules:
   - **Success:** Silent by default, unless user opted in to success notifications
   - **Failure:** Always notify immediately
   - **Progress:** Only for long-running tasks (>5 min), update every 25% progress
-- [ ] All operator tasks are defined as config files — no hardcoded jobs
-- [ ] Tasks can be triggered via: cron schedule, API call, dashboard button, or CLI command
+- [x] All operator tasks are defined as config files — no hardcoded jobs
+- [x] Tasks can be triggered via: cron schedule, API call, dashboard button, or CLI command
 
 ---
 
