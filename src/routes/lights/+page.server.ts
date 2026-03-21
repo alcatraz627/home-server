@@ -1,0 +1,7 @@
+import { discoverBulbs } from '$lib/server/wiz';
+import type { PageServerLoad } from './$types';
+
+export const load: PageServerLoad = async () => {
+	const bulbs = await discoverBulbs();
+	return { bulbs };
+};

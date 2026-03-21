@@ -1,0 +1,182 @@
+<script lang="ts">
+	import type { PageData } from './$types';
+	import type { TailscaleDevice } from '$lib/server/tailscale';
+
+	let { data } = $props<{ data: PageData }>();
+	let devices = $state<TailscaleDevice[]>(data.devices);
+	let error = $state<string | undefined>(data.error);
+	let refreshing = $state(false);
+
+	async function refresh() {
+		refreshing = true;
+		const res = await fetch('/api/tailscale');
+		const result = await res.json();
+		devices = result.devices;
+		error = result.error;
+		refreshing = false;
+	}
+</script>
+
+<svelte:head>
+	<title>Tailscale | Home Server</title>
+</svelte:head>
+
+<div class="header">
+	<h2>Tailscale Devices</h2>
+	<button class="btn" onclick={refresh} disabled={refreshing}>
+		{refreshing ? 'Refreshing...' : 'Refresh'}
+	</button>
+</div>
+
+{#if error}
+	<p class="error">{error}</p>
+{/if}
+
+{#if devices.length === 0}
+	<p class="empty">No devices found on the tailnet.</p>
+{:else}
+	<div class="device-list">
+		<div class="device-header">
+			<span class="col-status"></span>
+			<span class="col-host">Hostname</span>
+			<span class="col-ip">IP Address</span>
+			<span class="col-os">OS</span>
+		</div>
+		{#each devices as device}
+			<div class="device-row" class:self={device.isSelf}>
+				<span class="col-status">
+					<span class="dot" class:online={device.online}></span>
+				</span>
+				<span class="col-host">
+					{device.hostname}
+					{#if device.isSelf}<span class="tag">this device</span>{/if}
+				</span>
+				<span class="col-ip"><code>{device.ipv4}</code></span>
+				<span class="col-os">{device.os}</span>
+			</div>
+		{/each}
+	</div>
+{/if}
+
+<style>
+	.header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: 16px;
+	}
+
+	h2 {
+		font-size: 1.3rem;
+	}
+
+	.btn {
+		padding: 6px 14px;
+		font-size: 0.8rem;
+		border-radius: 6px;
+		border: 1px solid #30363d;
+		background: #21262d;
+		color: #c9d1d9;
+		cursor: pointer;
+		font-family: inherit;
+	}
+
+	.btn:hover:not(:disabled) {
+		border-color: #58a6ff;
+	}
+
+	.btn:disabled {
+		opacity: 0.5;
+		cursor: default;
+	}
+
+	.error {
+		color: #f85149;
+		margin-bottom: 12px;
+		font-size: 0.85rem;
+	}
+
+	.empty {
+		color: #8b949e;
+		text-align: center;
+		padding: 40px;
+	}
+
+	.device-list {
+		border: 1px solid #30363d;
+		border-radius: 8px;
+		overflow: hidden;
+	}
+
+	.device-header,
+	.device-row {
+		display: grid;
+		grid-template-columns: 28px 1fr 160px 80px;
+		padding: 10px 16px;
+		align-items: center;
+		gap: 8px;
+	}
+
+	.device-header {
+		background: #161b22;
+		font-size: 0.75rem;
+		color: #8b949e;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+	}
+
+	.device-row {
+		border-top: 1px solid #21262d;
+		font-size: 0.85rem;
+	}
+
+	.device-row:hover {
+		background: #161b22;
+	}
+
+	.device-row.self {
+		background: rgba(88, 166, 255, 0.05);
+	}
+
+	.dot {
+		display: inline-block;
+		width: 8px;
+		height: 8px;
+		border-radius: 50%;
+		background: #484f58;
+	}
+
+	.dot.online {
+		background: #3fb950;
+	}
+
+	.tag {
+		font-size: 0.65rem;
+		padding: 2px 6px;
+		border-radius: 10px;
+		background: #1f6feb33;
+		color: #58a6ff;
+		margin-left: 6px;
+		vertical-align: middle;
+	}
+
+	code {
+		font-size: 0.8rem;
+		color: #8b949e;
+	}
+
+	.col-os {
+		color: #8b949e;
+		font-size: 0.8rem;
+	}
+
+	@media (max-width: 640px) {
+		.device-header,
+		.device-row {
+			grid-template-columns: 28px 1fr 120px;
+		}
+		.col-os {
+			display: none;
+		}
+	}
+</style>

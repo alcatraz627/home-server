@@ -1,0 +1,13 @@
+services:
+  dashboard:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./uploads:/data/uploads
+    environment:
+      - PORT=3000
+      - ORIGIN=http://${TAILSCALE_HOSTNAME:-localhost}:3000
+      - UPLOAD_DIR=/data/uploads
+      - BODY_SIZE_LIMIT=Infinity
+    restart: unless-stopped
