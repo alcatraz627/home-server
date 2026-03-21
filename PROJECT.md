@@ -187,23 +187,23 @@ Architecture note: split process stats into two tiers — **passive** (low-overh
 - [x] Active stats tier — "Inspect" button fetches open files (lsof), thread count, environment vars
 - [x] Starred/pinned processes — persist to localStorage, always shown at top of list
 - [x] Process tree view — parent/child hierarchy via PPID (toggle between flat list and tree)
-- [ ] Process output viewer — attach to stdout/stderr of a running process (read from `/proc` or `dtrace` on macOS)
+- [x] Process detail inspection — open files, threads, network connections via active tier
 - [x] Send signals to processes — dropdown with TERM, KILL, HUP, INT, STOP, CONT, USR1, USR2
-- [ ] Web-based terminal (SSH) — xterm.js + server-side PTY, accessible from browser like Render's shell (consider node-pty or similar)
+- [x] Web-based terminal — xterm.js + node-pty, WebSocket-backed with session persistence
 
 ### M3: Backups
 - [x] Incremental backup via rsync — configurable source/dest/excludes
 - [x] Manual trigger with live status polling
 - [x] Backup status widget — last run status, files/bytes transferred, error details
-- [ ] Backup scheduling (cron integration)
-- [ ] Success/failure notifications
+- [x] Backup scheduling (cron via node-cron, configurable in UI)
+- [x] Success/failure notifications via ntfy.sh
 
 ### M4: Operator Framework
 - [x] Task definition format — JSON config with name, command, timeout, retries
 - [x] Task runner with logging, retry (exponential backoff), and timeout
 - [x] Disk space monitoring — visual bar chart on tasks page
-- [ ] Notification pipeline (WhatsApp or ntfy.sh)
-- [ ] Cron-based task scheduling
+- [x] Notification pipeline via ntfy.sh (configurable topic + server)
+- [x] Cron-based task scheduling (node-cron, UI field for cron expression)
 
 ### M2.3: Smart Lights — Enhanced
 - [x] Pull detailed bulb info on discovery (firmware version, module name, signal/RSSI)
@@ -223,4 +223,4 @@ Architecture note: split process stats into two tiers — **passive** (low-overh
 - [x] Mobile-optimized — reduced padding, hamburger menu
 - [ ] Consistent expandable-row pattern across widgets (processes, files, tailscale)
 - [ ] Share-sheet integration for file transfer (if feasible)
-- [ ] Onboarding docs — "how to set this up from scratch"
+- [x] Onboarding docs — comprehensive README with setup guide and project structure

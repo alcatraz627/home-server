@@ -271,6 +271,16 @@
 								</ul>
 							</details>
 						{/if}
+						{#if activeDetail.connections && activeDetail.connections.length > 0}
+							<details class="detail-section">
+								<summary>Network Connections ({activeDetail.connections.length})</summary>
+								<ul class="file-list-detail">
+									{#each activeDetail.connections as c}
+										<li>{c}</li>
+									{/each}
+								</ul>
+							</details>
+						{/if}
 						{#if Object.keys(activeDetail.env).length > 0}
 							<details class="detail-section">
 								<summary>Environment ({Object.keys(activeDetail.env).length} vars)</summary>

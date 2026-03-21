@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import { notifyTaskComplete } from './notify';
 
 // --- Types ---
 
@@ -170,6 +171,11 @@ export async function runTask(taskId: string, attempt = 1): Promise<TaskRun> {
 
 		runningTasks.delete(taskId);
 		await appendTaskHistory(run);
+
+		// Send notification (only on final attempt or success)
+		if (config.notify && (run.status === 'success' || attempt >= config.maxRetries)) {
+			notifyTaskComplete(config.name, run.status as any, run.duration || undefined).catch(() => {});
+		}
 
 		// Retry on failure
 		if (run.status === 'failed' && attempt < config.maxRetries) {

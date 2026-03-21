@@ -20,6 +20,7 @@ export interface ProcessDetail {
 	openFiles: string[];
 	env: Record<string, string>;
 	threads: number;
+	connections: string[];
 }
 
 const ALLOWED_SIGNALS = ['TERM', 'KILL', 'HUP', 'INT', 'STOP', 'CONT', 'USR1', 'USR2'] as const;
@@ -107,7 +108,17 @@ export function getProcessDetail(pid: number): ProcessDetail | null {
 			}
 		} catch { /* ignore */ }
 
-		return { pid, openFiles, env, threads };
+		// Network connections
+		let connections: string[] = [];
+		try {
+			const connRaw = execSync(`lsof -i -a -p ${pid} -Fn 2>/dev/null | grep ^n | head -20`, {
+				encoding: 'utf-8',
+				timeout: 5000
+			});
+			connections = connRaw.trim().split('\n').map(l => l.slice(1)).filter(Boolean);
+		} catch { /* ignore */ }
+
+		return { pid, openFiles, env, threads, connections };
 	} catch {
 		return null;
 	}

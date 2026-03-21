@@ -12,6 +12,7 @@
 	let formSource = $state('');
 	let formDest = $state('');
 	let formExcludes = $state('');
+	let formSchedule = $state('');
 
 	// Running state
 	let runningIds = $state<Set<string>>(new Set());
@@ -27,7 +28,8 @@
 			name: formName,
 			sourcePath: formSource,
 			destPath: formDest,
-			excludes: formExcludes.split('\n').map(s => s.trim()).filter(Boolean)
+			excludes: formExcludes.split('\n').map(s => s.trim()).filter(Boolean),
+			schedule: formSchedule || null
 		};
 		await fetch('/api/backups', {
 			method: 'POST',
@@ -35,7 +37,7 @@
 			body: JSON.stringify(config)
 		});
 		showForm = false;
-		formName = ''; formSource = ''; formDest = ''; formExcludes = '';
+		formName = ''; formSource = ''; formDest = ''; formExcludes = ''; formSchedule = '';
 		await refresh();
 	}
 
@@ -112,6 +114,10 @@
 				<input type="text" bind:value={formDest} placeholder="/path/to/backup/" />
 			</label>
 			<label>
+				<span>Schedule (cron expression, optional)</span>
+				<input type="text" bind:value={formSchedule} placeholder="0 2 * * * (daily at 2am)" />
+			</label>
+			<label>
 				<span>Excludes (one per line)</span>
 				<textarea bind:value={formExcludes} rows="3" placeholder=".thumbnails&#10;.cache"></textarea>
 			</label>
@@ -137,6 +143,9 @@
 						<div class="backup-paths">
 							<span class="path-label">To:</span> <code>{status.config.destPath}</code>
 						</div>
+						{#if status.config.schedule}
+							<div class="backup-schedule">Schedule: <code>{status.config.schedule}</code></div>
+						{/if}
 						{#if status.config.excludes.length > 0}
 							<div class="backup-excludes">
 								Excludes: {status.config.excludes.join(', ')}
@@ -209,6 +218,8 @@
 	.backup-paths { font-size: 0.8rem; color: #8b949e; margin-bottom: 2px; }
 	.backup-paths code { font-size: 0.8rem; color: #c9d1d9; }
 	.path-label { display: inline-block; width: 36px; }
+	.backup-schedule { font-size: 0.75rem; color: var(--accent, #58a6ff); margin-bottom: 2px; }
+	.backup-schedule code { font-size: 0.75rem; }
 	.backup-excludes { font-size: 0.7rem; color: #484f58; margin-top: 4px; }
 
 	.last-run { margin-top: 12px; padding-top: 10px; border-top: 1px solid #21262d; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }

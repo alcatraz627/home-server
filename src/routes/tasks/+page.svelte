@@ -11,6 +11,7 @@
 	let formCommand = $state('');
 	let formTimeout = $state(300);
 	let formRetries = $state(3);
+	let formSchedule = $state('');
 
 	let expandedTask = $state<string | null>(null);
 
@@ -29,11 +30,12 @@
 				name: formName,
 				command: formCommand,
 				timeout: formTimeout,
-				maxRetries: formRetries
+				maxRetries: formRetries,
+				schedule: formSchedule || null
 			})
 		});
 		showForm = false;
-		formName = ''; formCommand = ''; formTimeout = 300; formRetries = 3;
+		formName = ''; formCommand = ''; formTimeout = 300; formRetries = 3; formSchedule = '';
 		await refresh();
 	}
 
@@ -111,6 +113,7 @@
 		<div class="form-grid">
 			<label><span>Name</span><input type="text" bind:value={formName} placeholder="Disk space check" /></label>
 			<label><span>Command</span><input type="text" bind:value={formCommand} placeholder="df -h | grep /dev" /></label>
+			<label><span>Schedule (cron, optional)</span><input type="text" bind:value={formSchedule} placeholder="*/5 * * * * (every 5 min)" /></label>
 			<div class="form-row">
 				<label><span>Timeout (s)</span><input type="number" bind:value={formTimeout} min="5" /></label>
 				<label><span>Max Retries</span><input type="number" bind:value={formRetries} min="0" max="10" /></label>
@@ -132,6 +135,9 @@
 						<code class="task-command">{status.config.command}</code>
 						<div class="task-meta">
 							timeout: {status.config.timeout}s · retries: {status.config.maxRetries}
+							{#if status.config.schedule}
+								· <span class="task-schedule">cron: {status.config.schedule}</span>
+							{/if}
 						</div>
 					</div>
 					<div class="task-actions">
@@ -203,6 +209,7 @@
 	.task-info h3 { font-size: 0.95rem; margin-bottom: 4px; }
 	.task-command { font-size: 0.75rem; color: #8b949e; display: block; margin-bottom: 4px; }
 	.task-meta { font-size: 0.7rem; color: #484f58; }
+	.task-schedule { color: var(--accent, #58a6ff); }
 	.task-actions { display: flex; gap: 6px; }
 
 	.last-run { display: flex; align-items: center; gap: 8px; margin-top: 10px; padding-top: 8px; border-top: 1px solid #21262d; }
