@@ -212,6 +212,24 @@ Architecture note: split process stats into two tiers — **passive** (low-overh
 - [x] Group control — select all / individual checkboxes, group ON/OFF/brightness
 - [x] Bulb status polling — 5s auto-refresh toggle to detect external changes
 
+### M2.4: Process Manager — UX
+- [ ] Better tree hierarchy — visual connector lines, collapse/expand subtrees
+- [ ] Signal tooltips — description/helper text for each signal (TERM: graceful shutdown, KILL: force, etc.)
+
+### M2.5: File Manager — UX
+- [ ] File list search, sort, and filter (by name, type, size, date)
+- [ ] Better upload input — styled dropzone with file type hints, multi-file queue display
+
+### M2.6: Smart Lights — UX
+- [ ] Show bulb names + module info prominently in card header
+- [ ] Improved control layout — larger sliders, better color picker, visual brightness indicator
+- [ ] Extended scene presets — full Wiz scene library with categories (ambient, functional, festive)
+
+### M4.1: Operator Templates
+- [ ] Predefined task templates — disk space alert, service health check, log rotation, backup monitor
+- [ ] Template picker UI — select from templates when creating a new task, auto-fills command/timeout/schedule
+- [ ] Custom template creation — save any task config as a reusable template
+
 ### M5: UI & Polish
 - [x] Page navigation loading spinner — shimmer bar on route transitions
 - [x] CSS custom properties design system — all colors via `var(--token)` tokens
@@ -221,6 +239,24 @@ Architecture note: split process stats into two tiers — **passive** (low-overh
 - [x] Active nav indicator — left border accent on current page
 - [x] Custom scrollbar styling
 - [x] Mobile-optimized — reduced padding, hamburger menu
+- [ ] Light mode color fixes — ensure inputs, buttons, table headers, borders all use theme tokens
+- [ ] Expanded color palette — add semantic colors for categories (files, processes, lights, etc.)
+- [ ] Generic table component — reusable across all widgets with sort, search, filter, column picker, row select; per-instance localStorage persistence
+- [ ] Mobile responsive tables — horizontal scroll, collapsible columns, touch-friendly controls
+- [ ] Navbar enhancements — show system stats (CPU, memory), quick actions, breadcrumbs
+- [ ] Better fonts — use Inter or similar modern variable font, improve monospace choice
 - [ ] Consistent expandable-row pattern across widgets (processes, files, tailscale)
 - [ ] Share-sheet integration for file transfer (if feasible)
 - [x] Onboarding docs — comprehensive README with setup guide and project structure
+
+### M5.1: Terminal Fixes
+- [ ] Fix terminal WebSocket connection reliability (reconnect on drop, error handling)
+- [ ] Tab support — multiple terminal tabs in the UI, switch between sessions
+- [ ] Terminal toolbar — clear, copy output, font size controls
+
+### M6: Claude Keeper
+See [docs/claude-keeper.md](docs/claude-keeper.md) for full planning document.
+- [ ] Agent interface — view, start, stop running Claude agents on the server
+- [ ] Feature requests CRUD — goal, scope (selectable), details, status tracking
+- [ ] Agent task runner — auto-sweeps pending feature requests, works with user on prioritization
+- [ ] Agent output viewer — live streaming of agent activity and decisions
