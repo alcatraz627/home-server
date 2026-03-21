@@ -1,9 +1,8 @@
-import { spawn, type ChildProcess } from 'node:child_process';
+import * as pty from 'node-pty';
 import os from 'node:os';
 
 export interface TerminalSession {
 	id: string;
-	process: ChildProcess;
 	createdAt: Date;
 	onData: (cb: (data: string) => void) => { dispose: () => void };
 	write: (data: string) => void;
@@ -12,36 +11,15 @@ export interface TerminalSession {
 }
 
 const sessions = new Map<string, TerminalSession>();
+const DEFAULT_SHELL = process.env.SHELL || '/bin/bash';
 
-// Try node-pty first, fall back to child_process
-let usePty = false;
-let ptyModule: any = null;
-
-try {
-	ptyModule = require('node-pty');
-	// Quick test spawn
-	const test = ptyModule.spawn('/bin/echo', ['test'], { name: 'xterm', cols: 80, rows: 24, cwd: os.homedir() });
-	test.kill();
-	usePty = true;
-	console.log('[terminal] Using node-pty');
-} catch {
-	console.log('[terminal] node-pty unavailable, using child_process fallback');
-}
-
-const SHELL = '/bin/bash'; // bash is more reliable across Node versions than zsh
+console.log(`[terminal] Using node-pty ${require('node-pty/package.json').version} with shell: ${DEFAULT_SHELL}`);
 
 /** Create a new terminal session */
 export function createSession(cols = 80, rows = 24): TerminalSession {
 	const id = Math.random().toString(36).slice(2, 10);
 
-	if (usePty && ptyModule) {
-		return createPtySession(id, cols, rows);
-	}
-	return createFallbackSession(id);
-}
-
-function createPtySession(id: string, cols: number, rows: number): TerminalSession {
-	const pty = ptyModule.spawn(SHELL, ['--login'], {
+	const term = pty.spawn(DEFAULT_SHELL, ['--login'], {
 		name: 'xterm-256color',
 		cols,
 		rows,
@@ -51,56 +29,22 @@ function createPtySession(id: string, cols: number, rows: number): TerminalSessi
 
 	const session: TerminalSession = {
 		id,
-		process: pty,
 		createdAt: new Date(),
 		onData: (cb: (data: string) => void) => {
-			const disposable = pty.onData(cb);
+			const disposable = term.onData(cb);
 			return { dispose: () => disposable.dispose() };
 		},
-		write: (data: string) => pty.write(data),
-		resize: (cols: number, rows: number) => pty.resize(cols, rows),
-		kill: () => pty.kill()
+		write: (data: string) => term.write(data),
+		resize: (cols: number, rows: number) => term.resize(cols, rows),
+		kill: () => term.kill()
 	};
 
 	sessions.set(id, session);
-	pty.onExit(() => sessions.delete(id));
-	return session;
-}
-
-function createFallbackSession(id: string): TerminalSession {
-	const proc = spawn(SHELL, ['--login'], {
-		stdio: ['pipe', 'pipe', 'pipe'],
-		cwd: os.homedir(),
-		env: { ...process.env, TERM: 'xterm-256color' }
+	term.onExit(() => {
+		console.log(`[terminal] Session ${id} — shell exited`);
+		sessions.delete(id);
 	});
 
-	const listeners: ((data: string) => void)[] = [];
-
-	proc.stdout?.on('data', (data: Buffer) => {
-		const str = data.toString();
-		for (const cb of listeners) cb(str);
-	});
-
-	proc.stderr?.on('data', (data: Buffer) => {
-		const str = data.toString();
-		for (const cb of listeners) cb(str);
-	});
-
-	const session: TerminalSession = {
-		id,
-		process: proc,
-		createdAt: new Date(),
-		onData: (cb: (data: string) => void) => {
-			listeners.push(cb);
-			return { dispose: () => { const i = listeners.indexOf(cb); if (i >= 0) listeners.splice(i, 1); } };
-		},
-		write: (data: string) => proc.stdin?.write(data),
-		resize: () => { /* child_process doesn't support resize */ },
-		kill: () => proc.kill()
-	};
-
-	sessions.set(id, session);
-	proc.on('close', () => sessions.delete(id));
 	return session;
 }
 
