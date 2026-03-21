@@ -2,6 +2,7 @@
   import type { PageData } from './$types';
   import type { BackupStatus, BackupConfig } from '$lib/server/backups';
   import { toast } from '$lib/toast';
+  import EmptyState from '$lib/components/EmptyState.svelte';
 
   let { data } = $props<{ data: PageData }>();
   // svelte-ignore state_referenced_locally
@@ -266,7 +267,13 @@
 {/if}
 
 {#if statuses.length === 0 && !showForm}
-  <p class="empty">No backup configurations yet. Click "New Backup" to set one up.</p>
+  <EmptyState
+    icon="⟲"
+    title="No backup configurations"
+    hint="Set up automated rsync backups between directories or devices"
+    actionLabel="New Backup"
+    onaction={openNewForm}
+  />
 {:else}
   <div class="backup-list">
     {#each statuses as status}

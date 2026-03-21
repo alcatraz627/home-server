@@ -24,6 +24,8 @@
     { href: '/tasks', label: 'Tasks', icon: '⚙' },
     { href: '/keeper', label: 'Keeper', icon: '◈' },
     { href: '/terminal', label: 'Terminal', icon: '▶' },
+    { href: '/docs', label: 'Docs', icon: '📄' },
+    { href: '/showcase', label: 'Showcase', icon: '◎' },
   ];
 
   function isActive(href: string): boolean {

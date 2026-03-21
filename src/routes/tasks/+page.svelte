@@ -2,6 +2,7 @@
   import type { PageData } from './$types';
   import type { TaskStatus } from '$lib/server/operator';
   import { toast } from '$lib/toast';
+  import EmptyState from '$lib/components/EmptyState.svelte';
 
   let { data } = $props<{ data: PageData }>();
   // svelte-ignore state_referenced_locally
@@ -1138,7 +1139,13 @@
 {/if}
 
 {#if statuses.length === 0 && !showForm}
-  <p class="empty">No tasks configured. Click "New Task" or browse "Templates" to get started.</p>
+  <EmptyState
+    icon="⚙"
+    title="No tasks configured"
+    hint="Create shell command tasks to run on-demand or on a schedule"
+    actionLabel="Browse Templates"
+    onaction={() => (showTemplates = true)}
+  />
 {:else}
   {#if statuses.length > 3}
     <div class="task-search-bar">

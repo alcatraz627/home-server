@@ -1,0 +1,250 @@
+<script lang="ts">
+  import { renderMarkdown } from '$lib/markdown';
+  import type { PageData } from './$types';
+  import type { DocFile } from './+page.server';
+
+  let { data } = $props<{ data: PageData }>();
+
+  let search = $state('');
+  let expanded = $state<Record<string, boolean>>({});
+
+  function toggle(filePath: string) {
+    expanded[filePath] = !expanded[filePath];
+  }
+
+  let filtered = $derived(
+    search.trim() === ''
+      ? data.files
+      : data.files.filter(
+          (f: DocFile) =>
+            f.name.toLowerCase().includes(search.toLowerCase()) ||
+            f.path.toLowerCase().includes(search.toLowerCase()) ||
+            f.content.toLowerCase().includes(search.toLowerCase()),
+        ),
+  );
+</script>
+
+<div class="docs-page">
+  <div class="docs-header">
+    <h2>Documentation</h2>
+    <input
+      class="search-input"
+      type="text"
+      placeholder="Search files…"
+      bind:value={search}
+      aria-label="Search documentation files"
+    />
+  </div>
+
+  {#if filtered.length === 0}
+    <p class="empty">No files match your search.</p>
+  {:else}
+    <ul class="file-list">
+      {#each filtered as file (file.path)}
+        {@const isOpen = !!expanded[file.path]}
+        <li class="file-item" class:open={isOpen}>
+          <button class="file-header" onclick={() => toggle(file.path)} aria-expanded={isOpen}>
+            <span class="file-icon">{isOpen ? '▾' : '▸'}</span>
+            <span class="file-name">{file.name}</span>
+            <span class="file-path">{file.path}</span>
+          </button>
+          {#if isOpen}
+            <div class="rendered-doc">
+              {@html `<div class="md-content">${renderMarkdown(file.content)}</div>`}
+            </div>
+          {/if}
+        </li>
+      {/each}
+    </ul>
+  {/if}
+</div>
+
+<style>
+  .docs-page {
+    max-width: 900px;
+  }
+
+  .docs-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+
+  .docs-header h2 {
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+  }
+
+  .search-input {
+    flex: 1;
+    min-width: 200px;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  .search-input:focus {
+    border-color: var(--accent);
+  }
+
+  .search-input::placeholder {
+    color: var(--text-faint);
+  }
+
+  .empty {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    padding: 24px 0;
+  }
+
+  .file-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .file-item {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--bg-secondary);
+    transition: border-color 0.15s;
+  }
+
+  .file-item.open {
+    border-color: var(--accent);
+  }
+
+  .file-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 12px 16px;
+    background: none;
+    border: none;
+    color: var(--text-primary);
+    cursor: pointer;
+    text-align: left;
+    font-size: 0.9rem;
+    transition: background 0.15s;
+  }
+
+  .file-header:hover {
+    background: var(--bg-hover);
+  }
+
+  .file-icon {
+    color: var(--accent);
+    font-size: 0.75rem;
+    width: 12px;
+    flex-shrink: 0;
+  }
+
+  .file-name {
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-primary);
+    flex-shrink: 0;
+  }
+
+  .file-path {
+    font-size: 0.78rem;
+    color: var(--text-faint);
+    font-family: 'JetBrains Mono', monospace;
+    margin-left: auto;
+  }
+
+  /* Rendered document container */
+  .rendered-doc {
+    padding: 16px 20px;
+    border-top: 1px solid var(--border);
+    background: var(--bg-primary);
+    overflow: auto;
+  }
+
+  /* Markdown styling — mirrors .rendered-doc .md-content in files/+page.svelte */
+  .rendered-doc :global(.md-content) {
+    line-height: 1.7;
+    font-size: 0.9rem;
+  }
+  .rendered-doc :global(.md-content h1) {
+    font-size: 1.5rem;
+    margin: 16px 0 8px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 6px;
+  }
+  .rendered-doc :global(.md-content h2) {
+    font-size: 1.3rem;
+    margin: 14px 0 6px;
+    border-bottom: 1px solid var(--border-subtle);
+    padding-bottom: 4px;
+  }
+  .rendered-doc :global(.md-content h3) {
+    font-size: 1.1rem;
+    margin: 12px 0 6px;
+  }
+  .rendered-doc :global(.md-content h4),
+  .rendered-doc :global(.md-content h5),
+  .rendered-doc :global(.md-content h6) {
+    font-size: 1rem;
+    margin: 10px 0 4px;
+  }
+  .rendered-doc :global(.md-content p) {
+    margin: 8px 0;
+  }
+  .rendered-doc :global(.md-content ul),
+  .rendered-doc :global(.md-content ol) {
+    padding-left: 24px;
+    margin: 8px 0;
+  }
+  .rendered-doc :global(.md-content li) {
+    margin: 4px 0;
+  }
+  .rendered-doc :global(.md-content blockquote) {
+    border-left: 3px solid var(--border);
+    padding-left: 12px;
+    color: var(--text-muted);
+    margin: 8px 0;
+  }
+  .rendered-doc :global(.md-content hr) {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 16px 0;
+  }
+  .rendered-doc :global(.md-content a) {
+    color: var(--accent);
+  }
+  .rendered-doc :global(.md-content code) {
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 0.85em;
+  }
+  .rendered-doc :global(.md-content pre) {
+    background: var(--code-bg);
+    padding: 12px;
+    border-radius: 6px;
+    overflow-x: auto;
+    margin: 8px 0;
+  }
+  .rendered-doc :global(.md-content pre code) {
+    padding: 0;
+    background: none;
+  }
+  .rendered-doc :global(.md-content strong) {
+    color: var(--text-primary);
+  }
+</style>

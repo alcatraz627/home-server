@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { PageData } from './$types';
   import type { FeatureRequest, FeatureScope, FeatureStatus } from '$lib/server/keeper';
+  import EmptyState from '$lib/components/EmptyState.svelte';
 
   let { data } = $props<{ data: PageData }>();
   // svelte-ignore state_referenced_locally
@@ -283,11 +284,19 @@
 
 <!-- Request list -->
 {#if filtered.length === 0 && !showForm}
-  <p class="empty">
-    {requests.length === 0
-      ? 'No feature requests yet. Click "+ New Request" to submit one.'
-      : 'No requests match your filters.'}
-  </p>
+  {#if requests.length === 0}
+    <EmptyState
+      icon="◈"
+      title="No feature requests"
+      hint="Track features, bugs, and enhancements with status workflow"
+      actionLabel="+ New Request"
+      onaction={() => {
+        showForm = true;
+      }}
+    />
+  {:else}
+    <p class="empty">No requests match your filters.</p>
+  {/if}
 {:else}
   <div class="request-list">
     {#each filtered as req}

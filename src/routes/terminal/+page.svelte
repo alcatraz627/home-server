@@ -157,7 +157,32 @@
     if (terminalEls[tab.id]) resizeObserver?.unobserve(terminalEls[tab.id]);
     tabs = tabs.filter((_, i) => i !== idx);
     if (activeTab >= tabs.length) activeTab = Math.max(0, tabs.length - 1);
-    if (tabs.length === 0) addTab();
+    // Allow 0 tabs — show empty placeholder instead of auto-creating
+  }
+
+  // Tab renaming
+  let renamingTab = $state<number | null>(null);
+  let renameValue = $state('');
+
+  function startRenameTab(idx: number) {
+    renamingTab = idx;
+    renameValue = tabs[idx].label;
+  }
+
+  function submitRenameTab(idx: number) {
+    if (renameValue.trim()) {
+      tabs[idx].label = renameValue.trim();
+      tabs = [...tabs];
+    }
+    renamingTab = null;
+  }
+
+  // Middle-click close
+  function handleTabMouseDown(e: MouseEvent, idx: number) {
+    if (e.button === 1) {
+      e.preventDefault();
+      closeTab(idx);
+    }
   }
 
   function switchTab(idx: number) {
@@ -200,18 +225,35 @@
       <!-- svelte-ignore a11y_click_events_have_key_events -->
       <!-- svelte-ignore a11y_no_static_element_interactions -->
       {#each tabs as tab, i}
-        <div class="tab" class:active={activeTab === i} onclick={() => switchTab(i)}>
+        <div
+          class="tab"
+          class:active={activeTab === i}
+          onclick={() => switchTab(i)}
+          onmousedown={(e) => handleTabMouseDown(e, i)}
+        >
           <span class="tab-dot" class:connected={tab.connected}></span>
-          {tab.label}
-          {#if tabs.length > 1}
-            <button
-              class="tab-close"
-              onclick={(e) => {
-                e.stopPropagation();
-                closeTab(i);
-              }}>×</button
-            >
+          {#if renamingTab === i}
+            <input
+              class="tab-rename-input"
+              type="text"
+              bind:value={renameValue}
+              onclick={(e) => e.stopPropagation()}
+              onkeydown={(e) => {
+                if (e.key === 'Enter') submitRenameTab(i);
+                if (e.key === 'Escape') renamingTab = null;
+              }}
+              onblur={() => submitRenameTab(i)}
+            />
+          {:else}
+            <span class="tab-label" ondblclick={() => startRenameTab(i)}>{tab.label}</span>
           {/if}
+          <button
+            class="tab-close"
+            onclick={(e) => {
+              e.stopPropagation();
+              closeTab(i);
+            }}>×</button
+          >
         </div>
       {/each}
       <button class="tab tab-add" onclick={addTab}>+</button>
@@ -223,11 +265,21 @@
       <button class="tool-btn" onclick={clearTerminal} title="Clear terminal">Clear</button>
     </div>
   </div>
-  <div class="terminal-panels">
-    {#each tabs as tab, i}
-      <div class="terminal-container" class:visible={activeTab === i} bind:this={terminalEls[tab.id]}></div>
-    {/each}
-  </div>
+
+  {#if tabs.length === 0}
+    <div class="empty-state">
+      <div class="empty-icon">▶</div>
+      <p>No terminal sessions</p>
+      <p class="empty-hint">Open a new shell to get started</p>
+      <button class="empty-btn" onclick={addTab}>New Terminal</button>
+    </div>
+  {:else}
+    <div class="terminal-panels">
+      {#each tabs as tab, i}
+        <div class="terminal-container" class:visible={activeTab === i} bind:this={terminalEls[tab.id]}></div>
+      {/each}
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -362,5 +414,65 @@
   }
   .terminal-container :global(.xterm-viewport) {
     overflow-y: auto !important;
+  }
+
+  .tab-label {
+    cursor: default;
+    user-select: none;
+  }
+
+  .tab-rename-input {
+    width: 80px;
+    padding: 1px 4px;
+    font-size: 0.7rem;
+    border: 1px solid var(--accent);
+    border-radius: 3px;
+    background: var(--input-bg);
+    color: var(--text-primary);
+    font-family: inherit;
+    outline: none;
+  }
+
+  .empty-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: var(--text-muted);
+    background: var(--bg-inset);
+  }
+
+  .empty-icon {
+    font-size: 2.5rem;
+    opacity: 0.3;
+  }
+
+  .empty-state p {
+    font-size: 0.9rem;
+  }
+
+  .empty-hint {
+    font-size: 0.75rem !important;
+    color: var(--text-faint);
+  }
+
+  .empty-btn {
+    margin-top: 8px;
+    padding: 8px 20px;
+    font-size: 0.85rem;
+    border-radius: 8px;
+    border: 1px solid var(--accent);
+    background: var(--accent-bg);
+    color: var(--accent);
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s;
+  }
+
+  .empty-btn:hover {
+    background: var(--accent);
+    color: var(--bg-primary);
   }
 </style>
