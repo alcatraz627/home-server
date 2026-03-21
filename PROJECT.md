@@ -183,12 +183,12 @@ As features grow, keep the codebase modular and expandable:
 ### M2.2: Process Manager — Deep Observability
 Architecture note: split process stats into two tiers — **passive** (low-overhead, shown for all rows: CPU, MEM, user, uptime) and **active** (on-demand behind a button: GPU usage, disk I/O, open files, network sockets). Expandable row pattern for detailed view.
 
-- [ ] Expandable process rows — click to reveal detailed stats (open files, network connections, environment)
-- [ ] Active stats tier — on-demand data behind an explicit "inspect" button (GPU via `nvidia-smi`/`powermetrics`, disk I/O via `iotop`/`iostat`, open files via `lsof -p`)
-- [ ] Starred/pinned processes — persist to localStorage, always shown at top of list
-- [ ] Process tree view — parent/child hierarchy via PPID (toggle between flat list and tree)
+- [x] Expandable process rows — click to reveal detailed stats (command, PPID, VSZ, RSS, state)
+- [x] Active stats tier — "Inspect" button fetches open files (lsof), thread count, environment vars
+- [x] Starred/pinned processes — persist to localStorage, always shown at top of list
+- [x] Process tree view — parent/child hierarchy via PPID (toggle between flat list and tree)
 - [ ] Process output viewer — attach to stdout/stderr of a running process (read from `/proc` or `dtrace` on macOS)
-- [ ] Send signals to processes — beyond kill: STOP, CONT, HUP, USR1 via dropdown
+- [x] Send signals to processes — dropdown with TERM, KILL, HUP, INT, STOP, CONT, USR1, USR2
 - [ ] Web-based terminal (SSH) — xterm.js + server-side PTY, accessible from browser like Render's shell (consider node-pty or similar)
 
 ### M3: Backups
@@ -203,7 +203,15 @@ Architecture note: split process stats into two tiers — **passive** (low-overh
 - [ ] Notification pipeline (WhatsApp or ntfy.sh)
 - [ ] First operator tasks: backup monitor, disk space alert
 
+### M2.3: Smart Lights — Enhanced
+- [ ] Pull detailed bulb info on discovery (firmware version, model, signal strength, room/group name)
+- [ ] Bulb naming — allow user-assigned names (stored in metadata/localStorage)
+- [ ] Scene presets — save and recall color/brightness combinations
+- [ ] Group control — control multiple bulbs at once
+- [ ] Bulb status polling — periodic state refresh to detect external changes
+
 ### M5: UI & Polish
+- [ ] Page navigation loading spinner — show immediate spinner on route transitions (SvelteKit `navigating` store)
 - [ ] Design system — reusable components (buttons, cards, tables, modals, inputs, toggles)
 - [ ] Dark / light mode toggle with theme persistence
 - [ ] Transitions and animations (page transitions, loading states, micro-interactions)
