@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { PageData } from './$types';
 	import type { BackupStatus, BackupConfig } from '$lib/server/backups';
+	import { toast } from '$lib/toast';
 
 	let { data } = $props<{ data: PageData }>();
 	// svelte-ignore state_referenced_locally
@@ -26,26 +27,34 @@
 	}
 
 	async function createBackup() {
-		const config = {
-			name: formName,
-			sourcePath: formSource,
-			destPath: formDest,
-			excludes: formExcludes.split('\n').map(s => s.trim()).filter(Boolean),
-			schedule: formSchedule || null
-		};
-		await fetch('/api/backups', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(config)
-		});
-		showForm = false;
-		formName = ''; formSource = ''; formDest = ''; formExcludes = ''; formSchedule = '';
-		await refresh();
+		try {
+			const config = {
+				name: formName,
+				sourcePath: formSource,
+				destPath: formDest,
+				excludes: formExcludes.split('\n').map(s => s.trim()).filter(Boolean),
+				schedule: formSchedule || null
+			};
+			const res = await fetch('/api/backups', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(config)
+			});
+			if (!res.ok) throw new Error('Failed to create backup');
+			showForm = false;
+			formName = ''; formSource = ''; formDest = ''; formExcludes = ''; formSchedule = '';
+			toast.success(`Backup "${config.name}" created`);
+			await refresh();
+		} catch (e: any) {
+			toast.error(e.message || 'Failed to create backup');
+		}
 	}
 
 	async function triggerBackup(configId: string) {
 		runningIds.add(configId);
 		runningIds = new Set(runningIds);
+		const config = statuses.find(s => s.config.id === configId)?.config;
+		toast.info(`Backup "${config?.name || configId}" started`);
 		await fetch('/api/backups', {
 			method: 'PUT',
 			headers: { 'Content-Type': 'application/json' },
@@ -59,6 +68,11 @@
 				clearInterval(poll);
 				runningIds.delete(configId);
 				runningIds = new Set(runningIds);
+				if (status?.lastRun?.status === 'success') {
+					toast.success(`Backup "${config?.name || configId}" completed`);
+				} else if (status?.lastRun?.status === 'failed') {
+					toast.error(`Backup "${config?.name || configId}" failed`);
+				}
 			}
 		}, 2000);
 	}
@@ -75,9 +89,9 @@
 	}
 
 	function statusColor(status: string): string {
-		if (status === 'success') return '#3fb950';
-		if (status === 'failed') return '#f85149';
-		return '#d29922';
+		if (status === 'success') return 'var(--success)';
+		if (status === 'failed') return 'var(--danger)';
+		return 'var(--warning)';
 	}
 </script>
 
@@ -183,7 +197,7 @@
 					</div>
 				{:else}
 					<div class="last-run">
-						<span class="run-status" style="color: #8b949e">Never run</span>
+						<span class="run-status" style="color: var(--text-muted)">Never run</span>
 					</div>
 				{/if}
 			</div>
@@ -195,40 +209,40 @@
 	.header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
 	h2 { font-size: 1.3rem; }
 	.controls { display: flex; gap: 8px; }
-	.btn { padding: 6px 14px; font-size: 0.8rem; border-radius: 6px; border: 1px solid #30363d; background: #21262d; color: #c9d1d9; cursor: pointer; font-family: inherit; }
-	.btn:hover:not(:disabled) { border-color: #58a6ff; }
+	.btn { padding: 6px 14px; font-size: 0.8rem; border-radius: 6px; border: 1px solid var(--border); background: var(--btn-bg); color: var(--text-secondary); cursor: pointer; font-family: inherit; }
+	.btn:hover:not(:disabled) { border-color: var(--accent); }
 	.btn:disabled { opacity: 0.5; cursor: default; }
-	.btn-primary { background: #238636; border-color: #2ea043; color: #fff; margin-top: 12px; }
-	.btn-primary:hover:not(:disabled) { background: #2ea043; border-color: #3fb950; }
+	.btn-primary { background: var(--success); border-color: var(--success); color: #fff; margin-top: 12px; }
+	.btn-primary:hover:not(:disabled) { filter: brightness(1.15); }
 
-	.warning { background: #d299221a; border: 1px solid #d29922; border-radius: 8px; padding: 12px 16px; color: #d29922; font-size: 0.85rem; margin-bottom: 16px; }
+	.warning { background: var(--warning-bg); border: 1px solid var(--warning); border-radius: 8px; padding: 12px 16px; color: var(--warning); font-size: 0.85rem; margin-bottom: 16px; }
 
-	.form-card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 20px; margin-bottom: 16px; }
+	.form-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-bottom: 16px; }
 	.form-card h3 { font-size: 1rem; margin-bottom: 14px; }
 	.form-grid { display: flex; flex-direction: column; gap: 12px; }
 	.form-grid label { display: flex; flex-direction: column; gap: 4px; }
-	.form-grid label span { font-size: 0.75rem; color: #8b949e; text-transform: uppercase; letter-spacing: 0.03em; }
-	.form-grid input, .form-grid textarea { padding: 8px 12px; font-size: 0.85rem; border-radius: 6px; border: 1px solid #30363d; background: #0d1117; color: #e1e4e8; font-family: inherit; }
-	.form-grid input:focus, .form-grid textarea:focus { outline: none; border-color: #58a6ff; }
+	.form-grid label span { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.03em; }
+	.form-grid input, .form-grid textarea { padding: 8px 12px; font-size: 0.85rem; border-radius: 6px; border: 1px solid var(--border); background: var(--input-bg); color: var(--text-primary); font-family: inherit; }
+	.form-grid input:focus, .form-grid textarea:focus { outline: none; border-color: var(--accent); }
 
-	.empty { color: #8b949e; text-align: center; padding: 40px; }
+	.empty { color: var(--text-muted); text-align: center; padding: 40px; }
 
 	.backup-list { display: flex; flex-direction: column; gap: 12px; }
-	.backup-card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; }
+	.backup-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
 	.backup-top { display: flex; justify-content: space-between; align-items: flex-start; }
 	.backup-top h3 { font-size: 1rem; margin-bottom: 6px; }
-	.backup-paths { font-size: 0.8rem; color: #8b949e; margin-bottom: 2px; }
-	.backup-paths code { font-size: 0.8rem; color: #c9d1d9; }
+	.backup-paths { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 2px; }
+	.backup-paths code { font-size: 0.8rem; color: var(--text-secondary); }
 	.path-label { display: inline-block; width: 36px; }
-	.backup-schedule { font-size: 0.75rem; color: var(--accent, #58a6ff); margin-bottom: 2px; }
+	.backup-schedule { font-size: 0.75rem; color: var(--accent); margin-bottom: 2px; }
 	.backup-schedule code { font-size: 0.75rem; }
-	.backup-excludes { font-size: 0.7rem; color: #484f58; margin-top: 4px; }
+	.backup-excludes { font-size: 0.7rem; color: var(--text-faint); margin-top: 4px; }
 
-	.last-run { margin-top: 12px; padding-top: 10px; border-top: 1px solid #21262d; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+	.last-run { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border-subtle); display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 	.run-status { font-size: 0.8rem; font-weight: 500; }
-	.run-time { font-size: 0.75rem; color: #8b949e; }
-	.run-stats { font-size: 0.75rem; color: #8b949e; }
+	.run-time { font-size: 0.75rem; color: var(--text-muted); }
+	.run-stats { font-size: 0.75rem; color: var(--text-muted); }
 	.run-error { margin-top: 8px; width: 100%; }
-	.run-error summary { font-size: 0.75rem; color: #f85149; cursor: pointer; }
-	.run-error pre { font-size: 0.7rem; color: #8b949e; background: #0d1117; padding: 8px; border-radius: 4px; overflow-x: auto; margin-top: 4px; }
+	.run-error summary { font-size: 0.75rem; color: var(--danger); cursor: pointer; }
+	.run-error pre { font-size: 0.7rem; color: var(--text-muted); background: var(--code-bg); padding: 8px; border-radius: 4px; overflow-x: auto; margin-top: 4px; }
 </style>

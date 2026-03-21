@@ -95,8 +95,8 @@
 	}
 
 	.card {
-		background: #161b22;
-		border: 1px solid #30363d;
+		background: var(--bg-secondary);
+		border: 1px solid var(--border);
 		border-radius: 8px;
 		padding: 20px;
 		text-decoration: none;
@@ -106,7 +106,7 @@
 	}
 
 	.card:hover:not(.disabled) {
-		border-color: #58a6ff;
+		border-color: var(--accent);
 	}
 
 	.card.disabled {
@@ -121,7 +121,7 @@
 
 	.card p {
 		font-size: 0.85rem;
-		color: #8b949e;
+		color: var(--text-muted);
 	}
 
 	.badge {
@@ -130,7 +130,7 @@
 		font-size: 0.7rem;
 		padding: 3px 8px;
 		border-radius: 12px;
-		background: #30363d;
-		color: #8b949e;
+		background: var(--border);
+		color: var(--text-muted);
 	}
 </style>

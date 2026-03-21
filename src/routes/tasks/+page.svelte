@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { PageData } from './$types';
 	import type { TaskStatus } from '$lib/server/operator';
+	import { toast } from '$lib/toast';
 
 	let { data } = $props<{ data: PageData }>();
 	// svelte-ignore state_referenced_locally
@@ -168,24 +169,32 @@
 	}
 
 	async function createTask() {
-		await fetch('/api/tasks', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({
-				name: formName,
-				command: formCommand,
-				timeout: formTimeout,
-				maxRetries: formRetries,
-				schedule: formSchedule || null
-			})
-		});
-		showForm = false;
-		formName = ''; formCommand = ''; formTimeout = 300; formRetries = 3; formSchedule = '';
-		await refresh();
+		try {
+			const res = await fetch('/api/tasks', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					name: formName,
+					command: formCommand,
+					timeout: formTimeout,
+					maxRetries: formRetries,
+					schedule: formSchedule || null
+				})
+			});
+			if (!res.ok) throw new Error('Failed to create task');
+			toast.success(`Task "${formName}" created`);
+			showForm = false;
+			formName = ''; formCommand = ''; formTimeout = 300; formRetries = 3; formSchedule = '';
+			await refresh();
+		} catch (e: any) {
+			toast.error(e.message || 'Failed to create task');
+		}
 	}
 
 	async function runTask(taskId: string) {
-		expandedTask = taskId; // Auto-expand log
+		expandedTask = taskId;
+		const taskName = statuses.find(s => s.config.id === taskId)?.config.name || taskId;
+		toast.info(`Running "${taskName}"...`);
 		await fetch('/api/tasks', {
 			method: 'PUT',
 			headers: { 'Content-Type': 'application/json' },
@@ -194,7 +203,11 @@
 		const poll = setInterval(async () => {
 			await refresh();
 			const s = statuses.find(s => s.config.id === taskId);
-			if (!s?.isRunning) clearInterval(poll);
+			if (!s?.isRunning) {
+				clearInterval(poll);
+				if (s?.lastRun?.status === 'success') toast.success(`"${taskName}" completed`);
+				else if (s?.lastRun?.status) toast.error(`"${taskName}" ${s.lastRun.status}`);
+			}
 		}, 1000);
 	}
 
@@ -206,12 +219,17 @@
 	}
 
 	async function deleteTask(id: string) {
-		await fetch('/api/tasks', {
-			method: 'DELETE',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ id })
-		});
-		await refresh();
+		try {
+			await fetch('/api/tasks', {
+				method: 'DELETE',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ id })
+			});
+			toast.success('Task deleted');
+			await refresh();
+		} catch {
+			toast.error('Failed to delete task');
+		}
 	}
 
 	function formatDuration(ms: number): string {
@@ -221,9 +239,9 @@
 	}
 
 	function statusColor(status: string): string {
-		if (status === 'success') return '#3fb950';
-		if (status === 'failed' || status === 'timeout') return '#f85149';
-		return '#d29922';
+		if (status === 'success') return 'var(--success)';
+		if (status === 'failed' || status === 'timeout') return 'var(--danger)';
+		return 'var(--warning)';
 	}
 </script>
 
@@ -253,7 +271,7 @@
 				<div class="disk-item">
 					<span class="disk-mount">{d.mount}</span>
 					<div class="disk-bar">
-						<div class="disk-fill" style="width: {d.usePercent}; background: {parseInt(d.usePercent) > 90 ? '#f85149' : parseInt(d.usePercent) > 70 ? '#d29922' : '#3fb950'}"></div>
+						<div class="disk-fill" style="width: {d.usePercent}; background: {parseInt(d.usePercent) > 90 ? 'var(--danger)' : parseInt(d.usePercent) > 70 ? 'var(--warning)' : 'var(--success)'}"></div>
 					</div>
 					<span class="disk-info">{d.used} / {d.total} ({d.usePercent})</span>
 				</div>
@@ -432,101 +450,101 @@
 	.header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
 	h2 { font-size: 1.3rem; }
 	.controls { display: flex; gap: 8px; }
-	.btn { padding: 6px 14px; font-size: 0.8rem; border-radius: 6px; border: 1px solid #30363d; background: #21262d; color: #c9d1d9; cursor: pointer; font-family: inherit; }
-	.btn:hover:not(:disabled) { border-color: #58a6ff; }
+	.btn { padding: 6px 14px; font-size: 0.8rem; border-radius: 6px; border: 1px solid var(--border); background: var(--btn-bg); color: var(--text-secondary); cursor: pointer; font-family: inherit; }
+	.btn:hover:not(:disabled) { border-color: var(--accent); }
 	.btn:disabled { opacity: 0.5; cursor: default; }
 	.btn-sm { padding: 4px 10px; font-size: 0.75rem; }
-	.btn-primary { background: var(--success, #238636); border-color: var(--success, #2ea043); color: #fff; }
+	.btn-primary { background: var(--success); border-color: var(--success); color: #fff; }
 	.btn-primary:hover:not(:disabled) { filter: brightness(1.15); }
-	.btn-danger:hover { border-color: var(--danger, #f85149); color: var(--danger, #f85149); }
+	.btn-danger:hover { border-color: var(--danger); color: var(--danger); }
 
 	/* Form improvements */
 	.command-input { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; resize: vertical; min-height: 60px; }
 	.command-warnings { display: flex; flex-direction: column; gap: 4px; }
-	.warning-item { font-size: 0.75rem; color: var(--warning, #d29922); padding: 4px 8px; background: var(--warning-bg, rgba(210,153,34,0.1)); border-radius: 4px; }
+	.warning-item { font-size: 0.75rem; color: var(--warning); padding: 4px 8px; background: var(--warning-bg); border-radius: 4px; }
 
-	.form-section { display: flex; flex-direction: column; gap: 6px; padding-top: 8px; border-top: 1px solid var(--border-subtle, #21262d); }
-	.form-section-label { font-size: 0.75rem; color: var(--text-muted, #8b949e); text-transform: uppercase; letter-spacing: 0.03em; }
+	.form-section { display: flex; flex-direction: column; gap: 6px; padding-top: 8px; border-top: 1px solid var(--border-subtle); }
+	.form-section-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.03em; }
 	.preset-row { display: flex; flex-wrap: wrap; gap: 4px; }
-	.preset-btn { padding: 3px 10px; font-size: 0.7rem; border-radius: 12px; border: 1px solid var(--border, #30363d); background: var(--btn-bg, #21262d); color: var(--text-muted, #8b949e); cursor: pointer; font-family: inherit; transition: all 0.15s; }
-	.preset-btn:hover { border-color: var(--accent, #58a6ff); color: var(--text-primary, #e1e4e8); }
-	.preset-btn.active { background: var(--accent-bg); border-color: var(--accent, #58a6ff); color: var(--accent, #58a6ff); }
+	.preset-btn { padding: 3px 10px; font-size: 0.7rem; border-radius: 12px; border: 1px solid var(--border); background: var(--btn-bg); color: var(--text-muted); cursor: pointer; font-family: inherit; transition: all 0.15s; }
+	.preset-btn:hover { border-color: var(--accent); color: var(--text-primary); }
+	.preset-btn.active { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); }
 	.form-actions { display: flex; gap: 8px; margin-top: 12px; }
 
 	/* Task search bar */
 	.task-search-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
-	.task-search { flex: 1; padding: 7px 12px; font-size: 0.8rem; border-radius: 6px; border: 1px solid var(--border, #30363d); background: var(--input-bg, #0d1117); color: var(--text-primary, #e1e4e8); font-family: inherit; }
-	.task-search:focus { outline: none; border-color: var(--accent, #58a6ff); }
-	.task-count { font-size: 0.75rem; color: var(--text-muted, #8b949e); white-space: nowrap; }
+	.task-search { flex: 1; padding: 7px 12px; font-size: 0.8rem; border-radius: 6px; border: 1px solid var(--border); background: var(--input-bg); color: var(--text-primary); font-family: inherit; }
+	.task-search:focus { outline: none; border-color: var(--accent); }
+	.task-count { font-size: 0.75rem; color: var(--text-muted); white-space: nowrap; }
 
-	.disk-section { margin-bottom: 20px; padding: 14px; background: #161b22; border: 1px solid #30363d; border-radius: 8px; }
-	.disk-section h3 { font-size: 0.85rem; color: #8b949e; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.03em; }
+	.disk-section { margin-bottom: 20px; padding: 14px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; }
+	.disk-section h3 { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.03em; }
 	.disk-grid { display: flex; flex-direction: column; gap: 8px; }
 	.disk-item { display: flex; align-items: center; gap: 10px; font-size: 0.8rem; }
-	.disk-mount { width: 120px; font-family: monospace; font-size: 0.75rem; color: #c9d1d9; overflow: hidden; text-overflow: ellipsis; }
-	.disk-bar { flex: 1; height: 8px; background: #21262d; border-radius: 4px; overflow: hidden; }
+	.disk-mount { width: 120px; font-family: monospace; font-size: 0.75rem; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; }
+	.disk-bar { flex: 1; height: 8px; background: var(--btn-bg); border-radius: 4px; overflow: hidden; }
 	.disk-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
-	.disk-info { font-size: 0.7rem; color: #8b949e; width: 140px; text-align: right; }
+	.disk-info { font-size: 0.7rem; color: var(--text-muted); width: 140px; text-align: right; }
 
-	.form-card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 20px; margin-bottom: 16px; }
+	.form-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-bottom: 16px; }
 	.form-card h3 { font-size: 1rem; margin-bottom: 14px; }
 	.form-grid { display: flex; flex-direction: column; gap: 12px; }
 	.form-grid label { display: flex; flex-direction: column; gap: 4px; }
-	.form-grid label span { font-size: 0.75rem; color: #8b949e; text-transform: uppercase; }
-	.form-grid input { padding: 8px 12px; font-size: 0.85rem; border-radius: 6px; border: 1px solid #30363d; background: #0d1117; color: #e1e4e8; font-family: inherit; }
-	.form-grid input:focus { outline: none; border-color: #58a6ff; }
+	.form-grid label span { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; }
+	.form-grid input { padding: 8px 12px; font-size: 0.85rem; border-radius: 6px; border: 1px solid var(--border); background: var(--input-bg); color: var(--text-primary); font-family: inherit; }
+	.form-grid input:focus { outline: none; border-color: var(--accent); }
 	.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
-	.empty { color: #8b949e; text-align: center; padding: 40px; }
+	.empty { color: var(--text-muted); text-align: center; padding: 40px; }
 	.task-list { display: flex; flex-direction: column; gap: 10px; }
-	.task-card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 14px 16px; }
+	.task-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; }
 	.task-top { display: flex; justify-content: space-between; align-items: flex-start; }
 	.task-info h3 { font-size: 0.95rem; margin-bottom: 4px; }
-	.task-command { font-size: 0.75rem; color: #8b949e; display: block; margin-bottom: 4px; }
-	.task-meta { font-size: 0.7rem; color: #484f58; }
-	.task-schedule { color: var(--accent, #58a6ff); }
+	.task-command { font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 4px; }
+	.task-meta { font-size: 0.7rem; color: var(--text-faint); }
+	.task-schedule { color: var(--accent); }
 
 	.template-section { margin-bottom: 16px; }
 	.template-filters { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
-	.template-search { padding: 7px 12px; font-size: 0.8rem; border-radius: 6px; border: 1px solid var(--border, #30363d); background: var(--input-bg, #0d1117); color: var(--text-primary, #e1e4e8); font-family: inherit; }
-	.template-search:focus { outline: none; border-color: var(--accent, #58a6ff); }
+	.template-search { padding: 7px 12px; font-size: 0.8rem; border-radius: 6px; border: 1px solid var(--border); background: var(--input-bg); color: var(--text-primary); font-family: inherit; }
+	.template-search:focus { outline: none; border-color: var(--accent); }
 
 	.tag-bar { display: flex; flex-wrap: wrap; gap: 4px; }
-	.tag-btn { padding: 3px 10px; font-size: 0.7rem; border-radius: 12px; border: 1px solid var(--border, #30363d); background: var(--btn-bg, #21262d); color: var(--text-muted, #8b949e); cursor: pointer; font-family: inherit; transition: all 0.15s; }
-	.tag-btn:hover { border-color: var(--accent, #58a6ff); color: var(--text-primary, #e1e4e8); }
-	.tag-btn.active { background: var(--accent-bg); border-color: var(--accent, #58a6ff); color: var(--accent, #58a6ff); }
+	.tag-btn { padding: 3px 10px; font-size: 0.7rem; border-radius: 12px; border: 1px solid var(--border); background: var(--btn-bg); color: var(--text-muted); cursor: pointer; font-family: inherit; transition: all 0.15s; }
+	.tag-btn:hover { border-color: var(--accent); color: var(--text-primary); }
+	.tag-btn.active { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); }
 
 	.template-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
-	.template-card { background: var(--bg-secondary, #161b22); border: 1px solid var(--border, #30363d); border-radius: 8px; padding: 12px 14px; text-align: left; cursor: pointer; display: flex; flex-direction: column; gap: 4px; font-family: inherit; color: var(--text-primary, #e1e4e8); transition: border-color 0.15s; }
-	.template-card:hover { border-color: var(--accent, #58a6ff); }
+	.template-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; text-align: left; cursor: pointer; display: flex; flex-direction: column; gap: 4px; font-family: inherit; color: var(--text-primary); transition: border-color 0.15s; }
+	.template-card:hover { border-color: var(--accent); }
 	.template-card strong { font-size: 0.85rem; }
-	.template-desc { font-size: 0.75rem; color: var(--text-muted, #8b949e); line-height: 1.4; }
-	.template-cmd { font-size: 0.65rem; color: var(--text-faint, #484f58); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: var(--code-bg, #0d1117); padding: 4px 6px; border-radius: 3px; margin-top: 2px; }
+	.template-desc { font-size: 0.75rem; color: var(--text-muted); line-height: 1.4; }
+	.template-cmd { font-size: 0.65rem; color: var(--text-faint); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: var(--code-bg); padding: 4px 6px; border-radius: 3px; margin-top: 2px; }
 	.template-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; }
 	.template-tags { display: flex; gap: 4px; flex-wrap: wrap; }
-	.template-tag { font-size: 0.6rem; padding: 1px 6px; border-radius: 8px; background: var(--bg-hover, #1f2937); color: var(--text-muted, #8b949e); }
-	.template-schedule { font-size: 0.6rem; color: var(--accent, #58a6ff); font-family: 'JetBrains Mono', monospace; }
-	.template-empty { text-align: center; color: var(--text-muted, #8b949e); padding: 20px; font-size: 0.85rem; }
+	.template-tag { font-size: 0.6rem; padding: 1px 6px; border-radius: 8px; background: var(--bg-hover); color: var(--text-muted); }
+	.template-schedule { font-size: 0.6rem; color: var(--accent); font-family: 'JetBrains Mono', monospace; }
+	.template-empty { text-align: center; color: var(--text-muted); padding: 20px; font-size: 0.85rem; }
 
 	.template-pagination { display: flex; justify-content: center; align-items: center; gap: 12px; margin-top: 12px; }
-	.tool-btn { padding: 4px 12px; font-size: 0.75rem; border-radius: 6px; border: 1px solid var(--border, #30363d); background: var(--btn-bg, #21262d); color: var(--text-muted, #8b949e); cursor: pointer; font-family: inherit; }
-	.tool-btn:hover:not(:disabled) { border-color: var(--accent, #58a6ff); }
+	.tool-btn { padding: 4px 12px; font-size: 0.75rem; border-radius: 6px; border: 1px solid var(--border); background: var(--btn-bg); color: var(--text-muted); cursor: pointer; font-family: inherit; }
+	.tool-btn:hover:not(:disabled) { border-color: var(--accent); }
 	.tool-btn:disabled { opacity: 0.4; cursor: default; }
-	.page-info { font-size: 0.7rem; color: var(--text-faint, #484f58); }
+	.page-info { font-size: 0.7rem; color: var(--text-faint); }
 	.task-actions { display: flex; gap: 6px; }
 
-	.last-run { display: flex; align-items: center; gap: 8px; margin-top: 10px; padding-top: 8px; border-top: 1px solid #21262d; }
+	.last-run { display: flex; align-items: center; gap: 8px; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border-subtle); }
 	.run-dot { font-size: 0.6rem; }
 	.run-status { font-size: 0.8rem; }
-	.run-duration { font-size: 0.75rem; color: #8b949e; }
-	.run-attempt { font-size: 0.7rem; color: #484f58; }
+	.run-duration { font-size: 0.75rem; color: var(--text-muted); }
+	.run-attempt { font-size: 0.7rem; color: var(--text-faint); }
 
 	.task-output { margin-top: 8px; }
 	.output-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
-	.output-label { font-size: 0.7rem; color: var(--text-muted, #8b949e); text-transform: uppercase; letter-spacing: 0.03em; display: flex; align-items: center; gap: 6px; }
-	.output-spinner { display: inline-block; width: 8px; height: 8px; border: 2px solid var(--border, #30363d); border-top-color: var(--accent, #58a6ff); border-radius: 50%; animation: spin 0.8s linear infinite; }
+	.output-label { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.03em; display: flex; align-items: center; gap: 6px; }
+	.output-spinner { display: inline-block; width: 8px; height: 8px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
 	@keyframes spin { to { transform: rotate(360deg); } }
-	.copy-btn { padding: 2px 8px; font-size: 0.65rem; border-radius: 4px; border: 1px solid var(--border, #30363d); background: var(--btn-bg, #21262d); color: var(--text-muted, #8b949e); cursor: pointer; font-family: inherit; }
-	.copy-btn:hover { border-color: var(--accent, #58a6ff); color: var(--text-primary, #e1e4e8); }
-	.task-output pre { background: var(--code-bg, #0d1117); padding: 10px; border-radius: 6px; font-size: 0.7rem; max-height: 300px; overflow: auto; color: var(--text-muted, #8b949e); white-space: pre-wrap; word-break: break-all; }
+	.copy-btn { padding: 2px 8px; font-size: 0.65rem; border-radius: 4px; border: 1px solid var(--border); background: var(--btn-bg); color: var(--text-muted); cursor: pointer; font-family: inherit; }
+	.copy-btn:hover { border-color: var(--accent); color: var(--text-primary); }
+	.task-output pre { background: var(--code-bg); padding: 10px; border-radius: 6px; font-size: 0.7rem; max-height: 300px; overflow: auto; color: var(--text-muted); white-space: pre-wrap; word-break: break-all; }
 </style>

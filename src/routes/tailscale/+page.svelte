@@ -76,15 +76,15 @@
 		padding: 6px 14px;
 		font-size: 0.8rem;
 		border-radius: 6px;
-		border: 1px solid #30363d;
-		background: #21262d;
-		color: #c9d1d9;
+		border: 1px solid var(--border);
+		background: var(--btn-bg);
+		color: var(--text-secondary);
 		cursor: pointer;
 		font-family: inherit;
 	}
 
 	.btn:hover:not(:disabled) {
-		border-color: #58a6ff;
+		border-color: var(--accent);
 	}
 
 	.btn:disabled {
@@ -93,19 +93,19 @@
 	}
 
 	.error {
-		color: #f85149;
+		color: var(--danger);
 		margin-bottom: 12px;
 		font-size: 0.85rem;
 	}
 
 	.empty {
-		color: #8b949e;
+		color: var(--text-muted);
 		text-align: center;
 		padding: 40px;
 	}
 
 	.device-list {
-		border: 1px solid #30363d;
+		border: 1px solid var(--border);
 		border-radius: 8px;
 		overflow: hidden;
 	}
@@ -120,24 +120,24 @@
 	}
 
 	.device-header {
-		background: #161b22;
+		background: var(--bg-secondary);
 		font-size: 0.75rem;
-		color: #8b949e;
+		color: var(--text-muted);
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
 	}
 
 	.device-row {
-		border-top: 1px solid #21262d;
+		border-top: 1px solid var(--border-subtle);
 		font-size: 0.85rem;
 	}
 
 	.device-row:hover {
-		background: #161b22;
+		background: var(--bg-secondary);
 	}
 
 	.device-row.self {
-		background: rgba(88, 166, 255, 0.05);
+		background: var(--accent-bg);
 	}
 
 	.dot {
@@ -145,30 +145,30 @@
 		width: 8px;
 		height: 8px;
 		border-radius: 50%;
-		background: #484f58;
+		background: var(--text-faint);
 	}
 
 	.dot.online {
-		background: #3fb950;
+		background: var(--success);
 	}
 
 	.tag {
 		font-size: 0.65rem;
 		padding: 2px 6px;
 		border-radius: 10px;
-		background: #1f6feb33;
-		color: #58a6ff;
+		background: var(--accent-bg);
+		color: var(--accent);
 		margin-left: 6px;
 		vertical-align: middle;
 	}
 
 	code {
 		font-size: 0.8rem;
-		color: #8b949e;
+		color: var(--text-muted);
 	}
 
 	.col-os {
-		color: #8b949e;
+		color: var(--text-muted);
 		font-size: 0.8rem;
 	}
 

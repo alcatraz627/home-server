@@ -228,9 +228,9 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		border-bottom: 1px solid var(--border, #30363d);
+		border-bottom: 1px solid var(--border);
 		flex-shrink: 0;
-		background: var(--bg-secondary, #161b22);
+		background: var(--bg-secondary);
 	}
 
 	.tab-bar {
@@ -243,9 +243,9 @@
 		padding: 8px 14px;
 		font-size: 0.75rem;
 		border: none;
-		border-right: 1px solid var(--border, #30363d);
+		border-right: 1px solid var(--border);
 		background: transparent;
-		color: var(--text-muted, #8b949e);
+		color: var(--text-muted);
 		cursor: pointer;
 		display: flex;
 		align-items: center;
@@ -254,28 +254,28 @@
 		font-family: inherit;
 	}
 
-	.tab:hover { background: var(--bg-hover, #1f2937); }
-	.tab.active { background: var(--bg-inset, #0d1117); color: var(--text-primary, #e1e4e8); }
+	.tab:hover { background: var(--bg-hover); }
+	.tab.active { background: var(--bg-inset); color: var(--text-primary); }
 
 	.tab-dot {
 		width: 6px; height: 6px; border-radius: 50%;
-		background: var(--danger, #f85149);
+		background: var(--danger);
 	}
-	.tab-dot.connected { background: var(--success, #3fb950); }
+	.tab-dot.connected { background: var(--success); }
 
 	.tab-close {
-		background: none; border: none; color: var(--text-faint, #484f58);
+		background: none; border: none; color: var(--text-faint);
 		font-size: 0.9rem; cursor: pointer; padding: 0 2px; line-height: 1;
 	}
-	.tab-close:hover { color: var(--danger, #f85149); }
+	.tab-close:hover { color: var(--danger); }
 
 	.tab-add {
 		border-right: none;
 		font-size: 1rem;
-		color: var(--text-faint, #484f58);
+		color: var(--text-faint);
 		padding: 8px 12px;
 	}
-	.tab-add:hover { color: var(--accent, #58a6ff); }
+	.tab-add:hover { color: var(--accent); }
 
 	.toolbar {
 		display: flex;
@@ -288,17 +288,17 @@
 		padding: 4px 8px;
 		font-size: 0.7rem;
 		border-radius: 4px;
-		border: 1px solid var(--border, #30363d);
-		background: var(--btn-bg, #21262d);
-		color: var(--text-muted, #8b949e);
+		border: 1px solid var(--border);
+		background: var(--btn-bg);
+		color: var(--text-muted);
 		cursor: pointer;
 		font-family: inherit;
 	}
-	.tool-btn:hover { border-color: var(--accent, #58a6ff); color: var(--text-primary, #e1e4e8); }
+	.tool-btn:hover { border-color: var(--accent); color: var(--text-primary); }
 
 	.font-size {
 		font-size: 0.65rem;
-		color: var(--text-faint, #484f58);
+		color: var(--text-faint);
 		font-family: 'JetBrains Mono', monospace;
 		min-width: 30px;
 		text-align: center;
@@ -313,7 +313,7 @@
 	.terminal-container {
 		position: absolute;
 		inset: 0;
-		background: #0d1117;
+		background: var(--bg-inset);
 		padding: 8px;
 		display: none;
 	}

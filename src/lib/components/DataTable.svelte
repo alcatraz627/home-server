@@ -168,31 +168,31 @@
 		padding: 6px 12px;
 		font-size: 0.8rem;
 		border-radius: 6px;
-		border: 1px solid #30363d;
-		background: #0d1117;
-		color: #e1e4e8;
+		border: 1px solid var(--border);
+		background: var(--input-bg);
+		color: var(--text-primary);
 		font-family: inherit;
 	}
 
 	.dt-search:focus {
 		outline: none;
-		border-color: #58a6ff;
+		border-color: var(--accent);
 	}
 
 	.dt-btn {
 		padding: 5px 12px;
 		font-size: 0.75rem;
 		border-radius: 6px;
-		border: 1px solid #30363d;
-		background: #21262d;
-		color: #c9d1d9;
+		border: 1px solid var(--border);
+		background: var(--btn-bg);
+		color: var(--text-secondary);
 		cursor: pointer;
 		font-family: inherit;
 		white-space: nowrap;
 	}
 
 	.dt-btn:hover:not(:disabled) {
-		border-color: #58a6ff;
+		border-color: var(--accent);
 	}
 
 	.dt-btn:disabled {
@@ -201,20 +201,20 @@
 	}
 
 	.dt-btn.active {
-		border-color: #58a6ff;
-		color: #58a6ff;
+		border-color: var(--accent);
+		color: var(--accent);
 	}
 
 	.dt-info {
 		font-size: 0.75rem;
-		color: #8b949e;
+		color: var(--text-muted);
 		white-space: nowrap;
 	}
 
 	.dt-wrapper {
 		overflow: auto;
 		max-height: 60vh;
-		border: 1px solid #30363d;
+		border: 1px solid var(--border);
 		border-radius: 8px;
 	}
 
@@ -231,12 +231,12 @@
 	}
 
 	.dt-table th {
-		background: #161b22;
-		color: #8b949e;
+		background: var(--table-header-bg);
+		color: var(--text-muted);
 		font-weight: 500;
 		padding: 8px 10px;
 		text-align: left;
-		border-bottom: 1px solid #30363d;
+		border-bottom: 1px solid var(--border);
 		cursor: pointer;
 		user-select: none;
 		white-space: nowrap;
@@ -246,7 +246,7 @@
 	}
 
 	.dt-table th:hover {
-		color: #e1e4e8;
+		color: var(--text-primary);
 	}
 
 	.dt-filter-row th {
@@ -259,20 +259,20 @@
 		padding: 3px 6px;
 		font-size: 0.75rem;
 		border-radius: 4px;
-		border: 1px solid #30363d;
-		background: #0d1117;
-		color: #e1e4e8;
+		border: 1px solid var(--border);
+		background: var(--input-bg);
+		color: var(--text-primary);
 		font-family: inherit;
 	}
 
 	.dt-col-filter:focus {
 		outline: none;
-		border-color: #58a6ff;
+		border-color: var(--accent);
 	}
 
 	.dt-table td {
 		padding: 6px 10px;
-		border-top: 1px solid #21262d;
+		border-top: 1px solid var(--border-subtle);
 		max-width: 300px;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -280,12 +280,12 @@
 	}
 
 	.dt-table tbody tr:hover td {
-		background: #161b22;
+		background: var(--bg-secondary);
 	}
 
 	.dt-empty {
 		text-align: center;
-		color: #8b949e;
+		color: var(--text-muted);
 		padding: 24px 10px !important;
 	}
 
@@ -299,7 +299,7 @@
 
 	.dt-page-info {
 		font-size: 0.75rem;
-		color: #8b949e;
+		color: var(--text-muted);
 		min-width: 100px;
 		text-align: center;
 	}

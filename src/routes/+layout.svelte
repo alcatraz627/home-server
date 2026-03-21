@@ -5,6 +5,7 @@
 	import { navigating, page } from '$app/stores';
 	import { onMount } from 'svelte';
 	import { theme, toggleTheme, initTheme } from '$lib/theme';
+	import Toast from '$lib/components/Toast.svelte';
 
 	let { data, children } = $props<{ data: LayoutData; children: any }>();
 	let sidebarOpen = $state(false);
@@ -68,6 +69,8 @@
 		</main>
 	</div>
 </div>
+
+<Toast />
 
 <style>
 	.app {
