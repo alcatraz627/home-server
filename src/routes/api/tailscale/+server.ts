@@ -3,6 +3,6 @@ import { getTailscaleStatus } from '$lib/server/tailscale';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async () => {
-	const result = getTailscaleStatus();
-	return json(result);
+  const result = getTailscaleStatus();
+  return json(result);
 };

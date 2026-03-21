@@ -5,43 +5,43 @@ import type { RequestHandler } from './$types';
 
 /** Get all task statuses + disk usage */
 export const GET: RequestHandler = async () => {
-	const statuses = await getTaskStatuses();
-	const disk = getSystemDiskUsage();
-	return json({ statuses, disk });
+  const statuses = await getTaskStatuses();
+  const disk = getSystemDiskUsage();
+  return json({ statuses, disk });
 };
 
 /** Create or update a task config */
 export const POST: RequestHandler = async ({ request }) => {
-	const body = await request.json();
-	const config: TaskConfig = {
-		id: body.id || Math.random().toString(36).slice(2, 10),
-		name: body.name,
-		command: body.command,
-		cwd: body.cwd || undefined,
-		schedule: body.schedule || null,
-		timeout: body.timeout || 300,
-		maxRetries: body.maxRetries ?? 3,
-		notify: body.notify ?? true,
-		enabled: body.enabled ?? true
-	};
-	await saveTaskConfig(config);
-	return json(config, { status: 201 });
+  const body = await request.json();
+  const config: TaskConfig = {
+    id: body.id || Math.random().toString(36).slice(2, 10),
+    name: body.name,
+    command: body.command,
+    cwd: body.cwd || undefined,
+    schedule: body.schedule || null,
+    timeout: body.timeout || 300,
+    maxRetries: body.maxRetries ?? 3,
+    notify: body.notify ?? true,
+    enabled: body.enabled ?? true,
+  };
+  await saveTaskConfig(config);
+  return json(config, { status: 201 });
 };
 
 /** Trigger a task run */
 export const PUT: RequestHandler = async ({ request }) => {
-	const { taskId } = await request.json();
-	try {
-		const run = await runTask(taskId);
-		return json(run);
-	} catch (err: any) {
-		return json({ error: err.message }, { status: 400 });
-	}
+  const { taskId } = await request.json();
+  try {
+    const run = await runTask(taskId);
+    return json(run);
+  } catch (err: any) {
+    return json({ error: err.message }, { status: 400 });
+  }
 };
 
 /** Delete a task config */
 export const DELETE: RequestHandler = async ({ request }) => {
-	const { id } = await request.json();
-	await deleteTaskConfig(id);
-	return new Response(null, { status: 204 });
+  const { id } = await request.json();
+  await deleteTaskConfig(id);
+  return new Response(null, { status: 204 });
 };

@@ -5,32 +5,32 @@ import path from 'node:path';
 import os from 'node:os';
 
 export interface BackupConfig {
-	id: string;
-	name: string;
-	sourcePath: string;
-	destPath: string;
-	/** Cron expression or null for manual-only */
-	schedule: string | null;
-	/** rsync exclude patterns */
-	excludes: string[];
-	enabled: boolean;
+  id: string;
+  name: string;
+  sourcePath: string;
+  destPath: string;
+  /** Cron expression or null for manual-only */
+  schedule: string | null;
+  /** rsync exclude patterns */
+  excludes: string[];
+  enabled: boolean;
 }
 
 export interface BackupRun {
-	id: string;
-	configId: string;
-	startedAt: string;
-	completedAt: string | null;
-	status: 'running' | 'success' | 'failed';
-	filesTransferred: number;
-	bytesTransferred: number;
-	error: string | null;
+  id: string;
+  configId: string;
+  startedAt: string;
+  completedAt: string | null;
+  status: 'running' | 'success' | 'failed';
+  filesTransferred: number;
+  bytesTransferred: number;
+  error: string | null;
 }
 
 export interface BackupStatus {
-	config: BackupConfig;
-	lastRun: BackupRun | null;
-	nextRun: string | null;
+  config: BackupConfig;
+  lastRun: BackupRun | null;
+  nextRun: string | null;
 }
 
 const CONFIG_DIR = path.join(os.homedir(), '.home-server');
@@ -41,132 +41,153 @@ const HISTORY_FILE = path.join(CONFIG_DIR, 'backup-history.json');
 const runningBackups = new Map<string, { process: any; run: BackupRun }>();
 
 async function ensureConfigDir(): Promise<void> {
-	await fs.mkdir(CONFIG_DIR, { recursive: true });
+  await fs.mkdir(CONFIG_DIR, { recursive: true });
 }
 
 // --- Config ---
 
 export async function getBackupConfigs(): Promise<BackupConfig[]> {
-	await ensureConfigDir();
-	if (!existsSync(CONFIG_FILE)) return [];
-	try { return JSON.parse(readFileSync(CONFIG_FILE, 'utf-8')); }
-	catch { return []; }
+  await ensureConfigDir();
+  if (!existsSync(CONFIG_FILE)) return [];
+  try {
+    return JSON.parse(readFileSync(CONFIG_FILE, 'utf-8'));
+  } catch {
+    return [];
+  }
 }
 
 export async function saveBackupConfig(config: BackupConfig): Promise<void> {
-	const configs = await getBackupConfigs();
-	const idx = configs.findIndex(c => c.id === config.id);
-	if (idx >= 0) configs[idx] = config;
-	else configs.push(config);
-	await fs.writeFile(CONFIG_FILE, JSON.stringify(configs, null, 2));
+  const configs = await getBackupConfigs();
+  const idx = configs.findIndex((c) => c.id === config.id);
+  if (idx >= 0) configs[idx] = config;
+  else configs.push(config);
+  await fs.writeFile(CONFIG_FILE, JSON.stringify(configs, null, 2));
 }
 
 export async function deleteBackupConfig(id: string): Promise<void> {
-	const configs = await getBackupConfigs();
-	await fs.writeFile(CONFIG_FILE, JSON.stringify(configs.filter(c => c.id !== id), null, 2));
+  const configs = await getBackupConfigs();
+  await fs.writeFile(
+    CONFIG_FILE,
+    JSON.stringify(
+      configs.filter((c) => c.id !== id),
+      null,
+      2,
+    ),
+  );
 }
 
 // --- History ---
 
 export async function getBackupHistory(): Promise<BackupRun[]> {
-	await ensureConfigDir();
-	if (!existsSync(HISTORY_FILE)) return [];
-	try { return JSON.parse(readFileSync(HISTORY_FILE, 'utf-8')); }
-	catch { return []; }
+  await ensureConfigDir();
+  if (!existsSync(HISTORY_FILE)) return [];
+  try {
+    return JSON.parse(readFileSync(HISTORY_FILE, 'utf-8'));
+  } catch {
+    return [];
+  }
 }
 
 async function appendHistory(run: BackupRun): Promise<void> {
-	const history = await getBackupHistory();
-	const idx = history.findIndex(r => r.id === run.id);
-	if (idx >= 0) history[idx] = run;
-	else history.push(run);
-	// Keep last 100 runs
-	const trimmed = history.slice(-100);
-	await fs.writeFile(HISTORY_FILE, JSON.stringify(trimmed, null, 2));
+  const history = await getBackupHistory();
+  const idx = history.findIndex((r) => r.id === run.id);
+  if (idx >= 0) history[idx] = run;
+  else history.push(run);
+  // Keep last 100 runs
+  const trimmed = history.slice(-100);
+  await fs.writeFile(HISTORY_FILE, JSON.stringify(trimmed, null, 2));
 }
 
 // --- Status ---
 
 export async function getBackupStatuses(): Promise<BackupStatus[]> {
-	const configs = await getBackupConfigs();
-	const history = await getBackupHistory();
+  const configs = await getBackupConfigs();
+  const history = await getBackupHistory();
 
-	return configs.map(config => {
-		const runs = history.filter(r => r.configId === config.id);
-		const lastRun = runs.length > 0 ? runs[runs.length - 1] : null;
-		// Check if currently running
-		const running = runningBackups.get(config.id);
-		return {
-			config,
-			lastRun: running ? running.run : lastRun,
-			nextRun: config.schedule ? 'scheduled' : null
-		};
-	});
+  return configs.map((config) => {
+    const runs = history.filter((r) => r.configId === config.id);
+    const lastRun = runs.length > 0 ? runs[runs.length - 1] : null;
+    // Check if currently running
+    const running = runningBackups.get(config.id);
+    return {
+      config,
+      lastRun: running ? running.run : lastRun,
+      nextRun: config.schedule ? 'scheduled' : null,
+    };
+  });
 }
 
 // --- Run backup ---
 
 export async function runBackup(configId: string): Promise<BackupRun> {
-	const configs = await getBackupConfigs();
-	const config = configs.find(c => c.id === configId);
-	if (!config) throw new Error('Backup config not found');
+  const configs = await getBackupConfigs();
+  const config = configs.find((c) => c.id === configId);
+  if (!config) throw new Error('Backup config not found');
 
-	if (runningBackups.has(configId)) {
-		throw new Error('Backup already running');
-	}
+  if (runningBackups.has(configId)) {
+    throw new Error('Backup already running');
+  }
 
-	const run: BackupRun = {
-		id: `${configId}-${Date.now()}`,
-		configId,
-		startedAt: new Date().toISOString(),
-		completedAt: null,
-		status: 'running',
-		filesTransferred: 0,
-		bytesTransferred: 0,
-		error: null
-	};
+  const run: BackupRun = {
+    id: `${configId}-${Date.now()}`,
+    configId,
+    startedAt: new Date().toISOString(),
+    completedAt: null,
+    status: 'running',
+    filesTransferred: 0,
+    bytesTransferred: 0,
+    error: null,
+  };
 
-	// Build rsync command
-	const args = [
-		'-avz', '--progress', '--stats',
-		...config.excludes.flatMap(e => ['--exclude', e]),
-		config.sourcePath.endsWith('/') ? config.sourcePath : config.sourcePath + '/',
-		config.destPath
-	];
+  // Build rsync command
+  const args = [
+    '-avz',
+    '--progress',
+    '--stats',
+    ...config.excludes.flatMap((e) => ['--exclude', e]),
+    config.sourcePath.endsWith('/') ? config.sourcePath : config.sourcePath + '/',
+    config.destPath,
+  ];
 
-	const proc = spawn('rsync', args, { stdio: 'pipe' });
-	runningBackups.set(configId, { process: proc, run });
+  const proc = spawn('rsync', args, { stdio: 'pipe' });
+  runningBackups.set(configId, { process: proc, run });
 
-	let output = '';
-	proc.stdout?.on('data', (data: Buffer) => { output += data.toString(); });
-	proc.stderr?.on('data', (data: Buffer) => { output += data.toString(); });
+  let output = '';
+  proc.stdout?.on('data', (data: Buffer) => {
+    output += data.toString();
+  });
+  proc.stderr?.on('data', (data: Buffer) => {
+    output += data.toString();
+  });
 
-	proc.on('close', async (code: number) => {
-		run.completedAt = new Date().toISOString();
-		run.status = code === 0 ? 'success' : 'failed';
+  proc.on('close', async (code: number) => {
+    run.completedAt = new Date().toISOString();
+    run.status = code === 0 ? 'success' : 'failed';
 
-		if (code !== 0) {
-			run.error = output.slice(-500); // Last 500 chars of output
-		}
+    if (code !== 0) {
+      run.error = output.slice(-500); // Last 500 chars of output
+    }
 
-		// Parse rsync stats
-		const filesMatch = output.match(/Number of regular files transferred:\s*(\d+)/);
-		const bytesMatch = output.match(/Total transferred file size:\s*([\d,]+)/);
-		if (filesMatch) run.filesTransferred = parseInt(filesMatch[1]);
-		if (bytesMatch) run.bytesTransferred = parseInt(bytesMatch[1].replace(/,/g, ''));
+    // Parse rsync stats
+    const filesMatch = output.match(/Number of regular files transferred:\s*(\d+)/);
+    const bytesMatch = output.match(/Total transferred file size:\s*([\d,]+)/);
+    if (filesMatch) run.filesTransferred = parseInt(filesMatch[1]);
+    if (bytesMatch) run.bytesTransferred = parseInt(bytesMatch[1].replace(/,/g, ''));
 
-		runningBackups.delete(configId);
-		await appendHistory(run);
-	});
+    runningBackups.delete(configId);
+    await appendHistory(run);
+  });
 
-	await appendHistory(run);
-	return run;
+  await appendHistory(run);
+  return run;
 }
 
 /** Check if rsync is available */
 export function isRsyncAvailable(): boolean {
-	try {
-		execSync('which rsync', { encoding: 'utf-8', timeout: 3000 });
-		return true;
-	} catch { return false; }
+  try {
+    execSync('which rsync', { encoding: 'utf-8', timeout: 3000 });
+    return true;
+  } catch {
+    return false;
+  }
 }

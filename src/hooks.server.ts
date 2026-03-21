@@ -5,16 +5,16 @@ import { startScheduler } from '$lib/server/scheduler';
 let schedulerStarted = false;
 
 export const handle: Handle = async ({ event, resolve }) => {
-	if (!schedulerStarted) {
-		schedulerStarted = true;
-		startScheduler().catch(err => console.error('Scheduler failed to start:', err));
-	}
+  if (!schedulerStarted) {
+    schedulerStarted = true;
+    startScheduler().catch((err) => console.error('Scheduler failed to start:', err));
+  }
 
-	const start = Date.now();
-	const response = await resolve(event);
-	const duration = Date.now() - start;
+  const start = Date.now();
+  const response = await resolve(event);
+  const duration = Date.now() - start;
 
-	console.log(`${event.request.method} ${event.url.pathname} ${response.status} ${duration}ms`);
+  console.log(`${event.request.method} ${event.url.pathname} ${response.status} ${duration}ms`);
 
-	return response;
+  return response;
 };

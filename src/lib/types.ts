@@ -1,13 +1,13 @@
 export interface DeviceInfo {
-	hostname: string;
-	platform: string;
-	arch: string;
+  hostname: string;
+  platform: string;
+  arch: string;
 }
 
 export interface Widget {
-	id: string;
-	title: string;
-	href: string;
-	description: string;
-	status: 'active' | 'coming-soon';
+  id: string;
+  title: string;
+  href: string;
+  description: string;
+  status: 'active' | 'coming-soon';
 }

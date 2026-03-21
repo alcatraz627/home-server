@@ -11,35 +11,35 @@
  */
 
 export interface RenderResultHtml {
-	type: 'html';
-	content: string;
+  type: 'html';
+  content: string;
 }
 
 export interface RenderResultText {
-	type: 'text';
-	content: string;
+  type: 'text';
+  content: string;
 }
 
 export interface SheetData {
-	name: string;
-	headers: string[];
-	rows: string[][];
+  name: string;
+  headers: string[];
+  rows: string[][];
 }
 
 export interface RenderResultData {
-	type: 'data';
-	sheets: SheetData[];
+  type: 'data';
+  sheets: SheetData[];
 }
 
 export type RenderResult = RenderResultHtml | RenderResultText | RenderResultData;
 
 export interface DocumentRenderer {
-	/** Unique name for this renderer */
-	name: string;
-	/** MIME types or extensions this renderer handles */
-	canRender: (mime: string, filename: string) => boolean;
-	/** Render raw file data into displayable content */
-	render: (data: ArrayBuffer, filename: string) => Promise<RenderResult>;
+  /** Unique name for this renderer */
+  name: string;
+  /** MIME types or extensions this renderer handles */
+  canRender: (mime: string, filename: string) => boolean;
+  /** Render raw file data into displayable content */
+  render: (data: ArrayBuffer, filename: string) => Promise<RenderResult>;
 }
 
 // Import renderers
@@ -54,30 +54,26 @@ import { textRenderer } from './text';
  * More specific renderers should come before generic ones.
  */
 const RENDERERS: DocumentRenderer[] = [
-	excelRenderer,
-	wordRenderer,
-	markdownRenderer,
-	jsonRenderer,
-	textRenderer,  // catch-all for text/* types
+  excelRenderer,
+  wordRenderer,
+  markdownRenderer,
+  jsonRenderer,
+  textRenderer, // catch-all for text/* types
 ];
 
 /** Find the best renderer for a given file */
 export function getRenderer(mime: string, filename: string): DocumentRenderer | null {
-	return RENDERERS.find(r => r.canRender(mime, filename)) || null;
+  return RENDERERS.find((r) => r.canRender(mime, filename)) || null;
 }
 
 /** Check if any renderer can handle this file */
 export function hasRenderer(mime: string, filename: string): boolean {
-	return RENDERERS.some(r => r.canRender(mime, filename));
+  return RENDERERS.some((r) => r.canRender(mime, filename));
 }
 
 /** Render a file's data using the appropriate renderer */
-export async function renderDocument(
-	data: ArrayBuffer,
-	mime: string,
-	filename: string
-): Promise<RenderResult | null> {
-	const renderer = getRenderer(mime, filename);
-	if (!renderer) return null;
-	return renderer.render(data, filename);
+export async function renderDocument(data: ArrayBuffer, mime: string, filename: string): Promise<RenderResult | null> {
+  const renderer = getRenderer(mime, filename);
+  if (!renderer) return null;
+  return renderer.render(data, filename);
 }

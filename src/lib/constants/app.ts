@@ -9,6 +9,6 @@
  * - phrase: random word-word-number tag for quick visual verification
  */
 export const APP = {
-	title: 'Home Server',
-	version: '1.10.0-deep-fern-08',
+  title: 'Home Server',
+  version: '1.11.0-swift-moss-14',
 } as const;

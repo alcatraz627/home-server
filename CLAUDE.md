@@ -21,3 +21,11 @@ After making any change, update `APP.version` in `src/lib/constants/app.ts`.
 - Print the new version string at the end of your response so the user can verify the browser matches
 
 **Do not update** if no files were modified.
+
+## Code Formatting
+
+After editing any `.ts`, `.svelte`, or `.css` files, run `npx prettier --write` on the changed files before committing. The project uses Prettier with `prettier-plugin-svelte`.
+
+**Key settings:** 2-space indent (no tabs), single quotes, trailing commas, 120 char print width.
+
+A pre-commit hook automatically formats staged files, but always verify formatting is clean before committing.
