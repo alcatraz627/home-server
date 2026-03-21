@@ -229,6 +229,9 @@ Architecture note: split process stats into two tiers — **passive** (low-overh
 - [x] Predefined task templates — 31 built-in with tags, search, pagination
 - [x] Template picker UI — grid of template cards, click to auto-fill form fields
 - [ ] Custom template creation — save any task config as a reusable template
+- [ ] Run templates directly — "Run" button on template cards that creates + immediately executes the task
+- [ ] 50 more templates — categories: security/audit, Docker, Git, database, macOS-specific, SSL/certs, user management, service watchdog, log analysis, file integrity. Sources: TecMint sysadmin scripts, awesome-bash, admin-scripts repo, TECMINT_MONITOR, health-checks repo
+- [ ] Task list UI improvements — status badges (running/idle/failed), last-run timestamp inline, quick-run button without expanding, sortable columns
 
 ### M5: UI & Polish (completed)
 - [x] Page navigation loading spinner — shimmer bar on route transitions
