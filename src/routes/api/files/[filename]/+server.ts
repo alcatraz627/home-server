@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { getFileStream, deleteFile, renameFile, getMime } from '$lib/server/files';
+import { removeFileMetadata, renameFileMetadata } from '$lib/server/metadata';
 import type { RequestHandler } from './$types';
 
 /** Download or preview a file */
@@ -39,6 +40,7 @@ export const PATCH: RequestHandler = async ({ params, request, url }) => {
 		return json({ error: 'Rename failed' }, { status: 400 });
 	}
 
+	await renameFileMetadata(params.filename, newName);
 	return json({ ok: true, name: newName });
 };
 
@@ -51,5 +53,6 @@ export const DELETE: RequestHandler = async ({ params, url }) => {
 		return json({ error: 'File not found' }, { status: 404 });
 	}
 
+	await removeFileMetadata(params.filename);
 	return new Response(null, { status: 204 });
 };

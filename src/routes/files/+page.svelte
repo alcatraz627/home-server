@@ -1,11 +1,14 @@
 <script lang="ts">
 	import type { PageData } from './$types';
 	import type { FileInfo } from '$lib/server/files';
+	import type { FileMetadata } from '$lib/server/metadata';
 	import { hasRenderer, renderDocument, type RenderResult, type SheetData } from '$lib/renderers';
 	import DataTable from '$lib/components/DataTable.svelte';
 
+	type EnrichedFile = FileInfo & { meta: FileMetadata | null };
+
 	let { data } = $props<{ data: PageData }>();
-	let files = $state<FileInfo[]>(data.files);
+	let files = $state<EnrichedFile[]>(data.files);
 	$effect(() => { files = data.files; });
 	let dragOver = $state(false);
 	let uploading = $state(false);
@@ -272,6 +275,12 @@
 						<span class="info-label">Created</span><span>{formatDate(file.created)}</span>
 						<span class="info-label">Modified</span><span>{formatDate(file.modified)}</span>
 						<span class="info-label">Permissions</span><span><code>{file.permissions}</code></span>
+						{#if file.meta?.uploadedFrom}
+							<span class="info-label">Uploaded from</span><span>{file.meta.uploadedFrom}</span>
+						{/if}
+						{#if file.meta?.uploadedAt}
+							<span class="info-label">Uploaded at</span><span>{formatDate(file.meta.uploadedAt)}</span>
+						{/if}
 					</div>
 				</div>
 			{/if}
