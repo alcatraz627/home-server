@@ -2,6 +2,14 @@
   import DataTable from '$lib/components/DataTable.svelte';
   import { toast } from '$lib/toast';
 
+  // Interactive terminal state
+  let termHistory = $state<{ cmd: string; output: string }[]>([
+    { cmd: 'echo "Welcome to the showcase terminal"', output: 'Welcome to the showcase terminal' },
+    { cmd: 'date', output: new Date().toLocaleString() },
+  ]);
+  let termInput = $state('');
+  let termInputEl = $state<HTMLInputElement | null>(null);
+
   // ── Color Palette ──────────────────────────────────────────────────────────
   const bgVars = [
     '--bg-primary',
@@ -251,68 +259,52 @@
   </div>
 </section>
 
-<!-- ════════════════════════════ 7. TERMINAL MOCK ═════════════════════════ -->
+<!-- ════════════════════════════ 7. INTERACTIVE TERMINAL ═══════════════════ -->
 <section class="section">
-  <h3 class="section-heading">Terminal Mock</h3>
+  <h3 class="section-heading">Interactive Terminal</h3>
   <div class="term-card">
     <div class="term-titlebar">
       <span class="term-dot term-red"></span>
       <span class="term-dot term-yellow"></span>
       <span class="term-dot term-green"></span>
-      <span class="term-title">bash — server:~</span>
+      <span class="term-title">showcase — demo:~</span>
     </div>
-    <div class="term-body">
-      <div class="term-line">
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="term-body" onclick={() => termInputEl?.focus()}>
+      {#each termHistory as entry}
+        <div class="term-line">
+          <span class="term-prompt">user@server</span><span class="term-sep">:</span><span class="term-path">~</span
+          ><span class="term-dollar">$</span>
+          <span class="term-cmd">{entry.cmd}</span>
+        </div>
+        {#if entry.output}
+          <div class="term-out term-dim">{entry.output}</div>
+        {/if}
+      {/each}
+      <div class="term-line term-input-line">
         <span class="term-prompt">user@server</span><span class="term-sep">:</span><span class="term-path">~</span><span
           class="term-dollar">$</span
         >
-        <span class="term-cmd">systemctl status nginx</span>
-      </div>
-      <div class="term-out">
-        <span class="term-success">●</span> nginx.service - A high performance web server
-      </div>
-      <div class="term-out">&nbsp;&nbsp;&nbsp;Loaded: loaded (/lib/systemd/system/nginx.service; enabled)</div>
-      <div class="term-out term-dim">
-        &nbsp;&nbsp;&nbsp;Active: <span class="term-success">active (running)</span> since Mon 2026-03-22 09:14:11 UTC; 12
-        days ago
-      </div>
-      <div class="term-out term-dim">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;PID: 1234 (nginx)</div>
-      <div class="term-out">&nbsp;</div>
-      <div class="term-line">
-        <span class="term-prompt">user@server</span><span class="term-sep">:</span><span class="term-path">~</span><span
-          class="term-dollar">$</span
-        >
-        <span class="term-cmd">df -h /</span>
-      </div>
-      <div class="term-out">Filesystem &nbsp; Size &nbsp; Used &nbsp; Avail &nbsp; Use% &nbsp; Mounted on</div>
-      <div class="term-out term-dim">
-        /dev/sda1 &nbsp;&nbsp; 500G &nbsp; 142G &nbsp;&nbsp; 334G &nbsp;&nbsp; 30% &nbsp; /
-      </div>
-      <div class="term-out">&nbsp;</div>
-      <div class="term-line">
-        <span class="term-prompt">user@server</span><span class="term-sep">:</span><span class="term-path">~</span><span
-          class="term-dollar">$</span
-        >
-        <span class="term-cmd">free -h</span>
-      </div>
-      <div class="term-out">
-        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;total &nbsp;&nbsp;&nbsp;&nbsp; used
-        &nbsp;&nbsp;&nbsp;&nbsp; free &nbsp;&nbsp; available
-      </div>
-      <div class="term-out term-dim">
-        Mem: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 16G &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 6.2G &nbsp;&nbsp;&nbsp;&nbsp; 9.8G
-        &nbsp;&nbsp;&nbsp;&nbsp; 9.1G
-      </div>
-      <div class="term-out term-dim">
-        Swap: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 2G &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 0B
-        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 2G
-      </div>
-      <div class="term-out">&nbsp;</div>
-      <div class="term-line">
-        <span class="term-prompt">user@server</span><span class="term-sep">:</span><span class="term-path">~</span><span
-          class="term-dollar">$</span
-        >
-        <span class="term-cursor">▌</span>
+        <input
+          class="term-input"
+          type="text"
+          bind:value={termInput}
+          bind:this={termInputEl}
+          onkeydown={(e) => {
+            if (e.key === 'Enter' && termInput.trim()) {
+              termHistory = [...termHistory, { cmd: termInput.trim(), output: `echo: ${termInput.trim()}` }];
+              termInput = '';
+              setTimeout(() => {
+                const body = document.querySelector('.term-body');
+                if (body) body.scrollTop = body.scrollHeight;
+              }, 0);
+            }
+          }}
+          placeholder="Type a command..."
+          spellcheck="false"
+          autocomplete="off"
+        />
       </div>
     </div>
   </div>
@@ -675,6 +667,29 @@
   .term-cursor {
     color: var(--accent);
     animation: blink 1s step-end infinite;
+  }
+
+  .term-input-line {
+    display: flex;
+    align-items: center;
+  }
+
+  .term-input {
+    flex: 1;
+    background: none;
+    border: none;
+    color: var(--text-primary);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    outline: none;
+    caret-color: var(--accent);
+    padding: 0;
+    margin: 0;
+  }
+
+  .term-input::placeholder {
+    color: var(--text-faint);
+    opacity: 0.5;
   }
 
   @keyframes blink {

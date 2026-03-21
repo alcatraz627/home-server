@@ -361,3 +361,16 @@ See [docs/claude-keeper.md](docs/claude-keeper.md) for full planning document.
 ### T16 — Cross-Device Backup Enhancement
 - [ ] Backup diff preview — dry-run rsync (`rsync -avzn`) and show what would transfer before actually running
 - [ ] Cross-device source — allow backup source to be `user@tailscale-host:/path` for remote machines
+
+### T17 — AI Agent Chat (Floating)
+- [ ] Floating button (bottom-right) that opens a chat panel for talking to Claude about the codebase
+- [ ] Backend: `/api/ai/chat` endpoint that proxies to Anthropic API (or runs `claude` CLI)
+- [ ] Chat persists across page navigation (store in layout-level state)
+- [ ] Context-aware: include current page/widget info in system prompt
+
+### T18 — Homelab Features (Research-Based)
+- [ ] **Service Health Dashboard** — sidebar widget with online/offline indicators for configurable HTTP endpoints (internal services, databases, APIs). Configurable check interval + timeout. Alerts on state change
+- [ ] **Notification Center** — persistent event log aggregating: backup completions, task failures, process crashes, Tailscale events. Store in JSON, badge counter in navbar, filterable list view
+- [ ] **Docker/Container Management** — list, start, stop, restart containers via Docker API socket. View logs, resource usage. Only visible if Docker is installed
+- [ ] **Network Device Discovery** — ARP scan / mDNS to show all devices on local network with IP, hostname, MAC, vendor, response time. Periodic refresh, history tracking
+- [ ] **Uptime Monitoring** — track and chart uptime of the server itself + configured services. Show availability percentage over 24h/7d/30d. Simple ping-based checks

@@ -6,6 +6,7 @@
   import { onMount } from 'svelte';
   import { theme, toggleTheme, initTheme } from '$lib/theme';
   import Toast from '$lib/components/Toast.svelte';
+  import AiChat from '$lib/components/AiChat.svelte';
 
   let { data, children } = $props<{ data: LayoutData; children: any }>();
   let sidebarOpen = $state(false);
@@ -95,6 +96,7 @@
 </div>
 
 <Toast />
+<AiChat />
 
 <style>
   .app {
@@ -110,6 +112,8 @@
     padding: 12px 20px;
     background: var(--bg-secondary);
     border-bottom: 1px solid var(--border);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
   }
 
   header h1 {
@@ -131,10 +135,11 @@
 
   .stat {
     font-size: 0.75rem;
-    font-weight: 600;
+    font-weight: 500;
     font-family: 'JetBrains Mono', monospace;
     letter-spacing: 0.02em;
     cursor: default;
+    opacity: 0.85;
     transition: color 0.3s;
   }
 
@@ -187,9 +192,10 @@
     text-decoration: none;
     font-size: 0.9rem;
     transition:
-      background 0.15s,
-      color 0.15s;
+      background 0.2s ease,
+      color 0.2s ease;
     border-left: 3px solid transparent;
+    border-bottom: 2px solid transparent;
   }
 
   nav a:hover {
@@ -200,13 +206,17 @@
     color: var(--accent);
     border-left-color: var(--accent);
     background: var(--accent-bg);
+    border-bottom-color: transparent;
+    border-image: linear-gradient(to right, var(--accent), var(--purple)) 1;
+    border-image-slice: 0 0 1 0;
   }
 
   .version-tag {
     margin-top: auto;
     padding: 8px 20px;
-    font-size: 0.65rem;
-    color: var(--text-faint);
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    font-weight: 500;
     font-family: monospace;
     letter-spacing: 0.03em;
   }

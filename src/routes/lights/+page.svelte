@@ -40,6 +40,64 @@
     Dynamic: { 8: 'Pastel Colors', 9: 'Wake Up', 10: 'Bedtime', 17: 'True Colors', 18: 'TV Time', 31: 'Pulse' },
   };
 
+  // Characteristic color dot for each scene ID
+  const SCENE_COLORS: Record<number, string> = {
+    1: '#0077cc', // Ocean
+    2: '#ff6699', // Romance
+    3: '#ff6633', // Sunset
+    4: '#ff00ff', // Party
+    5: '#ff4400', // Fireplace
+    6: '#ff8844', // Cozy
+    7: '#33aa44', // Forest
+    8: '#cc99ff', // Pastel Colors
+    9: '#ffee88', // Wake Up
+    10: '#6644aa', // Bedtime
+    11: '#ffcc66', // Warm White
+    12: '#eef4ff', // Daylight
+    13: '#d4e6ff', // Cool White
+    14: '#ff9933', // Night Light
+    15: '#e8f0ff', // Focus
+    16: '#ffe0b0', // Relax
+    17: '#ffffff', // True Colors
+    18: '#4466ff', // TV Time
+    19: '#44bb44', // Plant Growth
+    20: '#66cc66', // Spring
+    21: '#ffdd44', // Summer
+    22: '#cc6622', // Fall
+    23: '#003388', // Deep Dive
+    24: '#228844', // Jungle
+    25: '#88ddaa', // Mojito
+    26: '#aa00ff', // Club
+    27: '#cc0000', // Christmas
+    28: '#ff6600', // Halloween
+    29: '#ffaa33', // Candlelight
+    30: '#ffdd99', // Golden White
+    31: '#ff66aa', // Pulse
+    32: '#886633', // Steampunk
+  };
+
+  // Quick color presets for the color picker row
+  const COLOR_PRESETS = [
+    { label: 'Warm White', hex: '#ffcc66' },
+    { label: 'Cool White', hex: '#d4e6ff' },
+    { label: 'Red', hex: '#ff2222' },
+    { label: 'Orange', hex: '#ff8800' },
+    { label: 'Green', hex: '#22cc44' },
+    { label: 'Blue', hex: '#2266ff' },
+    { label: 'Purple', hex: '#9933ff' },
+    { label: 'Pink', hex: '#ff44bb' },
+  ];
+
+  function applyColorPreset(bulb: WizBulb, hex: string) {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    bulb.color = { r, g, b };
+    bulb.colorTemp = null;
+    bulb.sceneId = null;
+    debouncedSet(bulb.ip, { r, g, b });
+  }
+
   let debounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
   function loadNames(): Record<string, string> {
@@ -497,9 +555,29 @@
               />
             </label>
 
-            <div class="control-row">
+            <div class="control-row color-row">
               <span class="control-label">Color</span>
-              <input type="color" value={colorHex(bulb)} oninput={(e) => handleColor(bulb, e)} />
+              <div class="color-picker-wrap">
+                <div class="color-quick-row">
+                  {#each COLOR_PRESETS as preset}
+                    <button
+                      class="color-dot"
+                      class:color-dot-active={bulb.color && colorHex(bulb).toLowerCase() === preset.hex.toLowerCase()}
+                      style="--dot-color: {preset.hex}"
+                      title={preset.label}
+                      onclick={() => applyColorPreset(bulb, preset.hex)}
+                      aria-label={preset.label}
+                    ></button>
+                  {/each}
+                  <input
+                    type="color"
+                    value={colorHex(bulb)}
+                    oninput={(e) => handleColor(bulb, e)}
+                    title="Custom color"
+                    class="color-custom"
+                  />
+                </div>
+              </div>
             </div>
 
             <div class="control-row">
@@ -517,9 +595,13 @@
                   <span class="scene-category-label">{category}</span>
                   <div class="scene-presets">
                     {#each Object.entries(scenes) as [id, name]}
-                      <button class:active={bulb.sceneId === parseInt(id)} onclick={() => setScene(bulb, parseInt(id))}
-                        >{name}</button
-                      >
+                      <button class:active={bulb.sceneId === parseInt(id)} onclick={() => setScene(bulb, parseInt(id))}>
+                        {#if SCENE_COLORS[parseInt(id)]}
+                          <span class="scene-dot" style="--scene-color: {SCENE_COLORS[parseInt(id)]}" aria-hidden="true"
+                          ></span>
+                        {/if}
+                        {name}
+                      </button>
                     {/each}
                   </div>
                 </div>
@@ -844,15 +926,6 @@
     flex: 1;
     accent-color: var(--accent);
   }
-  input[type='color'] {
-    width: 32px;
-    height: 28px;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    background: none;
-    cursor: pointer;
-    padding: 0;
-  }
 
   .temp-presets,
   .scene-presets {
@@ -862,6 +935,9 @@
   }
   .temp-presets button,
   .scene-presets button {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
     padding: 3px 10px;
     font-size: 0.7rem;
     border-radius: 12px;
@@ -869,6 +945,7 @@
     background: var(--btn-bg);
     color: var(--text-secondary);
     cursor: pointer;
+    font-family: inherit;
   }
   .temp-presets button:hover,
   .scene-presets button:hover {
@@ -879,6 +956,68 @@
     background: var(--accent-bg);
     border-color: var(--accent);
     color: var(--accent);
+  }
+
+  /* Scene color dot */
+  .scene-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--scene-color, #888);
+    flex-shrink: 0;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+  }
+
+  /* Enhanced color picker */
+  .color-row {
+    align-items: flex-start;
+    padding-top: 2px;
+  }
+  .color-picker-wrap {
+    flex: 1;
+    min-width: 0;
+  }
+  .color-quick-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .color-dot {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--dot-color, #888);
+    border: 2px solid transparent;
+    cursor: pointer;
+    flex-shrink: 0;
+    padding: 0;
+    transition:
+      border-color 0.12s,
+      transform 0.12s;
+  }
+  .color-dot:hover {
+    border-color: var(--text-primary);
+    transform: scale(1.15);
+  }
+  .color-dot.color-dot-active {
+    border-color: var(--text-primary);
+    box-shadow: 0 0 0 2px var(--accent);
+  }
+  .color-custom {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    background: none;
+    cursor: pointer;
+    padding: 0;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .color-custom:hover {
+    border-color: var(--text-primary);
   }
 
   .scenes-section {
