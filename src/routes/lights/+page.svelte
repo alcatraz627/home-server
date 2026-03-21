@@ -52,8 +52,31 @@
 	async function rediscover() {
 		discovering = true;
 		const res = await fetch('/api/lights');
-		bulbs = await res.json();
+		const fresh: WizBulb[] = await res.json();
+		mergeBulbs(fresh);
 		discovering = false;
+	}
+
+	/** Merge new bulb data without disrupting existing UI state */
+	function mergeBulbs(fresh: WizBulb[]) {
+		if (bulbs.length === 0) {
+			bulbs = fresh;
+			return;
+		}
+		const existing = new Map(bulbs.map(b => [b.mac, b]));
+		const merged: WizBulb[] = [];
+		for (const b of fresh) {
+			const old = existing.get(b.mac);
+			if (old) {
+				// Update server-side state, preserve position
+				Object.assign(old, b);
+				merged.push(old);
+				existing.delete(b.mac);
+			} else {
+				merged.push(b); // New bulb
+			}
+		}
+		bulbs = merged;
 	}
 
 	async function setBulb(ip: string, params: Record<string, any>) {
@@ -137,8 +160,7 @@
 	async function refreshStates() {
 		const res = await fetch('/api/lights');
 		const fresh: WizBulb[] = await res.json();
-		// Merge — preserve local UI state for bulbs not in response
-		bulbs = fresh;
+		mergeBulbs(fresh);
 	}
 
 	// Group control
@@ -195,7 +217,13 @@
 	<h2>Smart Lights</h2>
 	<div class="controls">
 		<button class="btn" onclick={rediscover} disabled={discovering}>
-			{discovering ? 'Scanning...' : 'Rediscover'}
+			{#if discovering && bulbs.length > 0}
+				<span class="btn-spinner"></span> Refreshing...
+			{:else if discovering}
+				Scanning...
+			{:else}
+				Rediscover
+			{/if}
 		</button>
 		<button class="btn" class:active={polling} onclick={togglePolling}>
 			Poll {polling ? 'ON' : 'OFF'}
@@ -372,6 +400,16 @@
 	.scene-category { display: flex; align-items: flex-start; gap: 10px; }
 	.scene-category-label { font-size: 0.7rem; color: var(--text-muted, #8b949e); width: 70px; flex-shrink: 0; padding-top: 4px; text-transform: uppercase; letter-spacing: 0.03em; }
 	.scene-presets { max-width: 100%; }
+
+	.btn-spinner {
+		display: inline-block;
+		width: 10px; height: 10px;
+		border: 2px solid var(--border, #30363d);
+		border-top-color: var(--accent, #58a6ff);
+		border-radius: 50%;
+		animation: spin 0.8s linear infinite;
+		vertical-align: middle;
+	}
 
 	.loading-state { text-align: center; padding: 60px 20px; }
 	.loading-state p { color: var(--text-muted, #8b949e); font-size: 0.9rem; }

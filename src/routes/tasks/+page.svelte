@@ -137,17 +137,24 @@
 	}
 
 	async function runTask(taskId: string) {
+		expandedTask = taskId; // Auto-expand log
 		await fetch('/api/tasks', {
 			method: 'PUT',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ taskId })
 		});
-		// Poll
 		const poll = setInterval(async () => {
 			await refresh();
 			const s = statuses.find(s => s.config.id === taskId);
 			if (!s?.isRunning) clearInterval(poll);
 		}, 1000);
+	}
+
+	let copied = $state<string | null>(null);
+	async function copyOutput(taskId: string, text: string) {
+		await navigator.clipboard.writeText(text);
+		copied = taskId;
+		setTimeout(() => { copied = null; }, 2000);
 	}
 
 	async function deleteTask(id: string) {
@@ -305,6 +312,17 @@
 
 				{#if expandedTask === status.config.id && status.lastRun}
 					<div class="task-output">
+						<div class="output-header">
+							<span class="output-label">
+								{status.isRunning ? 'Running...' : 'Output'}
+								{#if status.isRunning}<span class="output-spinner"></span>{/if}
+							</span>
+							{#if status.lastRun.output}
+								<button class="copy-btn" onclick={() => copyOutput(status.config.id, status.lastRun?.output || '')}>
+									{copied === status.config.id ? 'Copied!' : 'Copy'}
+								</button>
+							{/if}
+						</div>
 						<pre>{status.lastRun.output || '(no output)'}</pre>
 					</div>
 				{/if}
@@ -388,5 +406,11 @@
 	.run-attempt { font-size: 0.7rem; color: #484f58; }
 
 	.task-output { margin-top: 8px; }
-	.task-output pre { background: #0d1117; padding: 10px; border-radius: 6px; font-size: 0.7rem; max-height: 300px; overflow: auto; color: #8b949e; white-space: pre-wrap; word-break: break-all; }
+	.output-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+	.output-label { font-size: 0.7rem; color: var(--text-muted, #8b949e); text-transform: uppercase; letter-spacing: 0.03em; display: flex; align-items: center; gap: 6px; }
+	.output-spinner { display: inline-block; width: 8px; height: 8px; border: 2px solid var(--border, #30363d); border-top-color: var(--accent, #58a6ff); border-radius: 50%; animation: spin 0.8s linear infinite; }
+	@keyframes spin { to { transform: rotate(360deg); } }
+	.copy-btn { padding: 2px 8px; font-size: 0.65rem; border-radius: 4px; border: 1px solid var(--border, #30363d); background: var(--btn-bg, #21262d); color: var(--text-muted, #8b949e); cursor: pointer; font-family: inherit; }
+	.copy-btn:hover { border-color: var(--accent, #58a6ff); color: var(--text-primary, #e1e4e8); }
+	.task-output pre { background: var(--code-bg, #0d1117); padding: 10px; border-radius: 6px; font-size: 0.7rem; max-height: 300px; overflow: auto; color: var(--text-muted, #8b949e); white-space: pre-wrap; word-break: break-all; }
 </style>
