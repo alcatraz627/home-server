@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { getFileStream, deleteFile, renameFile, getMime } from '$lib/server/files';
+import { getFileStream, deleteFile, deleteDirectory, renameFile, moveFile, getMime } from '$lib/server/files';
 import { removeFileMetadata, renameFileMetadata } from '$lib/server/metadata';
 import type { RequestHandler } from './$types';
 
@@ -25,12 +25,20 @@ export const GET: RequestHandler = async ({ params, url }) => {
 	});
 };
 
-/** Rename a file */
+/** Rename or move a file */
 export const PATCH: RequestHandler = async ({ params, request, url }) => {
 	const subpath = url.searchParams.get('path') || undefined;
 	const body = await request.json();
-	const newName = body.name;
 
+	// Move to another directory
+	if (body.moveTo !== undefined) {
+		const moved = await moveFile(params.filename, subpath, body.moveTo);
+		if (!moved) return json({ error: 'Move failed' }, { status: 400 });
+		return json({ ok: true });
+	}
+
+	// Rename
+	const newName = body.name;
 	if (!newName || typeof newName !== 'string') {
 		return json({ error: 'New name is required' }, { status: 400 });
 	}
@@ -44,13 +52,20 @@ export const PATCH: RequestHandler = async ({ params, request, url }) => {
 	return json({ ok: true, name: newName });
 };
 
-/** Delete a file */
+/** Delete a file or directory */
 export const DELETE: RequestHandler = async ({ params, url }) => {
 	const subpath = url.searchParams.get('path') || undefined;
-	const deleted = await deleteFile(params.filename, subpath);
+	const isDir = url.searchParams.get('dir') === 'true';
+
+	let deleted: boolean;
+	if (isDir) {
+		deleted = await deleteDirectory(params.filename, subpath);
+	} else {
+		deleted = await deleteFile(params.filename, subpath);
+	}
 
 	if (!deleted) {
-		return json({ error: 'File not found' }, { status: 404 });
+		return json({ error: 'Not found' }, { status: 404 });
 	}
 
 	await removeFileMetadata(params.filename);

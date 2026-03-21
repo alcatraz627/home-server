@@ -173,6 +173,99 @@ export async function renameFile(
 	}
 }
 
+/** Create a directory */
+export async function createDirectory(name: string, subpath?: string): Promise<boolean> {
+	const base = getUploadDir();
+	const dir = subpath ? safePath(base, subpath) : base;
+	const dirPath = safePath(dir, name);
+
+	try {
+		await fs.mkdir(dirPath, { recursive: true });
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+/** Delete a directory (must be empty or use recursive) */
+export async function deleteDirectory(name: string, subpath?: string): Promise<boolean> {
+	const base = getUploadDir();
+	const dir = subpath ? safePath(base, subpath) : base;
+	const dirPath = safePath(dir, name);
+
+	try {
+		await fs.rm(dirPath, { recursive: true });
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+/** Move a file or directory to a new location */
+export async function moveFile(filename: string, fromPath: string | undefined, toPath: string): Promise<boolean> {
+	const base = getUploadDir();
+	const fromDir = fromPath ? safePath(base, fromPath) : base;
+	const toDir = safePath(base, toPath);
+	const src = safePath(fromDir, filename);
+	const dest = safePath(toDir, filename);
+
+	try {
+		await fs.mkdir(toDir, { recursive: true });
+		await fs.rename(src, dest);
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+/** Save a file with a relative path (for folder uploads) */
+export async function saveFileWithPath(file: File, relativePath: string, subpath?: string): Promise<FileInfo> {
+	const base = getUploadDir();
+	const rootDir = subpath ? safePath(base, subpath) : base;
+
+	// relativePath includes the file name, e.g. "photos/vacation/img.jpg"
+	const fullRelative = path.join(relativePath);
+	const filePath = safePath(rootDir, fullRelative);
+	const fileDir = path.dirname(filePath);
+
+	await fs.mkdir(fileDir, { recursive: true });
+	const buffer = Buffer.from(await file.arrayBuffer());
+	await fs.writeFile(filePath, buffer);
+
+	const stat = await fs.stat(filePath);
+	return {
+		name: file.name,
+		size: stat.size,
+		modified: stat.mtime.toISOString(),
+		created: stat.birthtime.toISOString(),
+		isDirectory: false,
+		permissions: formatPermissions(stat.mode),
+		mime: getMime(file.name)
+	};
+}
+
+/** Get total size of a directory recursively */
+export async function getDirectorySize(name: string, subpath?: string): Promise<number> {
+	const base = getUploadDir();
+	const dir = subpath ? safePath(base, subpath) : base;
+	const dirPath = safePath(dir, name);
+
+	let total = 0;
+	try {
+		const entries = await fs.readdir(dirPath, { withFileTypes: true });
+		for (const entry of entries) {
+			const fullPath = path.join(dirPath, entry.name);
+			if (entry.isDirectory()) {
+				total += await getDirectorySize(entry.name, path.relative(base, dirPath));
+			} else {
+				const stat = await fs.stat(fullPath);
+				total += stat.size;
+			}
+		}
+	} catch { /* ignore */ }
+	return total;
+}
+
 /**
  * Resolve a path safely, preventing directory traversal attacks.
  * Throws if the resolved path escapes the base directory.

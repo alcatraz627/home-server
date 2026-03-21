@@ -9,11 +9,30 @@
 
 	let { data } = $props<{ data: PageData }>();
 	// svelte-ignore state_referenced_locally
-	const { files: initialFiles, currentPath } = data;
+	const { files: initialFiles, currentPath: initialPath } = data;
 	let files = $state<EnrichedFile[]>(initialFiles);
+	let currentPath = $state(initialPath || '');
 	let dragOver = $state(false);
 	let uploading = $state(false);
 	let uploadProgress = $state(0);
+	let uploadQueue = $state<{ name: string; progress: number; done: boolean }[]>([]);
+
+	// New directory
+	let showNewDir = $state(false);
+	let newDirName = $state('');
+
+	// Breadcrumbs
+	let breadcrumbs = $derived.by(() => {
+		if (!currentPath) return [{ name: 'Home', path: '' }];
+		const parts = currentPath.split('/').filter(Boolean);
+		const crumbs = [{ name: 'Home', path: '' }];
+		let accumulated = '';
+		for (const part of parts) {
+			accumulated += (accumulated ? '/' : '') + part;
+			crumbs.push({ name: part, path: accumulated });
+		}
+		return crumbs;
+	});
 
 	// Search, sort, filter
 	let search = $state('');
@@ -165,19 +184,36 @@
 		if (e.key === 'Escape') renamingFile = null;
 	}
 
+	// Navigate into directory
+	async function navigateTo(path: string) {
+		currentPath = path;
+		await refreshFiles();
+	}
+
 	// Upload
-	async function uploadFile(file: File) {
+	async function uploadFile(file: File, relativePath?: string) {
+		const entry = { name: relativePath || file.name, progress: 0, done: false };
+		uploadQueue = [...uploadQueue, entry];
 		uploading = true;
-		uploadProgress = 0;
+
 		const formData = new FormData();
 		formData.append('file', file);
 		if (currentPath) formData.append('path', currentPath);
+		if (relativePath) formData.append(`relativePath_0`, relativePath);
+
 		const xhr = new XMLHttpRequest();
 		xhr.upload.onprogress = (e) => {
-			if (e.lengthComputable) uploadProgress = Math.round((e.loaded / e.total) * 100);
+			if (e.lengthComputable) {
+				entry.progress = Math.round((e.loaded / e.total) * 100);
+				uploadProgress = Math.round(uploadQueue.reduce((s, q) => s + q.progress, 0) / uploadQueue.length);
+				uploadQueue = [...uploadQueue];
+			}
 		};
 		await new Promise<void>((resolve, reject) => {
 			xhr.onload = () => {
+				entry.done = true;
+				entry.progress = 100;
+				uploadQueue = [...uploadQueue];
 				if (xhr.status >= 200 && xhr.status < 300) resolve();
 				else reject(new Error(`Upload failed: ${xhr.status}`));
 			};
@@ -185,17 +221,47 @@
 			xhr.open('POST', '/api/files');
 			xhr.send(formData);
 		});
-		uploading = false;
-		await refreshFiles();
 	}
 
 	async function handleDrop(e: DragEvent) {
 		e.preventDefault();
 		dragOver = false;
-		const droppedFiles = e.dataTransfer?.files;
-		if (droppedFiles?.length) {
-			for (const file of droppedFiles) {
-				await uploadFile(file);
+		const items = e.dataTransfer?.items;
+
+		if (items) {
+			const fileList: { file: File; path: string }[] = [];
+
+			// Try to get directory entries (for folder drops)
+			for (const item of items) {
+				const entry = item.webkitGetAsEntry?.();
+				if (entry) {
+					await collectEntries(entry, '', fileList);
+				} else if (item.kind === 'file') {
+					const file = item.getAsFile();
+					if (file) fileList.push({ file, path: '' });
+				}
+			}
+
+			uploadQueue = [];
+			for (const { file, path } of fileList) {
+				await uploadFile(file, path || undefined);
+			}
+		}
+
+		uploading = false;
+		uploadQueue = [];
+		await refreshFiles();
+	}
+
+	async function collectEntries(entry: any, basePath: string, result: { file: File; path: string }[]) {
+		if (entry.isFile) {
+			const file: File = await new Promise(resolve => entry.file(resolve));
+			result.push({ file, path: basePath ? `${basePath}/${entry.name}` : '' });
+		} else if (entry.isDirectory) {
+			const reader = entry.createReader();
+			const entries: any[] = await new Promise(resolve => reader.readEntries(resolve));
+			for (const child of entries) {
+				await collectEntries(child, basePath ? `${basePath}/${entry.name}` : entry.name, result);
 			}
 		}
 	}
@@ -203,11 +269,45 @@
 	async function handleFileInput(e: Event) {
 		const input = e.target as HTMLInputElement;
 		if (input.files?.length) {
+			uploadQueue = [];
 			for (const file of input.files) {
-				await uploadFile(file);
+				// For folder upload, webkitRelativePath contains the relative path
+				const relPath = (file as any).webkitRelativePath || '';
+				await uploadFile(file, relPath || undefined);
 			}
 			input.value = '';
+			uploading = false;
+			uploadQueue = [];
+			await refreshFiles();
 		}
+	}
+
+	async function handleFolderInput(e: Event) {
+		const input = e.target as HTMLInputElement;
+		if (input.files?.length) {
+			uploadQueue = [];
+			for (const file of input.files) {
+				const relPath = (file as any).webkitRelativePath || file.name;
+				await uploadFile(file, relPath);
+			}
+			input.value = '';
+			uploading = false;
+			uploadQueue = [];
+			await refreshFiles();
+		}
+	}
+
+	// Create directory
+	async function createDir() {
+		if (!newDirName.trim()) return;
+		await fetch('/api/files', {
+			method: 'PUT',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ name: newDirName.trim(), path: currentPath || undefined })
+		});
+		newDirName = '';
+		showNewDir = false;
+		await refreshFiles();
 	}
 
 	async function refreshFiles() {
@@ -226,9 +326,15 @@
 		confirmingDelete = null;
 		if (confirmTimer) clearTimeout(confirmTimer);
 		const params = currentPath ? `?path=${encodeURIComponent(currentPath)}` : '';
-		const res = await fetch(`/api/files/${encodeURIComponent(filename)}${params}`, {
-			method: 'DELETE'
-		});
+		const res = await fetch(`/api/files/${encodeURIComponent(filename)}${params}`, { method: 'DELETE' });
+		if (res.ok) await refreshFiles();
+	}
+
+	async function deleteDir(name: string) {
+		confirmingDelete = null;
+		if (confirmTimer) clearTimeout(confirmTimer);
+		const params = currentPath ? `path=${encodeURIComponent(currentPath)}&dir=true` : 'dir=true';
+		const res = await fetch(`/api/files/${encodeURIComponent(name)}?${params}`, { method: 'DELETE' });
 		if (res.ok) await refreshFiles();
 	}
 </script>
@@ -239,8 +345,32 @@
 
 <div class="page-header">
 	<h2>Files</h2>
-	<span class="file-count">{filtered.length} of {files.length} files</span>
+	<div class="page-actions">
+		<button class="btn btn-sm" onclick={() => (showNewDir = !showNewDir)}>New Folder</button>
+		<span class="file-count">{filtered.length} of {files.length} items</span>
+	</div>
 </div>
+
+<!-- Breadcrumbs -->
+<nav class="breadcrumbs">
+	{#each breadcrumbs as crumb, i}
+		{#if i > 0}<span class="crumb-sep">/</span>{/if}
+		{#if i === breadcrumbs.length - 1}
+			<span class="crumb-current">{crumb.name}</span>
+		{:else}
+			<button class="crumb-link" onclick={() => navigateTo(crumb.path)}>{crumb.name}</button>
+		{/if}
+	{/each}
+</nav>
+
+<!-- New folder input -->
+{#if showNewDir}
+	<div class="new-dir-bar">
+		<input type="text" class="new-dir-input" bind:value={newDirName} placeholder="Folder name" onkeydown={(e) => { if (e.key === 'Enter') createDir(); if (e.key === 'Escape') showNewDir = false; }} />
+		<button class="btn btn-sm" onclick={createDir} disabled={!newDirName.trim()}>Create</button>
+		<button class="btn btn-sm" onclick={() => (showNewDir = false)}>Cancel</button>
+	</div>
+{/if}
 
 <!-- Upload zone -->
 <div
@@ -254,15 +384,31 @@
 	aria-label="File upload area"
 >
 	{#if uploading}
-		<div class="progress-bar">
-			<div class="progress-fill" style="width: {uploadProgress}%"></div>
+		<div class="upload-progress-section">
+			<div class="progress-bar">
+				<div class="progress-fill" style="width: {uploadProgress}%"></div>
+			</div>
+			<p class="progress-text">{uploadQueue.filter(q => q.done).length} / {uploadQueue.length} files — {uploadProgress}%</p>
+			{#if uploadQueue.length <= 5}
+				{#each uploadQueue as q}
+					<div class="upload-item" class:done={q.done}>
+						<span class="upload-item-name">{q.name}</span>
+						<span class="upload-item-progress">{q.done ? '✓' : `${q.progress}%`}</span>
+					</div>
+				{/each}
+			{/if}
 		</div>
-		<p>Uploading... {uploadProgress}%</p>
 	{:else}
 		<div class="upload-content">
 			<span class="upload-icon">↑</span>
-			<p>Drop files here or <label class="file-label">browse<input type="file" multiple onchange={handleFileInput} /></label></p>
-			<p class="upload-hint">Images, documents, videos, archives — any file type</p>
+			<p class="upload-main">
+				Drop files or folders here, or
+				<label class="file-label">browse files<input type="file" multiple onchange={handleFileInput} /></label>
+				or
+				<!-- svelte-ignore a11y_no_static_element_interactions -->
+				<label class="file-label">upload folder<input type="file" onchange={handleFolderInput} webkitdirectory /></label>
+			</p>
+			<p class="upload-hint">Supports single files, multiple files, and entire folders with directory structure preserved</p>
 		</div>
 	{/if}
 </div>
@@ -306,24 +452,30 @@
 							onblur={() => submitRename(file.name)}
 						/>
 					{:else}
-						<button class="name-btn" class:previewable={isPreviewable(file)} onclick={() => openPreview(file)}>
-							{file.isDirectory ? '/' : ''}{file.name}
-						</button>
+						{#if file.isDirectory}
+							<button class="name-btn dir-btn" onclick={() => navigateTo(currentPath ? `${currentPath}/${file.name}` : file.name)}>
+								📁 {file.name}
+							</button>
+						{:else}
+							<button class="name-btn" class:previewable={isPreviewable(file)} onclick={() => openPreview(file)}>
+								{file.name}
+							</button>
+						{/if}
 					{/if}
 				</span>
 				<span class="col-type" title={file.mime}>{file.mime.split('/')[1] || file.mime}</span>
 				<span class="col-size">{file.isDirectory ? '-' : formatSize(file.size)}</span>
 				<span class="col-date">{formatDate(file.modified)}</span>
 				<span class="col-actions">
+					<button class="btn btn-sm" title="Info" onclick={() => (infoFile = infoFile?.name === file.name ? null : file)}>i</button>
+					<button class="btn btn-sm" title="Rename" onclick={() => startRename(file)}>mv</button>
 					{#if !file.isDirectory}
-						<button class="btn btn-sm" title="Info" onclick={() => (infoFile = infoFile?.name === file.name ? null : file)}>i</button>
-						<button class="btn btn-sm" title="Rename" onclick={() => startRename(file)}>mv</button>
 						<a href={downloadUrl(file.name)} class="btn btn-sm" title="Download">dl</a>
-						{#if confirmingDelete === file.name}
-							<button class="btn btn-sm btn-confirm" onclick={() => deleteFile(file.name)}>sure?</button>
-						{:else}
-							<button class="btn btn-sm btn-danger" onclick={() => requestDelete(file.name)}>rm</button>
-						{/if}
+					{/if}
+					{#if confirmingDelete === file.name}
+						<button class="btn btn-sm btn-confirm" onclick={() => file.isDirectory ? deleteDir(file.name) : deleteFile(file.name)}>sure?</button>
+					{:else}
+						<button class="btn btn-sm btn-danger" onclick={() => requestDelete(file.name)}>rm</button>
 					{/if}
 				</span>
 			</div>
@@ -422,9 +574,105 @@
 		font-size: 1.3rem;
 	}
 
+	.page-actions { display: flex; align-items: center; gap: 10px; }
+
 	.file-count {
 		font-size: 0.75rem;
 		color: var(--text-muted, #8b949e);
+	}
+
+	/* Breadcrumbs */
+	.breadcrumbs {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		margin-bottom: 14px;
+		font-size: 0.8rem;
+		padding: 8px 12px;
+		background: var(--bg-secondary, #161b22);
+		border-radius: 6px;
+		border: 1px solid var(--border, #30363d);
+		overflow-x: auto;
+	}
+
+	.crumb-link {
+		background: none;
+		border: none;
+		color: var(--accent, #58a6ff);
+		cursor: pointer;
+		font-family: inherit;
+		font-size: inherit;
+		padding: 2px 4px;
+		border-radius: 3px;
+	}
+
+	.crumb-link:hover { background: var(--accent-bg); }
+	.crumb-sep { color: var(--text-faint, #484f58); }
+	.crumb-current { color: var(--text-primary, #e1e4e8); font-weight: 500; }
+
+	/* New folder */
+	.new-dir-bar {
+		display: flex;
+		gap: 8px;
+		margin-bottom: 12px;
+		align-items: center;
+	}
+
+	.new-dir-input {
+		flex: 1;
+		max-width: 300px;
+		padding: 6px 12px;
+		font-size: 0.8rem;
+		border-radius: 6px;
+		border: 1px solid var(--accent, #58a6ff);
+		background: var(--input-bg, #0d1117);
+		color: var(--text-primary, #e1e4e8);
+		font-family: inherit;
+	}
+
+	.new-dir-input:focus { outline: none; }
+
+	.dir-btn {
+		color: var(--accent, #58a6ff) !important;
+		cursor: pointer !important;
+	}
+
+	.dir-btn:hover { text-decoration: underline; }
+
+	/* Upload queue */
+	.upload-progress-section {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+		width: 100%;
+	}
+
+	.progress-text {
+		font-size: 0.8rem;
+		color: var(--text-muted, #8b949e);
+		text-align: center;
+	}
+
+	.upload-item {
+		display: flex;
+		justify-content: space-between;
+		font-size: 0.7rem;
+		color: var(--text-muted, #8b949e);
+		padding: 2px 0;
+	}
+
+	.upload-item.done { color: var(--success, #3fb950); }
+
+	.upload-item-name {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		max-width: 80%;
+	}
+
+	.upload-main {
+		color: var(--text-muted, #8b949e);
+		font-size: 0.85rem;
 	}
 
 	.file-controls {
