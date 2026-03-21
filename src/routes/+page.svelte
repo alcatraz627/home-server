@@ -31,6 +31,13 @@
 			status: 'active'
 		},
 		{
+			id: 'terminal',
+			title: 'Terminal',
+			href: '/terminal',
+			description: 'Web-based shell access',
+			status: 'active'
+		},
+		{
 			id: 'backups',
 			title: 'Backups',
 			href: '#',

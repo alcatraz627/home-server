@@ -11,7 +11,8 @@
 		{ href: '/files', label: 'Files', icon: '⇄' },
 		{ href: '/lights', label: 'Lights', icon: '◉' },
 		{ href: '/processes', label: 'Processes', icon: '⊞' },
-		{ href: '/tailscale', label: 'Tailscale', icon: '⊶' }
+		{ href: '/tailscale', label: 'Tailscale', icon: '⊶' },
+		{ href: '/terminal', label: 'Terminal', icon: '▶' }
 	];
 </script>
 
