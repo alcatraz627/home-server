@@ -9,7 +9,6 @@
 
 	let { data } = $props<{ data: PageData }>();
 	let files = $state<EnrichedFile[]>(data.files);
-	$effect(() => { files = data.files; });
 	let dragOver = $state(false);
 	let uploading = $state(false);
 	let uploadProgress = $state(0);

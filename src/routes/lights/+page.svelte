@@ -228,7 +228,7 @@
 									onblur={() => submitRename(bulb.mac)}
 								/>
 							{:else}
-								<span class="bulb-name" ondblclick={() => startRename(bulb)}>{bulbName(bulb)}</span>
+								<span class="bulb-name" role="button" tabindex="0" ondblclick={() => startRename(bulb)} onkeydown={(e) => { if (e.key === 'Enter') startRename(bulb); }}>{bulbName(bulb)}</span>
 							{/if}
 							<span class="bulb-ip">{bulb.ip}</span>
 							{#if bulb.fwVersion}
