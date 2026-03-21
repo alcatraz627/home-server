@@ -15,6 +15,43 @@
 	let uploading = $state(false);
 	let uploadProgress = $state(0);
 
+	// Search, sort, filter
+	let search = $state('');
+	let sortField = $state<'name' | 'size' | 'modified' | 'mime'>('name');
+	let sortAsc = $state(true);
+	let typeFilter = $state('');
+
+	let uniqueTypes = $derived([...new Set(files.map(f => f.mime.split('/')[0]))].sort());
+
+	let filtered = $derived.by(() => {
+		let result = files;
+		if (search) {
+			const q = search.toLowerCase();
+			result = result.filter(f => f.name.toLowerCase().includes(q));
+		}
+		if (typeFilter) {
+			result = result.filter(f => f.mime.startsWith(typeFilter + '/'));
+		}
+		const dir = sortAsc ? 1 : -1;
+		return [...result].sort((a, b) => {
+			if (sortField === 'name') return a.name.localeCompare(b.name) * dir;
+			if (sortField === 'size') return (a.size - b.size) * dir;
+			if (sortField === 'modified') return (new Date(a.modified).getTime() - new Date(b.modified).getTime()) * dir;
+			if (sortField === 'mime') return a.mime.localeCompare(b.mime) * dir;
+			return 0;
+		});
+	});
+
+	function toggleSort(field: typeof sortField) {
+		if (sortField === field) sortAsc = !sortAsc;
+		else { sortField = field; sortAsc = true; }
+	}
+
+	function sortIcon(field: typeof sortField): string {
+		if (sortField !== field) return '';
+		return sortAsc ? ' ↑' : ' ↓';
+	}
+
 	// Preview state
 	let previewFile = $state<FileInfo | null>(null);
 
@@ -200,9 +237,12 @@
 	<title>Files | Home Server</title>
 </svelte:head>
 
-<h2>Files</h2>
+<div class="page-header">
+	<h2>Files</h2>
+	<span class="file-count">{filtered.length} of {files.length} files</span>
+</div>
 
-<!-- Drop zone -->
+<!-- Upload zone -->
 <div
 	class="drop-zone"
 	class:active={dragOver}
@@ -219,23 +259,42 @@
 		</div>
 		<p>Uploading... {uploadProgress}%</p>
 	{:else}
-		<p>Drop files here or <label class="file-label">browse<input type="file" multiple onchange={handleFileInput} /></label></p>
+		<div class="upload-content">
+			<span class="upload-icon">↑</span>
+			<p>Drop files here or <label class="file-label">browse<input type="file" multiple onchange={handleFileInput} /></label></p>
+			<p class="upload-hint">Images, documents, videos, archives — any file type</p>
+		</div>
+	{/if}
+</div>
+
+<!-- Search and filter bar -->
+<div class="file-controls">
+	<input type="text" class="search-input" placeholder="Search files..." bind:value={search} />
+	{#if uniqueTypes.length > 1}
+		<select class="type-filter" bind:value={typeFilter}>
+			<option value="">All types</option>
+			{#each uniqueTypes as t}
+				<option value={t}>{t}</option>
+			{/each}
+		</select>
 	{/if}
 </div>
 
 <!-- File list -->
 {#if files.length === 0}
 	<p class="empty">No files yet. Upload something to get started.</p>
+{:else if filtered.length === 0}
+	<p class="empty">No files match your search.</p>
 {:else}
 	<div class="file-list">
 		<div class="file-header">
-			<span class="col-name">Name</span>
-			<span class="col-type">Type</span>
-			<span class="col-size">Size</span>
-			<span class="col-date">Modified</span>
+			<span class="col-name sortable" onclick={() => toggleSort('name')}>Name{sortIcon('name')}</span>
+			<span class="col-type sortable" onclick={() => toggleSort('mime')}>Type{sortIcon('mime')}</span>
+			<span class="col-size sortable" onclick={() => toggleSort('size')}>Size{sortIcon('size')}</span>
+			<span class="col-date sortable" onclick={() => toggleSort('modified')}>Modified{sortIcon('modified')}</span>
 			<span class="col-actions"></span>
 		</div>
-		{#each files as file}
+		{#each filtered as file}
 			<div class="file-row">
 				<span class="col-name" title={file.name}>
 					{#if renamingFile === file.name}
@@ -352,9 +411,75 @@
 {/if}
 
 <style>
+	.page-header {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		margin-bottom: 16px;
+	}
+
 	h2 {
 		font-size: 1.3rem;
-		margin-bottom: 16px;
+	}
+
+	.file-count {
+		font-size: 0.75rem;
+		color: var(--text-muted, #8b949e);
+	}
+
+	.file-controls {
+		display: flex;
+		gap: 8px;
+		margin-bottom: 14px;
+	}
+
+	.search-input {
+		flex: 1;
+		padding: 7px 12px;
+		font-size: 0.8rem;
+		border-radius: 6px;
+		border: 1px solid var(--border, #30363d);
+		background: var(--bg-inset, #0d1117);
+		color: var(--text-primary, #e1e4e8);
+		font-family: inherit;
+	}
+
+	.search-input:focus { outline: none; border-color: var(--accent, #58a6ff); }
+
+	.type-filter {
+		padding: 7px 12px;
+		font-size: 0.8rem;
+		border-radius: 6px;
+		border: 1px solid var(--border, #30363d);
+		background: var(--bg-secondary, #21262d);
+		color: var(--text-primary, #c9d1d9);
+		font-family: inherit;
+	}
+
+	.upload-content {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 6px;
+	}
+
+	.upload-icon {
+		font-size: 1.5rem;
+		color: var(--text-faint, #484f58);
+	}
+
+	.upload-hint {
+		font-size: 0.75rem;
+		color: var(--text-faint, #484f58);
+	}
+
+	.sortable {
+		cursor: pointer;
+		user-select: none;
+	}
+
+	.sortable:hover {
+		color: var(--text-primary, #e1e4e8);
 	}
 
 	.drop-zone {

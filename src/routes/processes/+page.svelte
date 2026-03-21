@@ -28,7 +28,17 @@
 	const DISPLAY_LIMIT = 50;
 	let showAll = $state(false);
 
-	const SIGNALS = ['TERM', 'KILL', 'HUP', 'INT', 'STOP', 'CONT', 'USR1', 'USR2'];
+	const SIGNAL_INFO: Record<string, string> = {
+		TERM: 'Graceful shutdown — process can clean up',
+		KILL: 'Force kill — immediate, no cleanup',
+		HUP: 'Hangup — often used to reload config',
+		INT: 'Interrupt — like pressing Ctrl+C',
+		STOP: 'Pause — freeze process (resume with CONT)',
+		CONT: 'Resume — continue a stopped process',
+		USR1: 'User signal 1 — app-specific behavior',
+		USR2: 'User signal 2 — app-specific behavior'
+	};
+	const SIGNALS = Object.keys(SIGNAL_INFO);
 
 	// localStorage helpers
 	function loadStarred(): Set<number> {
@@ -74,6 +84,9 @@
 	interface TreeNode extends ProcessInfo {
 		children: TreeNode[];
 		depth: number;
+		isLast: boolean;
+		/** Which ancestor levels have a continuing sibling (for vertical connector lines) */
+		connectors: boolean[];
 	}
 
 	let treeList = $derived.by(() => {
@@ -87,19 +100,18 @@
 			childrenMap.get(p.ppid)!.push(p);
 		}
 
-		// Find roots (processes whose parent isn't in our filtered list)
 		const roots = sortedWithStars.filter(p => !byPid.has(p.ppid));
 		const flat: TreeNode[] = [];
 
-		function walk(proc: ProcessInfo, depth: number) {
-			flat.push({ ...proc, children: [], depth });
+		function walk(proc: ProcessInfo, depth: number, isLast: boolean, connectors: boolean[]) {
+			flat.push({ ...proc, children: [], depth, isLast, connectors: [...connectors] });
 			const kids = childrenMap.get(proc.pid) || [];
-			for (const child of kids) {
-				walk(child, depth + 1);
-			}
+			kids.forEach((child, i) => {
+				walk(child, depth + 1, i === kids.length - 1, [...connectors, !isLast]);
+			});
 		}
 
-		for (const root of roots) walk(root, 0);
+		roots.forEach((root, i) => walk(root, 0, i === roots.length - 1, []));
 		return flat;
 	});
 
@@ -210,7 +222,8 @@
 		<span class="col-actions"></span>
 	</div>
 	{#each displayed as proc}
-		{@const indent = viewMode === 'tree' && 'depth' in proc ? (proc as any).depth : 0}
+		{@const node = viewMode === 'tree' && 'depth' in proc ? proc as TreeNode : null}
+		{@const depth = node?.depth ?? 0}
 		<div class="process-row" class:starred={starred.has(proc.pid)} class:expanded={expandedPid === proc.pid}>
 			<span class="col-star">
 				<button class="star-btn" class:active={starred.has(proc.pid)} onclick={() => toggleStar(proc.pid)} title="Star">
@@ -218,7 +231,15 @@
 				</button>
 			</span>
 			<span class="col-pid">{proc.pid}</span>
-			<span class="col-name" title={proc.command} style="padding-left: {indent * 16}px">
+			<span class="col-name" title={proc.command}>
+				{#if node && depth > 0}
+					<span class="tree-connectors">
+						{#each node.connectors.slice(0, -1) as hasSibling}
+							<span class="tree-line">{hasSibling ? '│' : ' '}</span>
+						{/each}
+						<span class="tree-branch">{node.isLast ? '└' : '├'}─</span>
+					</span>
+				{/if}
 				<button class="expand-btn" onclick={() => toggleExpand(proc.pid)}>
 					{expandedPid === proc.pid ? '▼' : '▸'}
 				</button>
@@ -230,15 +251,15 @@
 			<span class="col-state">{proc.state}</span>
 			<span class="col-user">{proc.user}</span>
 			<span class="col-actions">
-				<select class="signal-select" bind:value={selectedSignal}>
+				<select class="signal-select" bind:value={selectedSignal} title={SIGNAL_INFO[selectedSignal]}>
 					{#each SIGNALS as sig}
-						<option value={sig}>{sig}</option>
+						<option value={sig} title={SIGNAL_INFO[sig]}>{sig}</option>
 					{/each}
 				</select>
 				{#if confirmingSignal === proc.pid}
 					<button class="btn btn-sm btn-confirm" onclick={() => confirmSignal(proc.pid)}>sure?</button>
 				{:else}
-					<button class="btn btn-sm btn-danger" onclick={() => requestSignal(proc.pid)}>send</button>
+					<button class="btn btn-sm btn-danger" onclick={() => requestSignal(proc.pid)} title={SIGNAL_INFO[selectedSignal]}>send</button>
 				{/if}
 			</span>
 		</div>
@@ -437,7 +458,28 @@
 		padding: 0 4px 0 0;
 	}
 
-	.expand-btn:hover { color: #e1e4e8; }
+	.expand-btn:hover { color: var(--text-primary, #e1e4e8); }
+
+	.tree-connectors {
+		display: inline-flex;
+		align-items: center;
+		font-family: monospace;
+		color: var(--text-faint, #484f58);
+		font-size: 0.75rem;
+		line-height: 1;
+		user-select: none;
+	}
+
+	.tree-line {
+		display: inline-block;
+		width: 14px;
+		text-align: center;
+	}
+
+	.tree-branch {
+		display: inline-block;
+		width: 20px;
+	}
 
 	.col-pid { font-family: monospace; font-size: 0.8rem; color: #8b949e; }
 
