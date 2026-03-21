@@ -213,18 +213,32 @@ export function getSystemDiskUsage(): {
   try {
     const raw = execSync('df -h / /Volumes/* 2>/dev/null || df -h', { encoding: 'utf-8', timeout: 3000 });
     const lines = raw.trim().split('\n').slice(1);
-    return lines
+    const disks = lines
       .map((line) => {
         const parts = line.trim().split(/\s+/);
+        const device = parts[0];
         return {
+          device,
           mount: parts[parts.length - 1],
           total: parts[1],
           used: parts[2],
           available: parts[3],
           usePercent: parts[4],
+          fstype: '',
         };
       })
-      .filter((d) => !d.mount.includes('/dev') && !d.mount.includes('/private'));
+      .filter(
+        (d) => !d.mount.includes('/dev') && !d.mount.includes('/private') && !d.mount.startsWith('/System/Volumes'),
+      );
+    // Deduplicate by device — prefer "/" mount over others for same disk
+    const byDevice = new Map<string, (typeof disks)[0]>();
+    for (const d of disks) {
+      const existing = byDevice.get(d.device);
+      if (!existing || d.mount === '/') {
+        byDevice.set(d.device, d);
+      }
+    }
+    return [...byDevice.values()];
   } catch {
     return [];
   }

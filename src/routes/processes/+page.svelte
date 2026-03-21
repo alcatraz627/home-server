@@ -2,8 +2,58 @@
   import type { PageData } from './$types';
   import type { ProcessInfo, ProcessDetail } from '$lib/server/processes';
   import { toast } from '$lib/toast';
+  import { onMount } from 'svelte';
 
   let { data } = $props<{ data: PageData }>();
+
+  // System monitor
+  interface SystemSnapshot {
+    timestamp: number;
+    cpu: { cores: { core: number; usage: number }[]; avgUsage: number; loadAvg: number[]; count: number };
+    memory: { total: number; free: number; used: number; usedPercent: number };
+    network: { bytesIn: number; bytesOut: number };
+    disk: { readsPerSec: number; writesPerSec: number };
+    uptime: number;
+  }
+
+  let monitorHistory = $state<SystemSnapshot[]>([]);
+  let monitorOpen = $state(true);
+  let monitorInterval: ReturnType<typeof setInterval> | null = null;
+  const MONITOR_MAX = 60;
+
+  async function fetchSystemStats() {
+    try {
+      const res = await fetch('/api/system');
+      if (res.ok) {
+        const snap: SystemSnapshot = await res.json();
+        monitorHistory = [...monitorHistory.slice(-(MONITOR_MAX - 1)), snap];
+      }
+    } catch {}
+  }
+
+  onMount(() => {
+    fetchSystemStats();
+    monitorInterval = setInterval(fetchSystemStats, 2000);
+    return () => {
+      if (monitorInterval) clearInterval(monitorInterval);
+    };
+  });
+
+  function monitorPath(values: number[], width: number, height: number, maxVal?: number): string {
+    if (values.length < 2) return '';
+    const max = maxVal ?? Math.max(...values, 1);
+    const step = width / (values.length - 1);
+    return values
+      .map((v, i) => `${i === 0 ? 'M' : 'L'}${(i * step).toFixed(1)},${(height - (v / max) * height).toFixed(1)}`)
+      .join(' ');
+  }
+
+  function formatBytes(b: number): string {
+    if (b < 1024) return `${b} B`;
+    if (b < 1048576) return `${(b / 1024).toFixed(0)} KB`;
+    if (b < 1073741824) return `${(b / 1048576).toFixed(1)} MB`;
+    return `${(b / 1073741824).toFixed(1)} GB`;
+  }
   // svelte-ignore state_referenced_locally
   const { processes: initialProcesses } = data;
   let processes = $state<ProcessInfo[]>(initialProcesses);
@@ -254,6 +304,118 @@
 <svelte:head>
   <title>Processes | Home Server</title>
 </svelte:head>
+
+<!-- System Monitor -->
+<div class="monitor-toggle">
+  <button class="btn btn-sm" onclick={() => (monitorOpen = !monitorOpen)}>
+    {monitorOpen ? '▼' : '▶'} System Monitor
+  </button>
+  {#if monitorHistory.length > 0}
+    {@const latest = monitorHistory[monitorHistory.length - 1]}
+    <span class="monitor-summary">
+      CPU {latest.cpu.avgUsage}% · MEM {latest.memory.usedPercent}% · Load {latest.cpu.loadAvg[0]}
+    </span>
+  {/if}
+</div>
+
+{#if monitorOpen && monitorHistory.length > 0}
+  <div class="monitor-grid">
+    <!-- CPU Chart -->
+    <div class="monitor-card">
+      <div class="monitor-label">
+        CPU <span class="monitor-value">{monitorHistory[monitorHistory.length - 1].cpu.avgUsage}%</span>
+      </div>
+      <svg class="monitor-chart" viewBox="0 0 200 60" preserveAspectRatio="none">
+        <path
+          d={monitorPath(
+            monitorHistory.map((s) => s.cpu.avgUsage),
+            200,
+            60,
+            100,
+          )}
+          fill="none"
+          stroke="var(--accent)"
+          stroke-width="1.5"
+        />
+      </svg>
+    </div>
+
+    <!-- Memory Chart -->
+    <div class="monitor-card">
+      <div class="monitor-label">
+        Memory <span class="monitor-value"
+          >{monitorHistory[monitorHistory.length - 1].memory.usedPercent}% ({formatBytes(
+            monitorHistory[monitorHistory.length - 1].memory.used,
+          )})</span
+        >
+      </div>
+      <svg class="monitor-chart" viewBox="0 0 200 60" preserveAspectRatio="none">
+        <path
+          d={monitorPath(
+            monitorHistory.map((s) => s.memory.usedPercent),
+            200,
+            60,
+            100,
+          )}
+          fill="none"
+          stroke="var(--purple)"
+          stroke-width="1.5"
+        />
+      </svg>
+    </div>
+
+    <!-- Network Chart -->
+    <div class="monitor-card">
+      <div class="monitor-label">
+        Network <span class="monitor-value"
+          >In: {formatBytes(monitorHistory[monitorHistory.length - 1].network.bytesIn)}</span
+        >
+      </div>
+      <svg class="monitor-chart" viewBox="0 0 200 60" preserveAspectRatio="none">
+        <path
+          d={monitorPath(
+            monitorHistory.map((s) => s.network.bytesIn),
+            200,
+            60,
+          )}
+          fill="none"
+          stroke="var(--success)"
+          stroke-width="1.5"
+        />
+        <path
+          d={monitorPath(
+            monitorHistory.map((s) => s.network.bytesOut),
+            200,
+            60,
+          )}
+          fill="none"
+          stroke="var(--warning)"
+          stroke-width="1"
+          stroke-dasharray="3,2"
+        />
+      </svg>
+    </div>
+
+    <!-- Load Average -->
+    <div class="monitor-card">
+      <div class="monitor-label">
+        Load Avg <span class="monitor-value">{monitorHistory[monitorHistory.length - 1].cpu.loadAvg.join(' / ')}</span>
+      </div>
+      <svg class="monitor-chart" viewBox="0 0 200 60" preserveAspectRatio="none">
+        <path
+          d={monitorPath(
+            monitorHistory.map((s) => s.cpu.loadAvg[0]),
+            200,
+            60,
+          )}
+          fill="none"
+          stroke="var(--orange)"
+          stroke-width="1.5"
+        />
+      </svg>
+    </div>
+  </div>
+{/if}
 
 <div class="header">
   <h2>Process Manager</h2>
@@ -826,6 +988,61 @@
     width: 80px;
     height: 20px;
     flex-shrink: 0;
+  }
+
+  /* System Monitor */
+  .monitor-toggle {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .monitor-summary {
+    font-size: 0.75rem;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-muted);
+  }
+
+  .monitor-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .monitor-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+  }
+
+  .monitor-label {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 6px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .monitor-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--text-primary);
+    text-transform: none;
+    letter-spacing: 0;
+    font-weight: 600;
+  }
+
+  .monitor-chart {
+    width: 100%;
+    height: 40px;
+    border-radius: 4px;
+    background: var(--bg-inset);
   }
 
   .env-list div {
