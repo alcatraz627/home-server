@@ -226,11 +226,11 @@ Architecture note: split process stats into two tiers — **passive** (low-overh
 - [x] Extended scene presets — 32 Wiz scenes organized by category (Functional, Ambient, Nature, Festive, Dynamic)
 
 ### M4.1: Operator Templates
-- [x] Predefined task templates — 6 built-in (disk alert, memory check, health check, log rotation, tailscale status, git status)
+- [x] Predefined task templates — 31 built-in with tags, search, pagination
 - [x] Template picker UI — grid of template cards, click to auto-fill form fields
 - [ ] Custom template creation — save any task config as a reusable template
 
-### M5: UI & Polish
+### M5: UI & Polish (completed)
 - [x] Page navigation loading spinner — shimmer bar on route transitions
 - [x] CSS custom properties design system — all colors via `var(--token)` tokens
 - [x] Dark / light mode toggle with localStorage persistence
@@ -239,25 +239,87 @@ Architecture note: split process stats into two tiers — **passive** (low-overh
 - [x] Active nav indicator — left border accent on current page
 - [x] Custom scrollbar styling
 - [x] Mobile-optimized — reduced padding, hamburger menu
-- [x] Light mode color fixes — global input/button/table styles via CSS tokens, --input-bg, --btn-bg, --table-header-bg
-- [x] Expanded color palette — added success-bg, danger-bg, warning-bg, purple-bg, cyan, orange tokens
-- [ ] Generic table component — reusable across all widgets with sort, search, filter, column picker, row select; per-instance localStorage persistence
-- [ ] Mobile responsive tables — horizontal scroll, collapsible columns, touch-friendly controls
+- [x] Light mode color fixes — global input/button/table styles via CSS tokens
+- [x] Expanded color palette — success-bg, danger-bg, warning-bg, purple-bg, cyan, orange
 - [x] Navbar enhancements — system stats (MEM%, CPU load, uptime) in header bar
 - [x] Better fonts — Inter for UI, JetBrains Mono for code/data
-- [ ] Consistent expandable-row pattern across widgets (processes, files, tailscale)
-- [ ] Share-sheet integration for file transfer (if feasible)
 - [x] Onboarding docs — comprehensive README with setup guide and project structure
 
-### M5.1: Terminal Fixes
+### M5.1: Terminal Fixes (completed)
 - [x] Auto-reconnect on WebSocket drop (3s retry)
 - [x] Tab support — multiple terminal tabs, add/close/switch, independent sessions
 - [x] Terminal toolbar — clear, font size +/- controls
 - [x] Per-tab connection status indicator (green/red dot)
+- [x] Node v23 fallback — child_process.spawn when node-pty unavailable
 
 ### M6: Claude Keeper
 See [docs/claude-keeper.md](docs/claude-keeper.md) for full planning document.
+- [x] Feature requests CRUD — goal, scope selector, details, status workflow, search, filter
+- [x] Expandable detail panel — output/notes editor with save + copy
 - [ ] Agent interface — view, start, stop running Claude agents on the server
-- [ ] Feature requests CRUD — goal, scope (selectable), details, status tracking
-- [ ] Agent task runner — auto-sweeps pending feature requests, works with user on prioritization
+- [ ] Agent task runner — auto-sweeps pending feature requests
 - [ ] Agent output viewer — live streaming of agent activity and decisions
+
+---
+
+## Remaining Todos
+
+### Dashboard Overhaul
+- [ ] Live dashboard — system stats (CPU, MEM, disk), running tasks/backups status, starred bulbs quick-toggle, starred files quick-access
+- [ ] Terminal preview — show latest output line from active terminal tab, one-click to open
+- [ ] Quick links — jump to any widget's most recent/starred items
+
+### Toast Notification System
+- [ ] Global toast component — success (green), warning (yellow), error (red) toasts with auto-dismiss
+- [ ] Wire toasts to file operations — upload success, delete success, rename success, upload error
+- [ ] Wire toasts to process operations — signal sent, kill confirmed
+- [ ] Wire toasts to backup/task triggers — started, completed, failed
+- [ ] Wire toasts to API errors — any failed fetch shows error toast with message
+
+### Navbar Improvements
+- [ ] Make system stats more visible — slightly larger font, color-coded (green/yellow/red based on thresholds)
+- [ ] Show auto-refresh indicator — which widgets are auto-refreshing and at what interval
+- [ ] Click stats to expand — show more detail (per-core CPU, memory breakdown)
+
+### Operator Scheduling UX
+- [ ] Cron expression builder — visual picker for common patterns (every N minutes, daily at time, weekly)
+- [ ] Next-run preview — show when the cron will next trigger
+- [ ] Schedule enable/disable toggle per task without deleting the expression
+- [ ] Cron validation with human-readable description ("Every day at 2:00 AM")
+
+### Smart Lights — Continued
+- [ ] Bigger, more visual bulb cards — show a color swatch/gradient reflecting current state
+- [ ] Brightness as a visual arc/ring rather than a plain slider
+- [ ] Bulb grouping by room — user-defined rooms in localStorage
+- [ ] Quick presets bar — "All off", "Movie mode", "Work mode" as one-click buttons
+- [ ] Show power consumption estimate based on brightness/state
+
+### Tailscale Enhancements
+- [ ] Clickable IP addresses — copy to clipboard on click
+- [ ] Show local hostnames (mDNS .local names) alongside Tailscale hostnames
+- [ ] Show open ports per device (requires active scan — behind a button)
+- [ ] Device detail expandable row — OS version, Tailscale version, last seen, exit node status
+
+### File Manager — Continued
+- [ ] Move files between directories — drag-and-drop or "Move to..." dialog
+- [ ] Star/favorite files — persist in metadata, show on dashboard
+- [ ] Bulk operations — select multiple files, bulk delete/move/download as zip
+- [ ] File size visualization — bar chart of largest files/directories
+
+### Process Manager — Continued
+- [ ] Command reference helper — expandable section explaining common process names (e.g., "mds_stores = Spotlight indexing")
+- [ ] Show listening ports in passive tier (quick `lsof -i -P | grep LISTEN` per-process)
+- [ ] Process resource history — sparkline of CPU/MEM over last N refreshes
+
+### Backups — Continued
+- [ ] Edit existing backup configs
+- [ ] Delete backup configs
+- [ ] Cross-device backups — rsync over Tailscale SSH (source: `user@tailscale-host:/path`)
+- [ ] Backup diff preview — show what would be transferred before running
+
+### Cross-Cutting
+- [ ] Generic table component — reusable sort/search/filter/column-picker/pagination, localStorage per instance
+- [ ] Mobile responsive tables — horizontal scroll, collapsible columns
+- [ ] Consistent expandable-row component — shared across processes, files, tailscale
+- [ ] Share-sheet integration — Web Share Target API (requires HTTPS + PWA manifest)
+- [ ] Custom template creation — save any task config as reusable template
