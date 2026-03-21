@@ -19,6 +19,7 @@
 		{ href: '/tailscale', label: 'Tailscale', icon: '⊶' },
 		{ href: '/backups', label: 'Backups', icon: '⟲' },
 		{ href: '/tasks', label: 'Tasks', icon: '⚙' },
+		{ href: '/keeper', label: 'Keeper', icon: '◈' },
 		{ href: '/terminal', label: 'Terminal', icon: '▶' }
 	];
 

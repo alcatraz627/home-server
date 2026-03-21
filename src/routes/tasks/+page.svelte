@@ -112,6 +112,54 @@
 
 	let expandedTask = $state<string | null>(null);
 
+	// Task list search + pagination
+	let taskSearch = $state('');
+	let taskPage = $state(0);
+	const TASKS_PER_PAGE = 10;
+
+	let filteredStatuses = $derived.by(() => {
+		if (!taskSearch) return statuses;
+		const q = taskSearch.toLowerCase();
+		return statuses.filter(s =>
+			s.config.name.toLowerCase().includes(q) ||
+			s.config.command.toLowerCase().includes(q)
+		);
+	});
+
+	let taskTotalPages = $derived(Math.max(1, Math.ceil(filteredStatuses.length / TASKS_PER_PAGE)));
+	let pagedStatuses = $derived(filteredStatuses.slice(taskPage * TASKS_PER_PAGE, (taskPage + 1) * TASKS_PER_PAGE));
+
+	// Form presets
+	const TIMEOUT_PRESETS = [
+		{ label: '10s', value: 10 },
+		{ label: '30s', value: 30 },
+		{ label: '1m', value: 60 },
+		{ label: '5m', value: 300 },
+		{ label: '15m', value: 900 },
+		{ label: '1h', value: 3600 }
+	];
+
+	const SCHEDULE_PRESETS = [
+		{ label: 'Every 5 min', value: '*/5 * * * *' },
+		{ label: 'Every 30 min', value: '*/30 * * * *' },
+		{ label: 'Hourly', value: '0 * * * *' },
+		{ label: 'Every 6h', value: '0 */6 * * *' },
+		{ label: 'Daily 2am', value: '0 2 * * *' },
+		{ label: 'Weekly Sun', value: '0 3 * * 0' }
+	];
+
+	// Command validator
+	let commandWarnings = $derived.by(() => {
+		const w: string[] = [];
+		if (!formCommand) return w;
+		if (formCommand.includes('rm -rf /') || formCommand.includes('rm -rf ~')) w.push('Dangerous: recursive delete of root or home');
+		if (formCommand.includes('sudo') && formTimeout < 30) w.push('sudo commands may need longer timeout for password prompt');
+		if (formCommand.includes('|') && formCommand.split('|').length > 4) w.push('Many pipes — consider simplifying or using a script file');
+		if (formCommand.length > 500) w.push('Very long command — consider putting this in a shell script');
+		if (formCommand.includes('> /dev/') && !formCommand.includes('/dev/null')) w.push('Writing to device files — make sure this is intentional');
+		return w;
+	});
+
 	async function refresh() {
 		const res = await fetch('/api/tasks');
 		const result = await res.json();
@@ -259,23 +307,65 @@
 	<div class="form-card">
 		<h3>New Task</h3>
 		<div class="form-grid">
-			<label><span>Name</span><input type="text" bind:value={formName} placeholder="Disk space check" /></label>
-			<label><span>Command</span><input type="text" bind:value={formCommand} placeholder="df -h | grep /dev" /></label>
-			<label><span>Schedule (cron, optional)</span><input type="text" bind:value={formSchedule} placeholder="*/5 * * * * (every 5 min)" /></label>
-			<div class="form-row">
-				<label><span>Timeout (s)</span><input type="number" bind:value={formTimeout} min="5" /></label>
-				<label><span>Max Retries</span><input type="number" bind:value={formRetries} min="0" max="10" /></label>
+			<label>
+				<span>Task Name</span>
+				<input type="text" bind:value={formName} placeholder="e.g., Disk space check" />
+			</label>
+
+			<label>
+				<span>Shell Command</span>
+				<textarea class="command-input" bind:value={formCommand} rows="3" placeholder="e.g., df -h / | grep dev"></textarea>
+			</label>
+
+			{#if commandWarnings.length > 0}
+				<div class="command-warnings">
+					{#each commandWarnings as w}
+						<div class="warning-item">⚠ {w}</div>
+					{/each}
+				</div>
+			{/if}
+
+			<div class="form-section">
+				<span class="form-section-label">Schedule</span>
+				<div class="preset-row">
+					{#each SCHEDULE_PRESETS as p}
+						<button class="preset-btn" class:active={formSchedule === p.value} onclick={() => (formSchedule = formSchedule === p.value ? '' : p.value)}>{p.label}</button>
+					{/each}
+				</div>
+				<input type="text" bind:value={formSchedule} placeholder="Custom cron expression (leave empty for manual)" />
+			</div>
+
+			<div class="form-section">
+				<span class="form-section-label">Timeout</span>
+				<div class="preset-row">
+					{#each TIMEOUT_PRESETS as p}
+						<button class="preset-btn" class:active={formTimeout === p.value} onclick={() => (formTimeout = p.value)}>{p.label}</button>
+					{/each}
+				</div>
+				<div class="form-row">
+					<label><span>Custom (seconds)</span><input type="number" bind:value={formTimeout} min="5" /></label>
+					<label><span>Max Retries</span><input type="number" bind:value={formRetries} min="0" max="10" /></label>
+				</div>
 			</div>
 		</div>
-		<button class="btn btn-primary" onclick={createTask} disabled={!formName || !formCommand}>Create</button>
+		<div class="form-actions">
+			<button class="btn btn-primary" onclick={createTask} disabled={!formName || !formCommand}>Create Task</button>
+			{#if formName || formCommand}<button class="btn" onclick={() => { formName = ''; formCommand = ''; formTimeout = 300; formRetries = 3; formSchedule = ''; }}>Clear</button>{/if}
+		</div>
 	</div>
 {/if}
 
 {#if statuses.length === 0 && !showForm}
-	<p class="empty">No tasks configured. Click "New Task" to create one.</p>
+	<p class="empty">No tasks configured. Click "New Task" or browse "Templates" to get started.</p>
 {:else}
+	{#if statuses.length > 3}
+		<div class="task-search-bar">
+			<input type="text" class="task-search" placeholder="Search tasks..." bind:value={taskSearch} />
+			<span class="task-count">{filteredStatuses.length} of {statuses.length} tasks</span>
+		</div>
+	{/if}
 	<div class="task-list">
-		{#each statuses as status}
+		{#each pagedStatuses as status}
 			<div class="task-card">
 				<div class="task-top">
 					<div class="task-info">
@@ -329,6 +419,13 @@
 			</div>
 		{/each}
 	</div>
+	{#if taskTotalPages > 1}
+		<div class="template-pagination">
+			<button class="tool-btn" disabled={taskPage === 0} onclick={() => (taskPage--)}>‹ Prev</button>
+			<span class="page-info">{taskPage + 1} / {taskTotalPages}</span>
+			<button class="tool-btn" disabled={taskPage >= taskTotalPages - 1} onclick={() => (taskPage++)}>Next ›</button>
+		</div>
+	{/if}
 {/if}
 
 <style>
@@ -339,9 +436,28 @@
 	.btn:hover:not(:disabled) { border-color: #58a6ff; }
 	.btn:disabled { opacity: 0.5; cursor: default; }
 	.btn-sm { padding: 4px 10px; font-size: 0.75rem; }
-	.btn-primary { background: #238636; border-color: #2ea043; color: #fff; margin-top: 12px; }
-	.btn-primary:hover:not(:disabled) { background: #2ea043; }
-	.btn-danger:hover { border-color: #f85149; color: #f85149; }
+	.btn-primary { background: var(--success, #238636); border-color: var(--success, #2ea043); color: #fff; }
+	.btn-primary:hover:not(:disabled) { filter: brightness(1.15); }
+	.btn-danger:hover { border-color: var(--danger, #f85149); color: var(--danger, #f85149); }
+
+	/* Form improvements */
+	.command-input { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; resize: vertical; min-height: 60px; }
+	.command-warnings { display: flex; flex-direction: column; gap: 4px; }
+	.warning-item { font-size: 0.75rem; color: var(--warning, #d29922); padding: 4px 8px; background: var(--warning-bg, rgba(210,153,34,0.1)); border-radius: 4px; }
+
+	.form-section { display: flex; flex-direction: column; gap: 6px; padding-top: 8px; border-top: 1px solid var(--border-subtle, #21262d); }
+	.form-section-label { font-size: 0.75rem; color: var(--text-muted, #8b949e); text-transform: uppercase; letter-spacing: 0.03em; }
+	.preset-row { display: flex; flex-wrap: wrap; gap: 4px; }
+	.preset-btn { padding: 3px 10px; font-size: 0.7rem; border-radius: 12px; border: 1px solid var(--border, #30363d); background: var(--btn-bg, #21262d); color: var(--text-muted, #8b949e); cursor: pointer; font-family: inherit; transition: all 0.15s; }
+	.preset-btn:hover { border-color: var(--accent, #58a6ff); color: var(--text-primary, #e1e4e8); }
+	.preset-btn.active { background: var(--accent-bg); border-color: var(--accent, #58a6ff); color: var(--accent, #58a6ff); }
+	.form-actions { display: flex; gap: 8px; margin-top: 12px; }
+
+	/* Task search bar */
+	.task-search-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+	.task-search { flex: 1; padding: 7px 12px; font-size: 0.8rem; border-radius: 6px; border: 1px solid var(--border, #30363d); background: var(--input-bg, #0d1117); color: var(--text-primary, #e1e4e8); font-family: inherit; }
+	.task-search:focus { outline: none; border-color: var(--accent, #58a6ff); }
+	.task-count { font-size: 0.75rem; color: var(--text-muted, #8b949e); white-space: nowrap; }
 
 	.disk-section { margin-bottom: 20px; padding: 14px; background: #161b22; border: 1px solid #30363d; border-radius: 8px; }
 	.disk-section h3 { font-size: 0.85rem; color: #8b949e; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.03em; }

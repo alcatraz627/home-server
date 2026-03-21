@@ -31,6 +31,13 @@
 			status: 'active'
 		},
 		{
+			id: 'keeper',
+			title: 'Claude Keeper',
+			href: '/keeper',
+			description: 'Feature requests and agent management',
+			status: 'active'
+		},
+		{
 			id: 'terminal',
 			title: 'Terminal',
 			href: '/terminal',
