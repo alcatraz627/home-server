@@ -792,7 +792,6 @@
       });
       if (!res.ok) throw new Error('Failed to create task');
       const created = await res.json();
-      showTemplates = false;
       toast.info(`Running "${t.name}"...`, { key: `task-run-${t.name}` });
       await refresh();
       // Immediately run

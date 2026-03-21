@@ -9,7 +9,7 @@
   let devices = $state<TailscaleDevice[]>(initialDevices);
   let error = $state<string | undefined>(initialError);
   let refreshing = $state(false);
-  let expandedHostnames = $state<Set<string>>(new Set());
+  let expandedHostnames = $state<Set<string>>(new Set()); // keyed by ipv4 or hostname
 
   async function refresh() {
     refreshing = true;
@@ -81,16 +81,16 @@
       <span class="col-os">OS</span>
       <span class="col-chevron"></span>
     </div>
-    {#each devices as device (device.hostname)}
-      {@const isExpanded = expandedHostnames.has(device.hostname)}
+    {#each devices as device (device.ipv4 || device.hostname)}
+      {@const isExpanded = expandedHostnames.has(device.ipv4 || device.hostname)}
       <div
         class="device-row"
         class:self={device.isSelf}
         class:expanded={isExpanded}
-        onclick={() => toggleExpanded(device.hostname)}
+        onclick={() => toggleExpanded(device.ipv4 || device.hostname)}
         role="button"
         tabindex="0"
-        onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && toggleExpanded(device.hostname)}
+        onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && toggleExpanded(device.ipv4 || device.hostname)}
         aria-expanded={isExpanded}
       >
         <span class="col-status">

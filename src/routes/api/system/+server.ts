@@ -43,7 +43,7 @@ export const GET: RequestHandler = async () => {
   // Disk I/O (macOS: iostat)
   let diskIO = { readsPerSec: 0, writesPerSec: 0 };
   try {
-    const raw = execSync('iostat -d -c 1 2>/dev/null | tail -1', { encoding: 'utf-8', timeout: 2000 });
+    const raw = execSync('iostat -d 2>/dev/null | tail -1', { encoding: 'utf-8', timeout: 1000 });
     const parts = raw.trim().split(/\s+/);
     if (parts.length >= 3) {
       diskIO = { readsPerSec: parseFloat(parts[0]) || 0, writesPerSec: parseFloat(parts[1]) || 0 };
