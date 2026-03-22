@@ -4,6 +4,34 @@ Append-only log of skill run insights. Newest entries at top.
 
 ---
 
+## session: Lights/Clipboard/Keeper UI improvements — 2026-03-22
+
+**Purpose:** Improved visual hierarchy for smart lights bulb cards, redesigned clipboard UX with grouped entries, and added Claude CLI status info to Keeper page.
+
+**Insights:**
+
+1. The lights page `cacheBulbs()` was already correctly wired through `mergeBulbs()` -- no fix needed, just confirmed it works on both `rediscover()` and `refreshStates()` code paths.
+2. Room assignment in lights is stored independently in localStorage under `hs:bulb-rooms` -- separate from `hs:bulb-names`. The `saveRoom()` function handles persistence without needing any bulb state save.
+3. The keeper `+page.server.ts` load function doesn't include `claudeAvailable` -- the client fetches it via the API route on mount. This avoids adding `child_process` imports to the SSR page load.
+4. Clipboard entries are grouped by deviceId using `$derived.by()` with the current device sorted first. The `navigator.clipboard.writeText` fallback uses a temporary textarea + `execCommand('copy')`.
+5. Brightness arc was enlarged from 48px to 72px and centered in its own section with `card-divider` elements between card sections for visual hierarchy.
+
+---
+
+## session: Process sort, disk extended info, dashboard enrichment — 2026-03-22
+
+**Purpose:** Added sortable process table with CPU/MEM toggle, populated disk fstype/device fields, and enriched dashboard with starred files + disk sparklines.
+
+**Insights:**
+
+1. `getSystemDiskUsage()` already parsed `df -h` but left `fstype` empty -- the `mount` command on macOS provides filesystem types in the parenthesized section (e.g., `(apfs, sealed, ...)`), while Linux needs `df -T`.
+2. SvelteKit layout data (system.memTotal, system.cpuCount) is accessible in child pages via `data` props without explicit passing -- useful for absolute CPU/MEM display.
+3. The `stars` store uses Svelte 4 `writable` store (not runes) -- when consuming in Svelte 5 components, use `onMount` + `subscribe` for reactivity rather than `$derived`.
+4. `card-stagger` animation is globally defined in `app.css` -- just add the class and `animation-delay` style to any element.
+5. Process table sort: using `$derived.by()` with a spread+sort pattern keeps the original array immutable while the sorted view updates reactively.
+
+---
+
 ## session: Navbar fixes and audit gap fills — 2026-03-22
 
 **Purpose:** Replaced theme dropdown with compact indicator, added system stats (swap/procs/net), help button, manage devices modal, wired shared stars store, added skeleton loading, and applied card-stagger animations across pages.

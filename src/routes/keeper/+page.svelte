@@ -499,6 +499,47 @@
   {/each}
 </div>
 
+<!-- How it works / Status section -->
+{#if requests.length === 0 || showHowItWorks}
+  <div class="info-card">
+    <div class="info-header">
+      <h3>How it works</h3>
+      {#if requests.length > 0}
+        <button class="btn btn-sm" onclick={() => (showHowItWorks = false)}>Dismiss</button>
+      {/if}
+    </div>
+
+    <div class="cli-status">
+      {#if claudeAvailable === null}
+        <span class="status-badge-cli status-checking">Claude CLI: Checking...</span>
+      {:else if claudeAvailable}
+        <span class="status-badge-cli status-available">Claude CLI: Available</span>
+      {:else}
+        <span class="status-badge-cli status-missing">Claude CLI: Not found</span>
+        <p class="install-hint">
+          Install the Claude CLI to enable autonomous agents:
+          <code>npm install -g @anthropic-ai/claude-cli</code>
+        </p>
+      {/if}
+    </div>
+
+    <p class="info-desc">
+      The Keeper agent uses Claude CLI to autonomously work on feature requests. It can read/write files, run commands,
+      and report progress.
+    </p>
+
+    <div class="info-limits">
+      <span class="info-limit-item">One agent can run at a time</span>
+      <span class="info-limit-sep">|</span>
+      <span class="info-limit-item">Logs are stored in <code>~/.home-server/keeper-logs/</code></span>
+    </div>
+  </div>
+{:else if claudeAvailable !== null}
+  <button class="how-it-works-btn" onclick={() => (showHowItWorks = true)}>
+    {claudeAvailable ? 'CLI Ready' : 'CLI Missing'} &mdash; How it works
+  </button>
+{/if}
+
 <!-- Search + scope filter -->
 {#if requests.length > 0}
   <div class="filter-bar">
@@ -1229,6 +1270,127 @@
     font-family: 'JetBrains Mono', monospace;
   }
 
+  /* Info / How it works card */
+  .info-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin-bottom: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .info-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .info-header h3 {
+    font-size: 0.95rem;
+    margin: 0;
+  }
+  .cli-status {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .status-badge-cli {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 4px 12px;
+    border-radius: 12px;
+    width: fit-content;
+  }
+  .status-badge-cli::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .status-available {
+    background: color-mix(in srgb, var(--success) 12%, transparent);
+    color: var(--success);
+  }
+  .status-available::before {
+    background: var(--success);
+  }
+  .status-missing {
+    background: color-mix(in srgb, var(--danger) 12%, transparent);
+    color: var(--danger);
+  }
+  .status-missing::before {
+    background: var(--danger);
+  }
+  .status-checking {
+    background: color-mix(in srgb, var(--text-faint) 12%, transparent);
+    color: var(--text-faint);
+  }
+  .status-checking::before {
+    background: var(--text-faint);
+  }
+  .install-hint {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+  }
+  .install-hint code {
+    font-size: 0.72rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: var(--code-bg);
+    color: var(--text-primary);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .info-desc {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+  .info-limits {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .info-limit-item {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+  }
+  .info-limit-item code {
+    font-size: 0.68rem;
+    padding: 1px 4px;
+    border-radius: 3px;
+    background: var(--code-bg);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .info-limit-sep {
+    color: var(--border);
+    font-size: 0.7rem;
+  }
+  .how-it-works-btn {
+    display: block;
+    width: 100%;
+    padding: 8px;
+    font-size: 0.72rem;
+    text-align: center;
+    border: 1px dashed var(--border);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-faint);
+    cursor: pointer;
+    font-family: inherit;
+    margin-bottom: 14px;
+    transition: all 0.15s;
+  }
+  .how-it-works-btn:hover {
+    border-color: var(--accent);
+    color: var(--text-secondary);
+  }
+
   @media (max-width: 640px) {
     .request-top {
       flex-direction: column;
@@ -1238,6 +1400,13 @@
     }
     .scope-grid {
       grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    }
+    .info-limits {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .info-limit-sep {
+      display: none;
     }
   }
 </style>

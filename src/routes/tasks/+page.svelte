@@ -6,9 +6,13 @@
 
   let { data } = $props<{ data: PageData }>();
   // svelte-ignore state_referenced_locally
-  const { statuses: initialStatuses, disk: initialDisk } = data;
+  const { statuses: initialStatuses, disk: initialDisk, scheduledCount: initialScheduledCount } = data;
   let statuses = $state<TaskStatus[]>(initialStatuses);
   let disk = $state(initialDisk);
+  let scheduledCount = $state(initialScheduledCount || 0);
+
+  // Cron delete confirmation dialog
+  let cronDeleteTarget = $state<{ id: string; name: string; schedule: string } | null>(null);
 
   let showForm = $state(false);
   let showTemplates = $state(false);
@@ -1539,6 +1543,7 @@
       const result = await res.json();
       statuses = result.statuses;
       disk = result.disk;
+      scheduledCount = result.scheduledCount || 0;
     } catch (e: any) {
       toast.error(e.message || 'Failed to refresh tasks', { key: 'task-refresh' });
     }
@@ -1605,7 +1610,17 @@
     }, 2000);
   }
 
-  async function deleteTask(id: string) {
+  function requestDeleteTask(id: string) {
+    const task = statuses.find((s) => s.config.id === id);
+    if (task?.config.schedule && task.config.enabled) {
+      cronDeleteTarget = { id, name: task.config.name, schedule: task.config.schedule };
+    } else {
+      confirmDeleteTask(id);
+    }
+  }
+
+  async function confirmDeleteTask(id: string) {
+    cronDeleteTarget = null;
     try {
       await fetch('/api/tasks', {
         method: 'DELETE',
@@ -1637,7 +1652,10 @@
 </svelte:head>
 
 <div class="header">
-  <h2>Operator Tasks</h2>
+  <h2>
+    Operator Tasks{#if scheduledCount > 0}
+      <span class="scheduled-count">({scheduledCount} scheduled)</span>{/if}
+  </h2>
   <div class="controls">
     <button class="btn" onclick={refresh}>&#x21bb; Refresh</button>
     <button
@@ -1962,8 +1980,10 @@
             <button class="btn btn-sm" onclick={() => saveAsTemplate(status)} title="Save as template"
               >&#x1F4BE; Save</button
             >
-            <button class="btn btn-sm btn-danger" onclick={() => deleteTask(status.config.id)} title="Delete task"
-              >&#x2715;</button
+            <button
+              class="btn btn-sm btn-danger"
+              onclick={() => requestDeleteTask(status.config.id)}
+              title="Delete task">&#x2715;</button
             >
           </div>
         </div>
@@ -2018,6 +2038,30 @@
       >
     </div>
   {/if}
+{/if}
+
+<!-- Cron delete confirmation dialog -->
+{#if cronDeleteTarget}
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <div class="cron-dialog-overlay" onclick={() => (cronDeleteTarget = null)} role="dialog" aria-label="Confirm delete">
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <div class="cron-dialog" onclick={(e) => e.stopPropagation()}>
+      <div class="cron-dialog-icon">&#x26A0;</div>
+      <h3 class="cron-dialog-title">Delete Scheduled Task</h3>
+      <p class="cron-dialog-text">
+        <strong>{cronDeleteTarget.name}</strong> has an active cron schedule (<code>{cronDeleteTarget.schedule}</code>).
+        Deleting it will stop the scheduled runs.
+      </p>
+      <div class="cron-dialog-actions">
+        <button class="btn" onclick={() => (cronDeleteTarget = null)}>Cancel</button>
+        <button class="btn btn-danger" onclick={() => confirmDeleteTask(cronDeleteTarget!.id)}>
+          Delete &amp; Unschedule
+        </button>
+      </div>
+    </div>
+  </div>
 {/if}
 
 <style>
@@ -2881,5 +2925,61 @@
   }
   .form-advanced {
     animation: slideDown 0.2s ease-out;
+  }
+
+  /* Scheduled count badge */
+  .scheduled-count {
+    font-size: 0.8rem;
+    font-weight: 400;
+    color: var(--accent);
+  }
+
+  /* Cron delete confirmation dialog */
+  .cron-dialog-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    backdrop-filter: blur(2px);
+  }
+  .cron-dialog {
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    max-width: 420px;
+    width: 90%;
+    text-align: center;
+    animation: slideDown 0.2s ease-out;
+  }
+  .cron-dialog-icon {
+    font-size: 2rem;
+    margin-bottom: 8px;
+  }
+  .cron-dialog-title {
+    font-size: 1.1rem;
+    margin-bottom: 10px;
+    color: var(--text-primary);
+  }
+  .cron-dialog-text {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-bottom: 18px;
+    line-height: 1.5;
+  }
+  .cron-dialog-text code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    background: var(--bg-secondary);
+    padding: 2px 6px;
+    border-radius: 3px;
+  }
+  .cron-dialog-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
   }
 </style>
