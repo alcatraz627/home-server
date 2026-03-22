@@ -17,6 +17,10 @@
     { key: 'tasks', label: 'Tasks' },
     { key: 'backups', label: 'Backups' },
     { key: 'keeper', label: 'Keeper' },
+    { key: 'notifications', label: 'Notifications' },
+    { key: 'notes', label: 'Notes' },
+    { key: 'docker', label: 'Docker' },
+    { key: 'services', label: 'Services' },
     { key: 'disk', label: 'Disk' },
     { key: 'activity-timeline', label: 'Activity Timeline' },
     { key: 'top-processes', label: 'Top Processes' },
@@ -42,6 +46,10 @@
     tasks: 'small',
     backups: 'small',
     keeper: 'small',
+    notifications: 'small',
+    notes: 'small',
+    docker: 'small',
+    services: 'small',
     disk: 'medium',
     'activity-timeline': 'medium',
     'top-processes': 'medium',
@@ -757,6 +765,68 @@
             {:else}
               <p class="detail-empty">No process data</p>
             {/if}
+          </div>
+        {:else if section.id === 'notifications'}
+          <div class="status-grid">
+            <a href="/notifications" class="status-card card-stagger">
+              <div class="status-icon"><Icon name="bell" size={section.size === 'small' ? 14 : 18} /></div>
+              <div class="status-body">
+                <h3>Notifications</h3>
+                <div class="status-metrics">
+                  {#if dashboard.notifications > 0}
+                    <span class="metric accent">{dashboard.notifications} unread</span>
+                  {:else}
+                    <span class="metric muted">All caught up</span>
+                  {/if}
+                </div>
+              </div>
+            </a>
+          </div>
+        {:else if section.id === 'notes'}
+          <div class="status-grid">
+            <a href="/notes" class="status-card card-stagger">
+              <div class="status-icon"><Icon name="file-text" size={section.size === 'small' ? 14 : 18} /></div>
+              <div class="status-body">
+                <h3>Notes</h3>
+                <div class="status-metrics">
+                  <span class="metric">{dashboard.notes} note{dashboard.notes !== 1 ? 's' : ''}</span>
+                </div>
+              </div>
+            </a>
+          </div>
+        {:else if section.id === 'docker'}
+          <div class="status-grid">
+            <a href="/docker" class="status-card card-stagger">
+              <div class="status-icon"><Icon name="docker" size={section.size === 'small' ? 14 : 18} /></div>
+              <div class="status-body">
+                <h3>Docker</h3>
+                <div class="status-metrics">
+                  {#if dashboard.docker.total > 0}
+                    <span class="metric success">{dashboard.docker.running} running</span>
+                    <span class="metric muted">{dashboard.docker.total} total</span>
+                  {:else}
+                    <span class="metric muted">No containers</span>
+                  {/if}
+                </div>
+              </div>
+            </a>
+          </div>
+        {:else if section.id === 'services'}
+          <div class="status-grid">
+            <a href="/services" class="status-card card-stagger">
+              <div class="status-icon"><Icon name="activity" size={section.size === 'small' ? 14 : 18} /></div>
+              <div class="status-body">
+                <h3>Services</h3>
+                <div class="status-metrics">
+                  {#if dashboard.services.total > 0}
+                    <span class="metric success">{dashboard.services.healthy} healthy</span>
+                    <span class="metric muted">{dashboard.services.total} monitored</span>
+                  {:else}
+                    <span class="metric muted">None configured</span>
+                  {/if}
+                </div>
+              </div>
+            </a>
           </div>
         {:else if section.id === 'starred-files'}
           {#if starredFiles.length > 0}

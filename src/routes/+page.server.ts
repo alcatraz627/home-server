@@ -4,6 +4,10 @@ import { getBackupStatuses } from '$lib/server/backups';
 import { getStats as getKeeperStats } from '$lib/server/keeper';
 import { getSystemDiskUsage } from '$lib/server/operator';
 import { listProcesses } from '$lib/server/processes';
+import { getUnreadCount as getNotifCount } from '$lib/server/notifications';
+import fs from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
 
 export const load: PageServerLoad = async () => {
   const [taskStatuses, backupStatuses, keeperStats, disk] = await Promise.all([
@@ -64,6 +68,43 @@ export const load: PageServerLoad = async () => {
       disk: disk.slice(0, 4),
       recentRuns,
       topProcesses,
+      notifications: await getNotifCount(),
+      notes: countNotes(),
+      docker: countDocker(),
+      services: countServices(),
     },
   };
 };
+
+function countNotes(): number {
+  try {
+    const dir = path.join(os.homedir(), '.home-server', 'notes');
+    if (!fs.existsSync(dir)) return 0;
+    return fs.readdirSync(dir).filter((f) => f.endsWith('.json')).length;
+  } catch {
+    return 0;
+  }
+}
+
+function countDocker(): { running: number; total: number } {
+  try {
+    const { execSync } = require('child_process');
+    const out = execSync('docker ps -a --format "{{.State}}" 2>/dev/null', { encoding: 'utf-8', timeout: 3000 });
+    const lines = out.trim().split('\n').filter(Boolean);
+    return { running: lines.filter((l: string) => l === 'running').length, total: lines.length };
+  } catch {
+    return { running: 0, total: 0 };
+  }
+}
+
+function countServices(): { healthy: number; total: number } {
+  try {
+    const dir = path.join(os.homedir(), '.home-server');
+    const file = path.join(dir, 'services.json');
+    if (!fs.existsSync(file)) return { healthy: 0, total: 0 };
+    const services = JSON.parse(fs.readFileSync(file, 'utf-8'));
+    return { healthy: services.filter((s: any) => s.enabled !== false).length, total: services.length };
+  } catch {
+    return { healthy: 0, total: 0 };
+  }
+}

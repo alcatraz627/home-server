@@ -10,5 +10,5 @@
  */
 export const APP = {
   title: 'Home Server',
-  version: '4.7.0-bright-wave-42',
+  version: '4.8.0-gold-ridge-16',
 } as const;
