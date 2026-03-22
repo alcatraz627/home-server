@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { execSync } from 'node:child_process';
 import { getUploadDir } from '$lib/server/config';
 import { getMime } from '$lib/server/files';
 import type { RequestHandler } from './$types';
@@ -53,6 +54,50 @@ async function searchFiles(dir: string, query: string, base: string, depth: numb
   return results;
 }
 
+/** Sanitize a wildcard pattern to prevent command injection */
+function sanitizePattern(pattern: string): string {
+  // Strip dangerous characters: ; | ` $ ( ) { } < > & \ newlines
+  return pattern.replace(/[;|`$(){}\\<>&\n\r]/g, '').trim();
+}
+
+/** Wildcard search using find */
+async function wildcardSearch(uploadDir: string, pattern: string): Promise<SearchResult[]> {
+  const sanitized = sanitizePattern(pattern);
+  if (!sanitized) return [];
+
+  try {
+    const output = execSync(`find "${uploadDir}" -name "${sanitized}" -maxdepth 5 2>/dev/null`, {
+      encoding: 'utf-8',
+      timeout: 5000,
+    });
+
+    const lines = output.trim().split('\n').filter(Boolean);
+    const results: SearchResult[] = [];
+
+    for (const line of lines.slice(0, 50)) {
+      const fullPath = line.trim();
+      const relativePath = path.relative(uploadDir, fullPath);
+      const name = path.basename(fullPath);
+
+      try {
+        const stat = await fs.stat(fullPath);
+        results.push({
+          name,
+          path: relativePath,
+          size: stat.size,
+          modified: stat.mtime.toISOString(),
+        });
+      } catch {
+        // skip unreadable files
+      }
+    }
+
+    return results;
+  } catch {
+    return [];
+  }
+}
+
 /** Search files recursively by name */
 export const GET: RequestHandler = async ({ url }) => {
   const query = url.searchParams.get('q')?.trim();
@@ -60,8 +105,10 @@ export const GET: RequestHandler = async ({ url }) => {
     return json({ results: [] });
   }
 
+  const wildcard = url.searchParams.get('wildcard') === 'true';
   const uploadDir = getUploadDir();
-  const results = await searchFiles(uploadDir, query, uploadDir, 0);
+
+  const results = wildcard ? await wildcardSearch(uploadDir, query) : await searchFiles(uploadDir, query, uploadDir, 0);
 
   return json({ results: results.slice(0, 50) });
 };

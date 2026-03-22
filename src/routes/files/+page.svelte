@@ -7,9 +7,11 @@
   import MediaPlayer from '$lib/components/MediaPlayer.svelte';
   import Button from '$lib/components/Button.svelte';
   import SearchInput from '$lib/components/SearchInput.svelte';
+  import Collapsible from '$lib/components/Collapsible.svelte';
   import { toast } from '$lib/toast';
   import { stars } from '$lib/stars';
   import { browser } from '$app/environment';
+  import { onMount, onDestroy } from 'svelte';
 
   // --- Media file detection ---
   const MEDIA_VIDEO_EXTS = ['.mp4', '.webm', '.mkv', '.avi', '.mov'];
@@ -192,6 +194,7 @@
   let globalSearching = $state(false);
   let showGlobalResults = $state(false);
   let searchDebounce: ReturnType<typeof setTimeout> | null = null;
+  let wildcardMode = $state(false);
 
   function handleSearchInput() {
     if (searchScope !== 'all' || !search.trim()) {
@@ -203,7 +206,8 @@
     searchDebounce = setTimeout(async () => {
       globalSearching = true;
       try {
-        const res = await fetch(`/api/files/search?q=${encodeURIComponent(search.trim())}`);
+        const wildcardParam = wildcardMode ? '&wildcard=true' : '';
+        const res = await fetch(`/api/files/search?q=${encodeURIComponent(search.trim())}${wildcardParam}`);
         const data = await res.json();
         globalResults = data.results;
         showGlobalResults = true;
@@ -603,10 +607,185 @@
     if (mime.includes('json') || mime.includes('xml') || mime.includes('javascript')) return '\u{1F4CB}';
     return '\u{1F4C4}';
   }
+
+  // --- Inline terminal ---
+  let terminalOpen = $state(false);
+  let terminalEl = $state<HTMLDivElement | null>(null);
+  let terminalInstance: any = null;
+  let terminalFitAddon: any = null;
+  let terminalWs: WebSocket | null = null;
+  let terminalConnected = $state(false);
+  let terminalCwd = $state('');
+  let terminalSessionId = $state<string | null>(null);
+  let terminalResizeObserver: ResizeObserver | null = null;
+  let terminalHeight = $state(200);
+  let terminalResizing = $state(false);
+  let terminalResizeStartY = 0;
+  let terminalResizeStartH = 0;
+
+  async function initTerminal() {
+    if (!browser || terminalInstance) return;
+
+    const xtermMod = await import('@xterm/xterm');
+    const fitMod = await import('@xterm/addon-fit');
+    const Terminal = xtermMod.Terminal;
+    const FitAddon = fitMod.FitAddon;
+
+    const term = new Terminal({
+      cursorBlink: true,
+      fontSize: 13,
+      fontFamily: "'JetBrains Mono', 'SF Mono', 'Fira Code', monospace",
+      theme: {
+        background: '#0d1117',
+        foreground: '#e1e4e8',
+        cursor: '#58a6ff',
+        selectionBackground: '#264f78',
+        black: '#0d1117',
+        red: '#f85149',
+        green: '#3fb950',
+        yellow: '#d29922',
+        blue: '#58a6ff',
+        magenta: '#d2a8ff',
+        cyan: '#76e3ea',
+        white: '#e1e4e8',
+        brightBlack: '#484f58',
+        brightRed: '#f85149',
+        brightGreen: '#3fb950',
+        brightYellow: '#d29922',
+        brightBlue: '#79c0ff',
+        brightMagenta: '#d2a8ff',
+        brightCyan: '#76e3ea',
+        brightWhite: '#f0f6fc',
+      },
+    });
+    const fit = new FitAddon();
+    term.loadAddon(fit);
+
+    terminalInstance = term;
+    terminalFitAddon = fit;
+
+    // Wait for element to be available
+    await new Promise((r) => setTimeout(r, 0));
+    if (terminalEl) {
+      term.open(terminalEl);
+      fit.fit();
+      connectTerminal(term);
+
+      term.onData((data: string) => {
+        if (terminalWs?.readyState === WebSocket.OPEN) {
+          terminalWs.send(JSON.stringify({ type: 'input', data }));
+        }
+      });
+
+      terminalResizeObserver = new ResizeObserver(() => {
+        fit.fit();
+        if (terminalWs?.readyState === WebSocket.OPEN && term) {
+          terminalWs.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }));
+        }
+      });
+      terminalResizeObserver.observe(terminalEl);
+    }
+  }
+
+  function connectTerminal(term: any) {
+    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const cols = term?.cols || 80;
+    const rows = term?.rows || 24;
+    const cwd = currentPath || '';
+    const sessionParam = terminalSessionId ? `&session=${terminalSessionId}` : '';
+    const cwdParam = cwd ? `&cwd=${encodeURIComponent(cwd)}` : '';
+    const url = `${protocol}//${location.host}/ws/terminal?cols=${cols}&rows=${rows}${sessionParam}${cwdParam}`;
+
+    const ws = new WebSocket(url);
+
+    ws.onopen = () => {
+      terminalConnected = true;
+      terminalCwd = currentPath || '~';
+      term?.focus();
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        if (msg.type === 'output') {
+          term?.write(msg.data);
+        } else if (msg.type === 'session') {
+          terminalSessionId = msg.id;
+        } else if (msg.type === 'exit') {
+          terminalConnected = false;
+          term?.write('\r\n\x1b[33m[Shell exited]\x1b[0m\r\n');
+        }
+      } catch {}
+    };
+
+    ws.onclose = () => {
+      terminalConnected = false;
+    };
+
+    ws.onerror = () => {
+      term?.write('\r\n\x1b[31m[WebSocket error]\x1b[0m\r\n');
+    };
+
+    terminalWs = ws;
+  }
+
+  function destroyTerminal() {
+    terminalWs?.close();
+    terminalWs = null;
+    terminalInstance?.dispose();
+    terminalInstance = null;
+    terminalFitAddon = null;
+    terminalConnected = false;
+    terminalSessionId = null;
+    terminalResizeObserver?.disconnect();
+    terminalResizeObserver = null;
+  }
+
+  function toggleTerminal() {
+    terminalOpen = !terminalOpen;
+    if (terminalOpen && !terminalInstance) {
+      // Delay so the element is rendered
+      setTimeout(() => initTerminal(), 0);
+    }
+    if (terminalOpen && terminalInstance && terminalFitAddon) {
+      setTimeout(() => {
+        terminalFitAddon.fit();
+        terminalInstance?.focus();
+      }, 50);
+    }
+  }
+
+  function handleTerminalResizeStart(e: MouseEvent) {
+    e.preventDefault();
+    terminalResizing = true;
+    terminalResizeStartY = e.clientY;
+    terminalResizeStartH = terminalHeight;
+    window.addEventListener('mousemove', handleTerminalResizeMove);
+    window.addEventListener('mouseup', handleTerminalResizeEnd);
+  }
+
+  function handleTerminalResizeMove(e: MouseEvent) {
+    if (!terminalResizing) return;
+    const delta = terminalResizeStartY - e.clientY;
+    terminalHeight = Math.max(100, Math.min(600, terminalResizeStartH + delta));
+    terminalFitAddon?.fit();
+  }
+
+  function handleTerminalResizeEnd() {
+    terminalResizing = false;
+    window.removeEventListener('mousemove', handleTerminalResizeMove);
+    window.removeEventListener('mouseup', handleTerminalResizeEnd);
+    terminalFitAddon?.fit();
+  }
+
+  onDestroy(() => {
+    destroyTerminal();
+  });
 </script>
 
 <svelte:head>
   <title>Files | Home Server</title>
+  <link rel="stylesheet" href="/xterm.css" />
 </svelte:head>
 
 <!-- Page header toolbar -->
@@ -738,6 +917,22 @@
         }}>All files</button
       >
     </div>
+    {#if searchScope === 'all'}
+      <button
+        class="wildcard-toggle"
+        class:active={wildcardMode}
+        title="Wildcard search — use * and ? patterns (e.g. *.jpg, report-???.pdf)"
+        onclick={() => {
+          wildcardMode = !wildcardMode;
+          handleSearchInput();
+        }}
+      >
+        <span class="wildcard-icon">*</span>
+        {#if wildcardMode}
+          <span class="wildcard-label">wildcard</span>
+        {/if}
+      </button>
+    {/if}
     {#if showGlobalResults && searchScope === 'all'}
       <div class="global-results">
         {#if globalSearching}
@@ -774,7 +969,7 @@
   </div>
 </div>
 
-<!-- Secondary bar: New Folder -->
+<!-- Secondary bar: New Folder + Terminal -->
 <div class="secondary-bar">
   {#if showNewDir}
     <div class="new-dir-bar">
@@ -794,6 +989,9 @@
   {:else}
     <Button size="sm" onclick={() => (showNewDir = !showNewDir)}>New Folder</Button>
   {/if}
+  <Button size="sm" variant={terminalOpen ? 'accent' : 'default'} onclick={toggleTerminal}
+    >{terminalOpen ? 'Hide Terminal' : 'Terminal'}</Button
+  >
 </div>
 
 <!-- Bulk action bar -->
@@ -1067,6 +1265,31 @@
   />
 {/if}
 
+<!-- Inline Terminal Panel -->
+{#if terminalOpen}
+  <div class="inline-terminal-panel">
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="terminal-resize-handle" onmousedown={handleTerminalResizeStart}></div>
+    <div class="terminal-panel-header">
+      <div class="terminal-panel-info">
+        <span class="terminal-panel-title">Terminal</span>
+        <span class="terminal-panel-dot" class:connected={terminalConnected}></span>
+        <span class="terminal-panel-cwd" title={terminalCwd}>cwd: {terminalCwd || '~'}</span>
+      </div>
+      <div class="terminal-panel-actions">
+        <Button
+          size="xs"
+          onclick={() => {
+            destroyTerminal();
+            terminalOpen = false;
+          }}>Close</Button
+        >
+      </div>
+    </div>
+    <div class="terminal-panel-body" style="height: {terminalHeight}px;" bind:this={terminalEl}></div>
+  </div>
+{/if}
+
 <style>
   .page-header {
     display: flex;
@@ -1110,8 +1333,11 @@
     margin-bottom: 16px;
   }
 
-  /* Secondary bar (New Folder) */
+  /* Secondary bar (New Folder + Terminal) */
   .secondary-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     margin-bottom: 12px;
   }
 
@@ -2179,5 +2405,153 @@
     .col-type {
       display: none;
     }
+  }
+
+  /* Wildcard toggle */
+  .wildcard-toggle {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 10px;
+    font-size: 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--btn-bg);
+    color: var(--text-muted);
+    cursor: pointer;
+    font-family: inherit;
+    white-space: nowrap;
+    transition:
+      background 0.15s,
+      border-color 0.15s,
+      color 0.15s;
+  }
+
+  .wildcard-toggle:hover {
+    border-color: var(--accent);
+    color: var(--text-primary);
+  }
+
+  .wildcard-toggle.active {
+    background: var(--accent-bg);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .wildcard-icon {
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .wildcard-label {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  /* Inline terminal panel */
+  .inline-terminal-panel {
+    position: sticky;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    border-top: 2px solid var(--border);
+    background: #0d1117;
+    z-index: 50;
+    margin-top: 24px;
+  }
+
+  .terminal-resize-handle {
+    height: 6px;
+    cursor: ns-resize;
+    background: transparent;
+    position: relative;
+    transition: background 0.15s;
+  }
+
+  .terminal-resize-handle:hover,
+  .terminal-resize-handle:active {
+    background: var(--accent-bg);
+  }
+
+  .terminal-resize-handle::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 40px;
+    height: 3px;
+    border-radius: 2px;
+    background: var(--border);
+  }
+
+  .terminal-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 12px;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .terminal-panel-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+
+  .terminal-panel-title {
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+
+  .terminal-panel-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--danger);
+    flex-shrink: 0;
+  }
+
+  .terminal-panel-dot.connected {
+    background: var(--success);
+  }
+
+  .terminal-panel-cwd {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--text-faint);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 300px;
+  }
+
+  .terminal-panel-actions {
+    display: flex;
+    gap: 6px;
+  }
+
+  .terminal-panel-body {
+    overflow: hidden;
+    padding: 4px 8px;
+  }
+
+  .terminal-panel-body :global(.xterm) {
+    height: 100%;
+    max-width: 100%;
+  }
+
+  .terminal-panel-body :global(.xterm-viewport) {
+    overflow-y: auto !important;
+  }
+
+  .terminal-panel-body :global(.xterm-screen) {
+    max-width: 100%;
   }
 </style>

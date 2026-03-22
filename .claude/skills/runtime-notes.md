@@ -2,6 +2,20 @@
 
 Append-only log of skill run insights. Newest entries at top.
 
+## session: Inline terminal + wildcard search on files page — 2026-03-22
+
+**Purpose:** Added collapsible inline xterm.js terminal and wildcard file search to the files page.
+
+**Insights:**
+
+1. The files page is very large (~2200 lines) — reading it requires multiple offset/limit passes; plan for at least 5 reads to cover script + template + styles.
+2. The terminal page (`/terminal`) uses dynamic imports for `@xterm/xterm` and `@xterm/addon-fit` — same pattern works for embedding terminals elsewhere; no SSR issues since guarded by `browser` check.
+3. The WebSocket endpoint `/ws/terminal` accepts `cwd` as a query param — useful for setting the initial working directory of embedded terminals.
+4. The existing search API at `/api/files/search/+server.ts` does recursive Node.js `readdir` — wildcard mode adds a parallel `find` code path with `execSync`, sanitizing the pattern to prevent injection.
+5. Collapsible component uses `$bindable(open)` and `{@render children()}` snippets — for this use case a manual panel was simpler than wrapping Collapsible since the terminal needs precise height control and resize handles.
+
+---
+
 ## session: Network toolkit, peripherals, AI chat improvements (D6/D7/D10) — 2026-03-22
 
 **Purpose:** Added suggestion chips, collapsible docs, and guided UI to Network Toolkit; cross-tab search and extended device info to Peripherals; page context awareness to AI Chat.

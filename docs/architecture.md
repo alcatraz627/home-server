@@ -34,7 +34,7 @@ Home Server is a SvelteKit application that serves as a unified control plane fo
 │  ├─ REST: /api/files, /api/processes, ...   │
 │  └─ WebSocket: /ws/terminal                 │
 ├─────────────────────────────────────────────┤
-│  Server Helpers (src/lib/server/) — 14 modules│
+│  Server Helpers (src/lib/server/) — 14 modules │
 │  ├─ files, processes, wiz, tailscale, ...   │
 │  ├─ agent-runner.ts (Claude CLI subprocess) │
 │  ├─ scheduler.ts (node-cron)                │
@@ -52,15 +52,22 @@ Home Server is a SvelteKit application that serves as a unified control plane fo
 
 Each domain has a **server helper**, **API routes**, and a **page**. No cross-imports between server helpers — they are independent modules.
 
-| Domain    | Server Helper             | API Routes                                 | Page         |
-| --------- | ------------------------- | ------------------------------------------ | ------------ |
-| Files     | `files.ts`, `metadata.ts` | `/api/files/`, `/api/files/[filename]/`    | `/files`     |
-| Processes | `processes.ts`            | `/api/processes/`, `/api/processes/[pid]/` | `/processes` |
-| Lights    | `wiz.ts`                  | `/api/lights/`, `/api/lights/[ip]/`        | `/lights`    |
-| Tailscale | `tailscale.ts`            | `/api/tailscale/`                          | `/tailscale` |
-| Backups   | `backups.ts`              | `/api/backups/`                            | `/backups`   |
-| Tasks     | `operator.ts`             | `/api/tasks/`                              | `/tasks`     |
-| Terminal  | `terminal.ts`, `ws.ts`    | WebSocket `/ws/terminal`                   | `/terminal`  |
+| Domain      | Server Helper             | API Routes                                        | Page           |
+| ----------- | ------------------------- | ------------------------------------------------- | -------------- |
+| Files       | `files.ts`, `metadata.ts` | `/api/files/`, `/api/files/[filename]/`, `/api/files/stream/`, `/api/files/search/` | `/files` |
+| Processes   | `processes.ts`            | `/api/processes/`, `/api/processes/[pid]/`         | `/processes`   |
+| Lights      | `wiz.ts`                  | `/api/lights/`, `/api/lights/[ip]/`                | `/lights`      |
+| Tailscale   | `tailscale.ts`            | `/api/tailscale/`                                  | `/tailscale`   |
+| Backups     | `backups.ts`              | `/api/backups/`, `/api/backups/preview/`           | `/backups`     |
+| Tasks       | `operator.ts`             | `/api/tasks/`                                      | `/tasks`       |
+| Terminal    | `terminal.ts`             | `/api/terminal/`, `/api/terminal/[sessionId]/`     | `/terminal`    |
+| Keeper      | `keeper.ts`, `agent-runner.ts` | `/api/keeper/`, `/api/keeper/[id]/log,message,agent/` | `/keeper` |
+| WoL         | `wol.ts`                  | `/api/wol/`                                        | `/wol`         |
+| Bookmarks   | _(JSON store)_            | `/api/bookmarks/`                                  | `/bookmarks`   |
+| Kanban      | _(JSON store)_            | `/api/kanban/`                                     | `/kanban`      |
+| Network     | _(child_process)_         | `/api/wifi/`, `/api/packets/`, `/api/network/`, `/api/dns/`, `/api/ports/` | `/wifi`, `/packets`, `/network`, `/dns`, `/ports` |
+| Peripherals | _(child_process)_         | `/api/peripherals/`                                | `/peripherals` |
+| Apps        | _(child_process)_         | `/api/apps/`                                       | `/apps`        |
 
 ## Data Flow
 
@@ -105,6 +112,41 @@ To avoid performance overhead, process inspection is split into two tiers:
 | **Passive** | PID, PPID, CPU%, MEM%, RSS, VSZ, state, user, command | ~150ms (`ps -eo`)           | Always shown, auto-refreshable |
 | **Active**  | Open files, network connections, threads, environment | 1-5s (`lsof`, thread count) | On-demand via "Inspect" button |
 
+## Component Library
+
+The project includes 17 reusable Svelte components in `src/lib/components/`. These are divided into two tiers:
+
+### Shared UI Primitives (7 components)
+
+Built during the v3.6 component standardization effort. These replace hundreds of inline patterns across the codebase.
+
+| Component       | Purpose                                         |
+| --------------- | ----------------------------------------------- |
+| `Button`        | Unified button with variants (primary, danger, ghost), sizes, and confirm mode |
+| `Badge`         | Status pills and dots with color variants       |
+| `Tabs`          | Tab bar with keyboard navigation and ARIA roles |
+| `SearchInput`   | Debounced search field with icon and clear button |
+| `Loading`       | Skeleton, spinner, and dots loading states      |
+| `Collapsible`   | Animated expand/collapse sections               |
+| `Icon`          | Icon wrapper for consistent sizing              |
+
+### Feature Components (10 components)
+
+Domain-specific components used across pages.
+
+| Component        | Purpose                                         |
+| ---------------- | ----------------------------------------------- |
+| `Tooltip`        | Hover tooltips with positioning                 |
+| `Modal`          | Dialog overlay with backdrop                    |
+| `AiChat`         | Floating AI chat with conversation tabs         |
+| `CronBuilder`    | Visual cron expression builder                  |
+| `MediaPlayer`    | Video/audio player with playlist support        |
+| `SettingsPanel`  | Slide-out panel for theme/font/accent controls  |
+| `DataTable`      | Sortable, filterable, paginated table           |
+| `FileBrowser`    | File/directory picker modal                     |
+| `Toast`          | Toast notification with dedupe and stacking     |
+| `EmptyState`     | Placeholder for empty lists/pages               |
+
 ## Renderer Plugin System
 
 File preview uses a registry pattern:
@@ -130,7 +172,7 @@ Registry (index.ts) — first match wins:
 
 ## Theme System
 
-CSS custom properties with 20 theme variants (dark, light, monokai, dracula, solarized-dark/light, nord, github-dark, catppuccin, tokyo-night, one-dark, gruvbox-dark/light, everforest, rosé-pine, ayu-dark/light, material-dark, kanagawa, cyberpunk):
+CSS custom properties with 20 theme variants (Dark, Light, Monokai, Dracula, Solarized Dark/Light, Nord, GitHub Dark, Catppuccin, Tokyo Night, One Dark, Gruvbox Dark/Light, Everforest, Rose Pine, Ayu Dark/Light, Material Dark, Kanagawa, Cyberpunk):
 
 ```css
 :root, [data-theme='dark']  { --bg-primary: #0f1117; ... }

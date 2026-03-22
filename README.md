@@ -10,12 +10,12 @@
 [![Tailscale](https://img.shields.io/badge/Tailscale-VPN-0A1F44?logo=tailscale&logoColor=white)](https://tailscale.com)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-_25 pages · 31 API endpoints · 20 themes · PWA · Multi-device_
+_26 pages · 35 API routes · 17 components · 20 themes · PWA · Multi-device_
 
 <!-- TODO: Replace with actual screenshot -->
 <!-- ![Home Server Dashboard](docs/assets/screenshot-dashboard.png) -->
 
-[Getting Started](#quick-start) · [Features](#features) · [Configuration](#configuration) · [Architecture](docs/architecture.md) · [API Reference](docs/api-reference.md)
+[Getting Started](#quick-start) · [Features](#features) · [What's New](#whats-new-in-v36) · [Configuration](#configuration) · [Architecture](docs/architecture.md) · [API Reference](docs/api-reference.md)
 
 </div>
 
@@ -29,51 +29,63 @@ See [PROJECT.md](PROJECT.md) for the full vision, goals, and milestones.
 
 ### Core Pages
 
-| Page             | Description                                                                                                                                                    |
-| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Dashboard**    | System stats (CPU/MEM/disk), task/backup/keeper status, activity timeline, top processes. Auto-refreshes every 30s.                                            |
-| **Files**        | Drag-and-drop upload, download, rename, delete. In-browser preview for images, video, audio, PDF, Excel, Markdown, JSON, Word. Media streaming with playlists. |
-| **Smart Lights** | Wiz bulb control — on/off, brightness, color, scenes. Room grouping, quick presets, session cache.                                                             |
-| **Processes**    | Real-time system monitor (CPU/MEM/Network/Load SVG charts), sortable process list, starred processes, tree view, expandable detail rows.                       |
-| **Tailscale**    | Full device details — IPv4/IPv6, DNS name, version, last seen, key expiry warnings, traffic stats, advertised routes.                                          |
-| **Backups**      | rsync-based backups with visual source→dest diagram, CronBuilder, tag-style excludes, rsync preview. Dry-run diff preview.                                     |
-| **Tasks**        | Shell task runner with templates (100+), inline terminal output, pagination, status icons, animated transitions.                                               |
-| **Keeper**       | Feature tracker with Claude agent integration — spawn agents, live log streaming, ANSI color rendering, resume/chat.                                           |
-| **Terminal**     | Full web-based terminal via xterm.js + node-pty. Tab renaming, middle-click close, session persistence.                                                        |
+| Page                                          | Description                                                                                                                                                    |
+| --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [**Dashboard**](docs/pages/dashboard.md)      | System stats (CPU/MEM/disk), task/backup/keeper status, activity timeline, top processes. Auto-refreshes every 30s.                                            |
+| [**Files**](docs/pages/files.md)              | Drag-and-drop upload, download, rename, delete. In-browser preview for images, video, audio, PDF, Excel, Markdown, JSON, Word. Media streaming with playlists. |
+| [**Smart Lights**](docs/pages/lights.md)      | Wiz bulb control — on/off, brightness, color, scenes. Room grouping, quick presets, session cache.                                                             |
+| [**Processes**](docs/pages/processes.md)       | Real-time system monitor (CPU/MEM/Network/Load SVG charts), sortable process list, starred processes, tree view, expandable detail rows.                       |
+| [**Tailscale**](docs/pages/tailscale.md)       | Full device details — IPv4/IPv6, DNS name, version, last seen, key expiry warnings, traffic stats, advertised routes.                                          |
+| [**Backups**](docs/pages/backups.md)           | rsync-based backups with visual source→dest diagram, CronBuilder, tag-style excludes, rsync preview. Dry-run diff preview.                                     |
+| [**Tasks**](docs/pages/tasks.md)               | Shell task runner with templates (100+), inline terminal output, pagination, status icons, animated transitions.                                               |
+| [**Keeper**](docs/pages/keeper.md)             | Feature tracker with Claude agent integration — spawn agents, live log streaming, ANSI color rendering, resume/chat.                                           |
+| [**Terminal**](docs/pages/terminal.md)         | Full web-based terminal via xterm.js + node-pty. Tab renaming, middle-click close, session persistence.                                                        |
 
 ### Tools & Utilities
 
-| Page               | Description                                                                                    |
-| ------------------ | ---------------------------------------------------------------------------------------------- |
-| **QR Code**        | Pure client-side QR generator with WiFi shortcut, size slider, error correction, PNG download. |
-| **Bookmarks**      | Link manager with tags, search/filter, favicon display, HTML export.                           |
-| **Kanban**         | Drag-and-drop project board (Todo/Doing/Done) with color labels and due dates.                 |
-| **Wake-on-LAN**    | UDP magic packet sender with device management and ping status.                                |
-| **DNS Lookup**     | Multi-provider comparison (Google, Cloudflare, system) with 7 record types.                    |
-| **Port Scanner**   | Scan ports with service detection, common ports preset, concurrent scanning.                   |
-| **Speed Test**     | Download/upload/latency measurement with SVG gauges and history.                               |
-| **Clipboard Sync** | Share clipboard across tailnet devices with auto-refresh.                                      |
-| **Screenshots**    | Capture and browse screenshots with gallery view and full-size modal.                          |
-| **Benchmarks**     | CPU/disk/memory benchmarks with history comparison.                                            |
+| Page                                              | Description                                                                                    |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| [**QR Code**](docs/pages/qr.md)                   | Pure client-side QR generator with WiFi shortcut, size slider, error correction, PNG download. |
+| [**Bookmarks**](docs/pages/bookmarks.md)           | Link manager with tags, search/filter, favicon display, HTML export.                           |
+| [**Kanban**](docs/pages/kanban.md)                 | Drag-and-drop project board (Todo/Doing/Done) with color labels and due dates.                 |
+| [**Wake-on-LAN**](docs/pages/wol.md)              | UDP magic packet sender with device management and ping status.                                |
+| [**DNS Lookup**](docs/pages/dns.md)                | Multi-provider comparison (Google, Cloudflare, system) with 7 record types.                    |
+| [**Port Scanner**](docs/pages/ports.md)            | Scan ports with service detection, common ports preset, concurrent scanning.                   |
+| [**Speed Test**](docs/pages/speedtest.md)          | Download/upload/latency measurement with SVG gauges and history.                               |
+| [**Clipboard Sync**](docs/pages/clipboard.md)      | Share clipboard across tailnet devices with auto-refresh.                                      |
+| [**Screenshots**](docs/pages/screenshots.md)       | Capture and browse screenshots with gallery view and full-size modal.                          |
+| [**Benchmarks**](docs/pages/benchmarks.md)         | CPU/disk/memory benchmarks with history comparison.                                            |
 
 ### Security & Network
 
-| Page                | Description                                                                                                 |
-| ------------------- | ----------------------------------------------------------------------------------------------------------- |
-| **WiFi Scanner**    | Nearby networks with signal bars, channel, security type. Highlights open networks.                         |
-| **Packet Sniffer**  | tcpdump-based live packet capture with configurable filters.                                                |
-| **Network Toolkit** | 7 tools: traceroute, ping sweep, ARP table, whois, bandwidth monitor, SSL inspector, HTTP header inspector. |
-| **Peripherals**     | WiFi and Bluetooth device scanning (macOS + Linux).                                                         |
+| Page                                                | Description                                                                                                 |
+| --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| [**WiFi Scanner**](docs/pages/wifi.md)              | Nearby networks with signal bars, channel, security type. Highlights open networks.                         |
+| [**Packet Sniffer**](docs/pages/packets.md)         | tcpdump-based live packet capture with configurable filters.                                                |
+| [**Network Toolkit**](docs/pages/network.md)        | 7 tools: traceroute, ping sweep, ARP table, whois, bandwidth monitor, SSL inspector, HTTP header inspector. |
+| [**Peripherals**](docs/pages/peripherals.md)        | WiFi and Bluetooth device scanning (macOS + Linux).                                                         |
 
 ### App Infrastructure
 
-| Feature            | Description                                                                              |
-| ------------------ | ---------------------------------------------------------------------------------------- |
-| **10 Themes**      | Dark, Light, Monokai, Dracula, Solarized (2), Nord, GitHub Dark, Catppuccin, Tokyo Night |
+| Feature            | Description                                                                                                                                              |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **20 Themes**      | Dark, Light, Monokai, Dracula, Solarized (2), Nord, GitHub Dark, Catppuccin, Tokyo Night, One Dark, Gruvbox (2), Everforest, Rose Pine, Ayu (2), Material Dark, Kanagawa, Cyberpunk |
 | **Settings Panel** | Theme grid, accent colors, font size/family, border radius, high contrast toggle         |
+| **App Launcher**   | macOS application launcher with search, open, and quit controls                          |
 | **PWA**            | Installable as app, service worker with offline caching, install prompt banner           |
 | **Multi-Device**   | Device selector in navbar, API proxying via Tailscale                                    |
 | **AI Chat**        | Floating Claude chat with conversation tabs, rename, typing indicator, copy buttons      |
+| **17 Components**  | Button, Badge, Tabs, SearchInput, Loading, Collapsible, Icon, Tooltip, Modal, AiChat, CronBuilder, MediaPlayer, SettingsPanel, DataTable, FileBrowser, Toast, EmptyState |
+
+## What's New in v3.6
+
+- **Component Library** — 7 new shared components (Button, Badge, Tabs, SearchInput, Loading, Collapsible, Icon) plus Tooltip and Modal, bringing the total to 17 reusable UI components across the codebase
+- **App Launcher** — new `/apps` page to search, launch, and quit macOS applications directly from the dashboard
+- **Terminal Overhaul** — tab renaming (double-click), middle-click close, font size controls, session persistence across navigation, and mobile Ctrl key support
+- **20 Themes** — expanded from 10 to 20 CSS themes including One Dark, Gruvbox, Everforest, Rose Pine, Ayu, Material Dark, Kanagawa, and Cyberpunk
+- **AI Chat Polish** — conversation rename, animated FAB with gradient shimmer, rounded message bubbles, copy buttons, and typing indicator
+- **Navbar Enhancements** — collapsible groups, pinned favorites, muted stat colors with hover reveal, device selector dropdown
+- **Documentation Sprint** — per-page usage guides for all 24+ pages, component library specs, and roadmap tracking
 
 ## Quick Start
 
@@ -157,8 +169,17 @@ src/
 │   │   ├── notify.ts      # ntfy.sh notifications
 │   │   ├── metadata.ts    # File metadata sidecar store
 │   │   └── config.ts      # Upload dir config
-│   ├── components/        # 11 reusable UI components
-│   │   ├── AiChat.svelte  # AI chat with tabs + history
+│   ├── components/        # 17 reusable UI components
+│   │   ├── Button.svelte       # Variants, sizes, confirm mode
+│   │   ├── Badge.svelte        # Status pills/dots with colors
+│   │   ├── Tabs.svelte         # Tab bar with keyboard nav
+│   │   ├── SearchInput.svelte  # Debounced search + clear
+│   │   ├── Loading.svelte      # Skeleton/spinner/dots
+│   │   ├── Collapsible.svelte  # Animated expand/collapse
+│   │   ├── Icon.svelte         # Icon wrapper
+│   │   ├── Tooltip.svelte      # Hover tooltips
+│   │   ├── Modal.svelte        # Dialog overlay
+│   │   ├── AiChat.svelte       # AI chat with tabs + history
 │   │   ├── CronBuilder.svelte  # Visual cron builder
 │   │   ├── MediaPlayer.svelte  # Video/audio player
 │   │   ├── SettingsPanel.svelte# Theme/font controls
@@ -174,7 +195,7 @@ src/
 │   ├── toast.ts           # Toast store with dedupe
 │   ├── markdown.ts        # Markdown→HTML
 │   └── types.ts           # Shared types
-├── routes/                # 25 pages + 31 API endpoints
+├── routes/                # 26 pages + 35 API routes
 └── app.css                # 20 themes + animations
 ```
 
@@ -228,11 +249,12 @@ _Screenshots coming soon — run the app and explore!_
 | Document                               | Description                                     |
 | -------------------------------------- | ----------------------------------------------- |
 | [Architecture](docs/architecture.md)   | System design, module boundaries, data flow     |
-| [API Reference](docs/api-reference.md) | All 31 endpoints with request/response examples |
+| [API Reference](docs/api-reference.md) | All 35 API routes with request/response examples |
 | [Setup Guide](docs/setup-guide.md)     | Detailed installation and configuration         |
 | [Extending](docs/extending.md)         | How to add new features and widgets             |
 | [Roadmap](docs/roadmap.md)             | Feature status and planned work                 |
-| [Page Guides](docs/pages/)             | Per-page usage documentation (24 pages)         |
+| [Page Guides](docs/pages/)             | Per-page usage documentation (24 guides)        |
+| [Components](docs/components/)         | Component library specs and standardization plan |
 
 ## Tech Stack
 
@@ -245,6 +267,55 @@ _Screenshots coming soon — run the app and explore!_
 | Scheduling    | node-cron                                              |
 | Notifications | ntfy.sh                                                |
 | AI            | Claude API (chat), Claude CLI (agent)                  |
+
+## Troubleshooting
+
+### node-pty build errors during `npm install`
+
+`node-pty` requires native compilation. On macOS, ensure Xcode Command Line Tools are installed:
+
+```sh
+xcode-select --install
+```
+
+If errors persist with Node v23, try:
+
+```sh
+npm install --engine-strict=false
+npm rebuild node-pty
+```
+
+### Tailscale connection issues
+
+Ensure Tailscale is running and authenticated on both devices:
+
+```sh
+# macOS
+/Applications/Tailscale.app/Contents/MacOS/Tailscale status
+
+# Linux
+tailscale status
+```
+
+If the status shows "Stopped", start Tailscale from the menu bar (macOS) or run `sudo tailscale up` (Linux). Verify both devices are signed in with the same Tailscale account.
+
+### Screen recording permission for screenshots
+
+On macOS, the screenshot capture requires Screen Recording permission. When you first use the Screenshots page, macOS will prompt for permission. Grant it to the terminal or Node.js process in **System Settings > Privacy & Security > Screen Recording**.
+
+### blueutil not found (Bluetooth on macOS)
+
+The Peripherals page uses `blueutil` for Bluetooth device scanning on macOS. Install it via Homebrew:
+
+```sh
+brew install blueutil
+```
+
+Without `blueutil`, the Bluetooth section will show an error but the rest of the Peripherals page will work normally.
+
+### "Blocked request" from Vite dev server
+
+If you see "Blocked request. This host is not allowed", the Vite dev server is rejecting requests from an unrecognized hostname. The project already sets `allowedHosts: true` in `vite.config.ts` — simply restart the dev server.
 
 ## License
 

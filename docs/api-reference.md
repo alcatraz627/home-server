@@ -2,7 +2,7 @@
 
 All endpoints return JSON unless otherwise noted. Base URL: `http://<host>:5555`
 
-**31 total endpoints across 25 domains.** Last updated: v3.0.0
+**35 API routes across 26 domains.** Last updated: v3.6.0
 
 ---
 
@@ -600,6 +600,38 @@ Multi-tool endpoint. Tool selected via `tool` parameter.
 WiFi networks + Bluetooth devices.
 
 **Response:** `200` — `{ "wifi": [...], "bluetooth": [...], "currentWifi": { ... } }`
+
+---
+
+## Apps
+
+### `GET /api/apps`
+
+List running macOS applications.
+
+### `POST /api/apps`
+
+Launch or quit a macOS application.
+
+**Body:** `{ "action": "launch" | "quit", "name": "AppName" }`
+
+---
+
+## File Search
+
+### `GET /api/files/search`
+
+Search files by name across the upload directory.
+
+**Query params:** `q` (search term)
+
+---
+
+## Terminal Sessions
+
+### `GET /api/terminal/:sessionId`
+
+Get terminal session info or output history.
 
 ---
 

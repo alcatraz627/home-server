@@ -38,7 +38,16 @@
   let showPlaylist = $state(playlist.length > 1);
   let seeking = $state(false);
 
-  const speeds = [0.5, 1, 1.25, 1.5, 2];
+  const speeds = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 3];
+  let showSpeedMenu = $state(false);
+  let pipSupported = $state(false);
+
+  // Check PiP support on mount
+  $effect(() => {
+    if (typeof document !== 'undefined') {
+      pipSupported = 'pictureInPictureEnabled' in document && (document as any).pictureInPictureEnabled;
+    }
+  });
 
   // Derived helpers
   let hasPlaylist = $derived(playlist.length > 1);
@@ -90,10 +99,36 @@
     mediaEl.muted = muted;
   }
 
-  function cycleSpeed() {
-    const idx = speeds.indexOf(playbackRate);
-    playbackRate = speeds[(idx + 1) % speeds.length];
-    if (mediaEl) mediaEl.playbackRate = playbackRate;
+  function setSpeed(speed: number) {
+    playbackRate = speed;
+    if (mediaEl) mediaEl.playbackRate = speed;
+    showSpeedMenu = false;
+  }
+
+  function toggleSpeedMenu() {
+    showSpeedMenu = !showSpeedMenu;
+  }
+
+  async function requestPip() {
+    if (!mediaEl || type !== 'video') return;
+    try {
+      if ((document as any).pictureInPictureElement) {
+        await (document as any).exitPictureInPicture();
+      } else {
+        await (mediaEl as HTMLVideoElement).requestPictureInPicture();
+      }
+    } catch {
+      toast.error('Picture-in-Picture failed');
+    }
+  }
+
+  function downloadFile() {
+    const a = document.createElement('a');
+    a.href = src;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   }
 
   function requestFullscreen() {
@@ -342,9 +377,28 @@
             </div>
 
             <div class="controls-center">
-              <button class="ctrl-btn speed-btn" title="Playback speed" onclick={cycleSpeed}>
-                {playbackRate}x
-              </button>
+              <div class="speed-wrap">
+                <button class="ctrl-btn speed-btn" title="Playback speed" onclick={toggleSpeedMenu}>
+                  {playbackRate}x
+                  <Icon name="chevron-down" size={10} />
+                </button>
+                {#if showSpeedMenu}
+                  <div class="speed-dropdown" role="menu">
+                    {#each speeds as s}
+                      <button
+                        class="speed-option"
+                        class:active={s === playbackRate}
+                        role="menuitem"
+                        onclick={() => setSpeed(s)}
+                      >
+                        {s}x
+                      </button>
+                    {/each}
+                  </div>
+                  <!-- svelte-ignore a11y_no_static_element_interactions -->
+                  <div class="speed-overlay" onclick={() => (showSpeedMenu = false)} role="presentation"></div>
+                {/if}
+              </div>
             </div>
 
             <div class="controls-right">
@@ -369,6 +423,14 @@
                   style="--progress: {muted ? 0 : volumePercent}%"
                 />
               </div>
+              <button class="ctrl-btn" title="Download" onclick={downloadFile}>
+                <Icon name="download" size={14} />
+              </button>
+              {#if type === 'video' && pipSupported}
+                <button class="ctrl-btn" title="Picture-in-Picture" onclick={requestPip}>
+                  <Icon name="pip" size={14} />
+                </button>
+              {/if}
               {#if type === 'video'}
                 <button class="ctrl-btn" title="Fullscreen (F)" onclick={requestFullscreen}
                   ><Icon name="maximize" size={14} /></button
@@ -731,11 +793,66 @@
     font-weight: bold;
   }
 
+  .speed-wrap {
+    position: relative;
+  }
+
   .speed-btn {
     font-family: monospace;
     font-size: 0.7rem;
     min-width: 36px;
     text-align: center;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+  }
+
+  .speed-dropdown {
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    padding: 4px;
+    z-index: 210;
+    display: flex;
+    flex-direction: column;
+    min-width: 60px;
+  }
+
+  .speed-option {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-family: monospace;
+    font-size: 0.72rem;
+    padding: 4px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    text-align: center;
+    transition:
+      background 0.1s,
+      color 0.1s;
+  }
+
+  .speed-option:hover {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+  }
+
+  .speed-option.active {
+    background: var(--accent-bg);
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  .speed-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 209;
   }
 
   /* VLC info */

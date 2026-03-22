@@ -2,7 +2,7 @@
 
 ## Audit Summary
 
-Scanned 37 `.svelte` files (11 components + 26 routes). Found 18 UI patterns, 7 need new components, 2 existing components need wider adoption.
+Scanned all `.svelte` files (17 components + 26 routes). The component library includes 7 shared UI primitives and 10 feature components.
 
 ## Component Specs
 

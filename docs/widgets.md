@@ -2,8 +2,8 @@
 
 Each widget is a self-contained feature with its own page, API, and server helper.
 
-> **Note:** For detailed per-page documentation, see the [Page Guides](pages/) directory (24 docs).
-> This file covers the original core widgets in detail. New features (QR, Bookmarks, Kanban, etc.)
+> **Note:** For detailed per-page documentation, see the [Page Guides](pages/) directory (24 guides).
+> This file covers the original core widgets in detail. New features (QR, Bookmarks, Kanban, Apps, etc.)
 > are documented in their individual page guide files.
 
 ---
