@@ -8,6 +8,7 @@
   import SearchInput from '$lib/components/SearchInput.svelte';
   import Collapsible from '$lib/components/Collapsible.svelte';
   import Icon from '$lib/components/Icon.svelte';
+  import { fetchApi } from '$lib/api';
 
   let { data } = $props<{ data: PageData }>();
   // svelte-ignore state_referenced_locally
@@ -1410,7 +1411,7 @@
 
   async function runTemplate(t: Template) {
     try {
-      const res = await fetch('/api/tasks', {
+      const res = await fetchApi('/api/tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1435,7 +1436,7 @@
         terminalTaskId = taskId;
         terminalRunning = true;
         terminalOutput = `$ ${t.command}\n\n`;
-        await fetch('/api/tasks', {
+        await fetchApi('/api/tasks', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ taskId }),
@@ -1543,7 +1544,7 @@
 
   async function refresh() {
     try {
-      const res = await fetch('/api/tasks');
+      const res = await fetchApi('/api/tasks');
       if (!res.ok) throw new Error('Failed to fetch tasks');
       const result = await res.json();
       statuses = result.statuses;
@@ -1556,7 +1557,7 @@
 
   async function createTask() {
     try {
-      const res = await fetch('/api/tasks', {
+      const res = await fetchApi('/api/tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1586,7 +1587,7 @@
     const taskName = statuses.find((s) => s.config.id === taskId)?.config.name || taskId;
     toast.info(`Running "${taskName}"...`, { key: `task-run-${taskId}` });
     try {
-      const res = await fetch('/api/tasks', {
+      const res = await fetchApi('/api/tasks', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ taskId }),
@@ -1627,7 +1628,7 @@
   async function confirmDeleteTask(id: string) {
     cronDeleteTarget = null;
     try {
-      await fetch('/api/tasks', {
+      await fetchApi('/api/tasks', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id }),

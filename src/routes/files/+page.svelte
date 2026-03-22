@@ -13,6 +13,7 @@
   import { stars } from '$lib/stars';
   import { browser } from '$app/environment';
   import { onMount, onDestroy } from 'svelte';
+  import { fetchApi } from '$lib/api';
 
   // --- Media file detection ---
   const MEDIA_VIDEO_EXTS = ['.mp4', '.webm', '.mkv', '.avi', '.mov'];
@@ -153,7 +154,7 @@
     try {
       for (const name of names) {
         const params = currentPath ? `?path=${encodeURIComponent(currentPath)}` : '';
-        const res = await fetch(`/api/files/${encodeURIComponent(name)}${params}`, { method: 'DELETE' });
+        const res = await fetchApi(`/api/files/${encodeURIComponent(name)}${params}`, { method: 'DELETE' });
         if (!res.ok) throw new Error(`Failed to delete ${name}`);
       }
       toast.success(`Deleted ${names.length} file${names.length > 1 ? 's' : ''}`);
@@ -208,7 +209,7 @@
       globalSearching = true;
       try {
         const wildcardParam = wildcardMode ? '&wildcard=true' : '';
-        const res = await fetch(`/api/files/search?q=${encodeURIComponent(search.trim())}${wildcardParam}`);
+        const res = await fetchApi(`/api/files/search?q=${encodeURIComponent(search.trim())}${wildcardParam}`);
         const data = await res.json();
         globalResults = data.results;
         showGlobalResults = true;
@@ -346,7 +347,7 @@
   async function loadAndRender(file: FileInfo) {
     renderLoading = true;
     try {
-      const res = await fetch(previewUrl(file.name));
+      const res = await fetchApi(previewUrl(file.name));
       if (!res.ok) throw new Error('Failed to load file for preview');
       const data = await res.arrayBuffer();
       renderResult = await renderDocument(data, file.mime, file.name);
@@ -375,7 +376,7 @@
     }
     try {
       const params = currentPath ? `?path=${encodeURIComponent(currentPath)}` : '';
-      const res = await fetch(`/api/files/${encodeURIComponent(oldName)}${params}`, {
+      const res = await fetchApi(`/api/files/${encodeURIComponent(oldName)}${params}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: renameValue }),
@@ -411,7 +412,7 @@
     editingPath = false;
     try {
       const params = raw ? `?path=${encodeURIComponent(raw)}` : '';
-      const res = await fetch(`/api/files${params}`);
+      const res = await fetchApi(`/api/files${params}`);
       if (!res.ok) throw new Error('Invalid path');
       currentPath = raw;
       files = await res.json();
@@ -429,7 +430,7 @@
   async function navigateTo(path: string) {
     try {
       const params = path ? `?path=${encodeURIComponent(path)}` : '';
-      const res = await fetch(`/api/files${params}`);
+      const res = await fetchApi(`/api/files${params}`);
       if (!res.ok) throw new Error('Directory not found');
       currentPath = path;
       files = await res.json();
@@ -549,7 +550,7 @@
   async function createDir() {
     if (!newDirName.trim()) return;
     try {
-      const res = await fetch('/api/files', {
+      const res = await fetchApi('/api/files', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: newDirName.trim(), path: currentPath || undefined }),
@@ -566,7 +567,7 @@
   async function refreshFiles() {
     try {
       const params = currentPath ? `?path=${encodeURIComponent(currentPath)}` : '';
-      const res = await fetch(`/api/files${params}`);
+      const res = await fetchApi(`/api/files${params}`);
       if (!res.ok) throw new Error('Failed to load files');
       files = await res.json();
     } catch (e: any) {
@@ -577,7 +578,7 @@
   async function deleteFile(filename: string) {
     try {
       const params = currentPath ? `?path=${encodeURIComponent(currentPath)}` : '';
-      const res = await fetch(`/api/files/${encodeURIComponent(filename)}${params}`, { method: 'DELETE' });
+      const res = await fetchApi(`/api/files/${encodeURIComponent(filename)}${params}`, { method: 'DELETE' });
       if (!res.ok) throw new Error(`Failed to delete ${filename}`);
       await refreshFiles();
     } catch (e: any) {
@@ -588,7 +589,7 @@
   async function deleteDir(name: string) {
     try {
       const params = currentPath ? `path=${encodeURIComponent(currentPath)}&dir=true` : 'dir=true';
-      const res = await fetch(`/api/files/${encodeURIComponent(name)}?${params}`, { method: 'DELETE' });
+      const res = await fetchApi(`/api/files/${encodeURIComponent(name)}?${params}`, { method: 'DELETE' });
       if (!res.ok) throw new Error(`Failed to delete directory ${name}`);
       await refreshFiles();
     } catch (e: any) {

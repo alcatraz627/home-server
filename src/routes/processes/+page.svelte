@@ -8,6 +8,7 @@
   import SearchInput from '$lib/components/SearchInput.svelte';
   import Loading from '$lib/components/Loading.svelte';
   import Icon from '$lib/components/Icon.svelte';
+  import { fetchApi } from '$lib/api';
 
   let { data } = $props<{ data: PageData }>();
 
@@ -35,7 +36,7 @@
 
   async function fetchSystemStats() {
     try {
-      const res = await fetch('/api/system');
+      const res = await fetchApi('/api/system');
       if (res.ok) {
         const snap: SystemSnapshot = await res.json();
         monitorHistory = [...monitorHistory.slice(-(MONITOR_MAX - 1)), snap];
@@ -272,7 +273,7 @@
   // Refresh
   async function refresh() {
     try {
-      const res = await fetch('/api/processes');
+      const res = await fetchApi('/api/processes');
       if (!res.ok) throw new Error('Failed to fetch processes');
       processes = await res.json();
       recordHistory();
@@ -313,7 +314,7 @@
   async function fetchDetail(pid: number) {
     detailLoading = true;
     try {
-      const res = await fetch(`/api/processes/${pid}`);
+      const res = await fetchApi(`/api/processes/${pid}`);
       if (!res.ok) throw new Error('Failed to fetch process details');
       activeDetail = await res.json();
     } catch (e: any) {
@@ -324,7 +325,7 @@
 
   async function confirmSignal(pid: number) {
     try {
-      const res = await fetch(`/api/processes/${pid}?signal=${selectedSignal}`, { method: 'DELETE' });
+      const res = await fetchApi(`/api/processes/${pid}?signal=${selectedSignal}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Signal failed');
       toast.success(`Sent ${selectedSignal} to PID ${pid}`);
     } catch (e: any) {

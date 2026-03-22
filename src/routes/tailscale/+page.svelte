@@ -6,6 +6,7 @@
   import Badge from '$lib/components/Badge.svelte';
   import Loading from '$lib/components/Loading.svelte';
   import Icon from '$lib/components/Icon.svelte';
+  import { fetchApi } from '$lib/api';
 
   let { data } = $props<{ data: PageData }>();
   // svelte-ignore state_referenced_locally

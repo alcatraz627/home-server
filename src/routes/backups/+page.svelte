@@ -8,6 +8,7 @@
   import Button from '$lib/components/Button.svelte';
   import Badge from '$lib/components/Badge.svelte';
   import Icon from '$lib/components/Icon.svelte';
+  import { fetchApi } from '$lib/api';
 
   let { data } = $props<{ data: PageData }>();
   // svelte-ignore state_referenced_locally
@@ -107,7 +108,7 @@
 
   async function refresh() {
     try {
-      const res = await fetch('/api/backups');
+      const res = await fetchApi('/api/backups');
       if (!res.ok) throw new Error('Failed to fetch backups');
       const result = await res.json();
       statuses = result.statuses;
@@ -170,7 +171,7 @@
           .filter(Boolean),
         schedule: formSchedule || null,
       };
-      const res = await fetch('/api/backups', {
+      const res = await fetchApi('/api/backups', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(config),
@@ -198,7 +199,7 @@
         schedule: formSchedule || null,
         enabled: true,
       };
-      const res = await fetch('/api/backups', {
+      const res = await fetchApi('/api/backups', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(config),
@@ -218,7 +219,7 @@
     const config = statuses.find((s) => s.config.id === configId)?.config;
     toast.info(`Backup "${config?.name || configId}" started`, { key: `backup-${configId}` });
     try {
-      const res = await fetch('/api/backups', {
+      const res = await fetchApi('/api/backups', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ configId }),
@@ -249,7 +250,7 @@
   async function confirmDelete(configId: string) {
     const name = statuses.find((s) => s.config.id === configId)?.config.name ?? configId;
     try {
-      const res = await fetch('/api/backups', {
+      const res = await fetchApi('/api/backups', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: configId }),

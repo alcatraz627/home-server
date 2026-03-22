@@ -9,6 +9,7 @@
   import Icon from '$lib/components/Icon.svelte';
 
   import { browser } from '$app/environment';
+  import { fetchApi } from '$lib/api';
 
   let { data } = $props<{ data: PageData }>();
 
@@ -40,7 +41,7 @@
 
   async function fetchConfig() {
     try {
-      const res = await fetch('/api/lights/config');
+      const res = await fetchApi('/api/lights/config');
       if (!res.ok) throw new Error('Failed to fetch lights config');
       const cfg: LightsConfig = await res.json();
       bulbNames = cfg.names;
@@ -56,7 +57,7 @@
     const cfg: LightsConfig = { names: bulbNames, rooms, presets: customPresets };
     cacheConfig(cfg);
     try {
-      await fetch('/api/lights/config', {
+      await fetchApi('/api/lights/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(cfg),
@@ -194,7 +195,7 @@
   async function rediscover() {
     discovering = true;
     try {
-      const res = await fetch('/api/lights');
+      const res = await fetchApi('/api/lights');
       if (!res.ok) throw new Error('Failed to discover lights');
       const fresh: WizBulb[] = await res.json();
       mergeBulbs(fresh);
@@ -230,7 +231,7 @@
 
   async function setBulb(ip: string, params: Record<string, any>) {
     try {
-      const res = await fetch(`/api/lights/${encodeURIComponent(ip)}`, {
+      const res = await fetchApi(`/api/lights/${encodeURIComponent(ip)}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(params),
@@ -316,7 +317,7 @@
 
   async function refreshStates() {
     try {
-      const res = await fetch('/api/lights');
+      const res = await fetchApi('/api/lights');
       if (!res.ok) throw new Error('Failed to refresh lights');
       const fresh: WizBulb[] = await res.json();
       mergeBulbs(fresh);

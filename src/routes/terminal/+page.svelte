@@ -5,6 +5,7 @@
   import EmptyState from '$lib/components/EmptyState.svelte';
   import Badge from '$lib/components/Badge.svelte';
   import Icon from '$lib/components/Icon.svelte';
+  import { fetchApi } from '$lib/api';
 
   interface Tab {
     id: number;

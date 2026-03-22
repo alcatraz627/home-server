@@ -7,6 +7,7 @@
   import SearchInput from '$lib/components/SearchInput.svelte';
   import Icon from '$lib/components/Icon.svelte';
   import { toast } from '$lib/toast';
+  import { fetchApi } from '$lib/api';
 
   let { data } = $props<{ data: PageData }>();
   // svelte-ignore state_referenced_locally
@@ -104,7 +105,7 @@
 
   async function refresh() {
     try {
-      const res = await fetch('/api/keeper');
+      const res = await fetchApi('/api/keeper');
       if (!res.ok) throw new Error('Failed to fetch keeper data');
       const result = await res.json();
       requests = result.requests;
@@ -120,7 +121,7 @@
 
   async function createRequest() {
     try {
-      const res = await fetch('/api/keeper', {
+      const res = await fetchApi('/api/keeper', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: formTitle, goal: formGoal, scope: formScope, details: formDetails }),
@@ -135,7 +136,7 @@
 
   async function updateStatus(id: string, status: FeatureStatus) {
     try {
-      const res = await fetch('/api/keeper', {
+      const res = await fetchApi('/api/keeper', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, status }),
@@ -149,7 +150,7 @@
 
   async function deleteReq(id: string) {
     try {
-      const res = await fetch('/api/keeper', {
+      const res = await fetchApi('/api/keeper', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id }),
@@ -182,7 +183,7 @@
   async function saveEdit() {
     if (!editingId) return;
     try {
-      const res = await fetch('/api/keeper', {
+      const res = await fetchApi('/api/keeper', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -241,7 +242,7 @@
 
   async function fetchAgentStatus(id: string) {
     try {
-      const res = await fetch(`/api/keeper/${id}/agent`);
+      const res = await fetchApi(`/api/keeper/${id}/agent`);
       if (!res.ok) throw new Error('Failed to fetch agent status');
       const data = await res.json();
       if (data.startedAt) {
@@ -255,7 +256,7 @@
   async function fetchLog(id: string) {
     try {
       const offset = logOffsets[id] || 0;
-      const res = await fetch(`/api/keeper/${id}/log?offset=${offset}`);
+      const res = await fetchApi(`/api/keeper/${id}/log?offset=${offset}`);
       if (!res.ok) throw new Error('Failed to fetch log');
       const data = await res.json();
       if (data.content) {
@@ -283,7 +284,7 @@
   // Agent actions
   async function startAgentAction(id: string) {
     try {
-      const res = await fetch(`/api/keeper/${id}/agent`, {
+      const res = await fetchApi(`/api/keeper/${id}/agent`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'start' }),
@@ -303,7 +304,7 @@
 
   async function stopAgentAction(id: string) {
     try {
-      const res = await fetch(`/api/keeper/${id}/agent`, {
+      const res = await fetchApi(`/api/keeper/${id}/agent`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'stop' }),
@@ -323,7 +324,7 @@
 
   async function resumeAgentAction(id: string) {
     try {
-      const res = await fetch(`/api/keeper/${id}/agent`, {
+      const res = await fetchApi(`/api/keeper/${id}/agent`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'resume' }),
@@ -368,7 +369,7 @@
 
   async function saveResult(id: string) {
     try {
-      const res = await fetch('/api/keeper', {
+      const res = await fetchApi('/api/keeper', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, result: editingResult }),
