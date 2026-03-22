@@ -697,54 +697,54 @@ User feedback + audit findings from the v3.0.0 sprint. Organized by area.
 
 ### D1 — Smart Lights UX
 
-- [ ] **Card dragging blocks slider** — drag handle on card conflicts with brightness slider. Fix: only enable drag on the drag handle area (top bar), not the entire card. Use `e.target` check to prevent drag when interacting with sliders/inputs
-- [ ] **Larger brightness slider** — move the brightness control to be larger and at the top of the card body. Make it a full-width horizontal slider that works well on both mobile and desktop. Increase touch target to 44px height
-- [ ] **Collapsible presets section** — the color presets and scene buttons at the bottom of each bulb card should be collapsible. Show "Color" and "Temperature" always visible, collapse "Scenes" behind a toggle. Better custom color picker — use a proper color wheel or grid instead of `<input type="color">`
-- [ ] **Get existing bulb state** — the WiZ protocol supports `getPilot` to read current state. Verify `discoverBulbs()` in `wiz.ts` actually sends `getPilot` after registration. If not, add an explicit `getPilot` call per bulb after discovery to populate state/brightness/color
+- [x] **Card dragging blocks slider** — drag handle on card conflicts with brightness slider. Fix: only enable drag on the drag handle area (top bar), not the entire card. Use `e.target` check to prevent drag when interacting with sliders/inputs
+- [x] **Larger brightness slider** — move the brightness control to be larger and at the top of the card body. Make it a full-width horizontal slider that works well on both mobile and desktop. Increase touch target to 44px height
+- [x] **Collapsible presets section** — the color presets and scene buttons at the bottom of each bulb card should be collapsible. Show "Color" and "Temperature" always visible, collapse "Scenes" behind a toggle. Better custom color picker — use a proper color wheel or grid instead of `<input type="color">`
+- [x] **Get existing bulb state** — the WiZ protocol supports `getPilot` to read current state. Verify `discoverBulbs()` in `wiz.ts` actually sends `getPilot` after registration. If not, add an explicit `getPilot` call per bulb after discovery to populate state/brightness/color
 
 ### D2 — Application Launcher (New Page)
 
-- [ ] **Launch Program page** (`/apps`) — new page showing installed applications as a card grid. Backend: scan `/Applications` folder on macOS (`fs.readdirSync('/Applications')` filtering `.app` bundles). Extract app name and icon (use `defaults read /Applications/AppName.app/Contents/Info.plist CFBundleName`). API: `GET /api/apps` returns list, `POST /api/apps/launch` with `{ path: '/Applications/...' }` uses `child_process.exec('open "/Applications/AppName.app"')` to launch. Frontend: grid of app cards with name and icon placeholder, click to launch. Show a toast "Launching {name}..."
+- [x] **Launch Program page** (`/apps`) — new page showing installed applications as a card grid. Backend: scan `/Applications` folder on macOS (`fs.readdirSync('/Applications')` filtering `.app` bundles). Extract app name and icon (use `defaults read /Applications/AppName.app/Contents/Info.plist CFBundleName`). API: `GET /api/apps` returns list, `POST /api/apps/launch` with `{ path: '/Applications/...' }` uses `child_process.exec('open "/Applications/AppName.app"')` to launch. Frontend: grid of app cards with name and icon placeholder, click to launch. Show a toast "Launching {name}..."
 
 ### D3 — Navbar System Monitor
 
-- [ ] **CPU uptime hover details** — show a tooltip (use Tooltip component) on the uptime stat showing: boot time, exact uptime (days/hours/minutes), load averages (1m/5m/15m)
-- [ ] **Fix disk I/O "n/a"** — the system API returns disk I/O data but it may not be reaching the layout. Check if `/api/system` returns `disk` field and if the layout server load passes it through
-- [ ] **Click outside closes dropdown** — the stats gear dropdown should close when clicking outside. Add a click-away overlay (same pattern as other dropdowns in the layout)
-- [ ] **Better download/upload coloring** — when values are 0, show gray instead of green. Color scale: gray (0), green (< 1MB/s), yellow (1-10MB/s), red (> 10MB/s). Show actual values with units (KB/s, MB/s)
+- [x] **CPU uptime hover details** — show a tooltip (use Tooltip component) on the uptime stat showing: boot time, exact uptime (days/hours/minutes), load averages (1m/5m/15m)
+- [x] **Fix disk I/O "n/a"** — the system API returns disk I/O data but it may not be reaching the layout. Check if `/api/system` returns `disk` field and if the layout server load passes it through
+- [x] **Click outside closes dropdown** — the stats gear dropdown should close when clicking outside. Add a click-away overlay (same pattern as other dropdowns in the layout)
+- [x] **Better download/upload coloring** — when values are 0, show gray instead of green. Color scale: gray (0), green (< 1MB/s), yellow (1-10MB/s), red (> 10MB/s). Show actual values with units (KB/s, MB/s)
 
 ### D4 — Dashboard
 
-- [ ] **Config dropdown position** — the dashboard section toggle dropdown opens left, covered by sidebar. Fix: add `right: 0` positioning so it opens to the right, or use a fixed position
-- [ ] **More dashboard content** — add: quick actions row (common tasks like "Scan Lights", "Run Backup", "New Terminal"), system alerts section (disk > 90%, high CPU, key expiry), recent file uploads, active cron tasks countdown
+- [x] **Config dropdown position** — the dashboard section toggle dropdown opens left, covered by sidebar. Fix: add `right: 0` positioning so it opens to the right, or use a fixed position
+- [x] **More dashboard content** — add: quick actions row (common tasks like "Scan Lights", "Run Backup", "New Terminal"), system alerts section (disk > 90%, high CPU, key expiry), recent file uploads, active cron tasks countdown
 
 ### D5 — Terminal
 
-- [ ] **"exit" closes tab** — detect when PTY process exits (exit code received) and auto-close the tab. Show a toast "Shell '{label}' closed"
-- [ ] **Close tab kills session** — when user closes a tab, call `destroySession(sessionId)` via API to kill the PTY. Currently sessions persist even after tab close
-- [ ] **Toast on tab close** — show `toast.info('Closed: {tab.label}')` when a terminal tab is closed
-- [ ] **Fix header padding** — terminal page has inconsistent padding. Audit the `.terminal-page` and `.terminal-header` CSS for margin/padding issues
-- [ ] **Fix "Pasted text" error on new tab** — the initial write to PTY may be sending clipboard data or the session restore message is being interpreted as a paste. Debug the `ws.onopen` handler — the `[Session restored]` message should use `\x1b[2m` (dim) escape
+- [x] **"exit" closes tab** — detect when PTY process exits (exit code received) and auto-close the tab. Show a toast "Shell '{label}' closed"
+- [x] **Close tab kills session** — when user closes a tab, call `destroySession(sessionId)` via API to kill the PTY. Currently sessions persist even after tab close
+- [x] **Toast on tab close** — show `toast.info('Closed: {tab.label}')` when a terminal tab is closed
+- [x] **Fix header padding** — terminal page has inconsistent padding. Audit the `.terminal-page` and `.terminal-header` CSS for margin/padding issues
+- [x] **Fix "Pasted text" error on new tab** — the initial write to PTY may be sending clipboard data or the session restore message is being interpreted as a paste. Debug the `ws.onopen` handler — the `[Session restored]` message should use `\x1b[2m` (dim) escape
 
 ### D6 — Network Toolkit
 
-- [ ] **Sample items per tab** — add 3 pre-filled example values for each tool tab: traceroute (google.com, 1.1.1.1, github.com), ping sweep (192.168.1.0/24, 10.0.0.0/24), whois (google.com, github.com, example.org), etc. Show as clickable suggestion chips below the input
-- [ ] **In-page documentation** — add a help/info section per tab explaining what the tool does, what the output means, and common use cases. Use the Collapsible component with title "How it works"
-- [ ] **Guided UI** — add placeholder text in inputs showing expected format, helper tooltips on buttons, and inline validation (e.g., "Enter a valid IP or hostname")
+- [x] **Sample items per tab** — add 3 pre-filled example values for each tool tab: traceroute (google.com, 1.1.1.1, github.com), ping sweep (192.168.1.0/24, 10.0.0.0/24), whois (google.com, github.com, example.org), etc. Show as clickable suggestion chips below the input
+- [x] **In-page documentation** — add a help/info section per tab explaining what the tool does, what the output means, and common use cases. Use the Collapsible component with title "How it works"
+- [x] **Guided UI** — add placeholder text in inputs showing expected format, helper tooltips on buttons, and inline validation (e.g., "Enter a valid IP or hostname")
 
 ### D7 — Peripherals
 
-- [ ] **More info per type** — expand each peripheral tab with additional data: WiFi (channel width, noise level, PHY mode), Bluetooth (battery level if available, device type icon), USB (bus number, port, power), Audio (sample format, channel count), Battery (health, temperature, power adapter wattage)
+- [x] **More info per type** — expand each peripheral tab with additional data: WiFi (channel width, noise level, PHY mode), Bluetooth (battery level if available, device type icon), USB (bus number, port, power), Audio (sample format, channel count), Battery (health, temperature, power adapter wattage)
 - [ ] **Search across peripherals** — add a SearchInput at the top that filters across all tabs simultaneously. Show matching tab name as prefix in results
 
 ### D8 — Files
 
-- [ ] **Better checkbox styling** — the file selection checkbox looks odd. Use the global custom checkbox CSS or the existing `.hs-btn` pattern
-- [ ] **Page header toolbar** — restructure the files page header: title + global actions (refresh, upload) in a toolbar bar. Move folder-specific actions (New Folder, search) to a secondary bar right above the file list
-- [ ] **File path input position** — move the editable path bar below the file upload area. Add proper validation — always check if path exists before navigating. Show error toast + revert to last valid path on invalid
+- [x] **Better checkbox styling** — the file selection checkbox looks odd. Use the global custom checkbox CSS or the existing `.hs-btn` pattern
+- [x] **Page header toolbar** — restructure the files page header: title + global actions (refresh, upload) in a toolbar bar. Move folder-specific actions (New Folder, search) to a secondary bar right above the file list
+- [x] **File path input position** — move the editable path bar below the file upload area. Add proper validation — always check if path exists before navigating. Show error toast + revert to last valid path on invalid
 - [ ] **Media player enhancements** — add: playback speed dropdown (0.25x to 3x), picture-in-picture button, download button, subtitle support indicator
 - [ ] **Inline terminal** — add a collapsible terminal panel at the bottom of the files page. Open with a "Terminal" button. Auto-set the PTY cwd to the current file browser directory. Reuse components from the terminal page
-- [ ] **Folder view modes** — add view toggle: list (current), grid (card layout with thumbnails), tree (collapsible folder tree). Store preference in localStorage
+- [x] **Folder view modes** — add view toggle: list (current), grid (card layout with thumbnails), tree (collapsible folder tree). Store preference in localStorage
 - [ ] **Wildcard search** — use `find` command on the backend for wildcard search (e.g., `find . -name "*.jpg"`). Pass the pattern as a query param to the search API
 
 ### D9 — Documentation
@@ -755,8 +755,8 @@ User feedback + audit findings from the v3.0.0 sprint. Organized by area.
 
 ### D10 — AI Chat + Dashboard + Terminal (additional)
 
-- [ ] **AI chat page context** — pass `$page.url.pathname` from layout to AiChat as a prop. Include it in the `/api/ai/chat` request body. Update the API to inject the current page name into the Claude system prompt (e.g., "The user is currently viewing the Files page")
+- [x] **AI chat page context** — pass `$page.url.pathname` from layout to AiChat as a prop. Include it in the `/api/ai/chat` request body. Update the API to inject the current page name into the Claude system prompt (e.g., "The user is currently viewing the Files page")
 - [ ] **Dashboard drag-and-drop layout** — replace the show/hide toggle with a full layout system. Store `{ section: string, order: number, visible: boolean, width: 'full' | 'half' }[]` in localStorage. Render sections sorted by `order`. Add drag-and-drop reordering (HTML5 drag API). Show a grid toggle: 1-column or 2-column layout
-- [ ] **Terminal: don't auto-start** — on mount, only restore saved sessions. If no saved sessions exist, show the empty state with "New Terminal" button. Do NOT auto-create a shell tab
-- [ ] **Terminal: session summary bar** — add a summary row at the top showing all running shell processes (from server session map). Display: session ID (short), label, PID, uptime, status (connected/disconnected). Click to switch to that tab
-- [ ] **Terminal: bottom status bar** — add a fixed-bottom bar in the terminal page showing: current session ID, shell type (bash/zsh), cols x rows, connection status (connected/reconnecting), PTY PID. Style as a thin monospace bar like a VS Code status bar
+- [x] **Terminal: don't auto-start** — on mount, only restore saved sessions. If no saved sessions exist, show the empty state with "New Terminal" button. Do NOT auto-create a shell tab
+- [x] **Terminal: session summary bar** — add a summary row at the top showing all running shell processes (from server session map). Display: session ID (short), label, PID, uptime, status (connected/disconnected). Click to switch to that tab
+- [x] **Terminal: bottom status bar** — add a fixed-bottom bar in the terminal page showing: current session ID, shell type (bash/zsh), cols x rows, connection status (connected/reconnecting), PTY PID. Style as a thin monospace bar like a VS Code status bar
