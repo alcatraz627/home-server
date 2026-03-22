@@ -61,8 +61,19 @@ const CATEGORY_ORDER: { id: string; label: string; dirs: { dir: string; relBase:
   },
 ];
 
-const ARCHITECTURE_FILES = ['architecture.md', 'extending.md', 'widgets.md', 'claude-keeper.md', 'roadmap.md'];
-const REFERENCE_FILES = ['api-reference.md'];
+const ARCHITECTURE_FILES = [
+  'architecture.md',
+  'extending.md',
+  'widgets.md',
+  'claude-keeper.md',
+  'roadmap.md',
+  'linux-support.md',
+  'security.md',
+  'configurable-constants.md',
+  'decentralization.md',
+  'remote-access.md',
+];
+const REFERENCE_FILES = ['api-reference.md', 'deployment.md', 'auth-implementation.md'];
 const SETUP_FILES = ['setup-guide.md'];
 
 export const load: PageServerLoad = () => {
@@ -98,10 +109,10 @@ export const load: PageServerLoad = () => {
     .sort((a, b) => a.name.localeCompare(b.name));
 
   const categories: DocCategory[] = [
-    { id: 'page-guides', label: 'Page Guides', files: pageGuides },
     { id: 'architecture', label: 'Architecture', files: architectureFiles },
     { id: 'reference', label: 'Reference', files: referenceFiles },
     { id: 'setup', label: 'Setup', files: [...setupFiles, ...rootFiles] },
+    { id: 'page-guides', label: 'Page Guides', files: pageGuides },
   ].filter((c) => c.files.length > 0);
 
   // Also return flat list for backward compatibility

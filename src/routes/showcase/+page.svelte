@@ -14,6 +14,9 @@
   import InteractiveChip from '$lib/components/InteractiveChip.svelte';
   import InfoRow from '$lib/components/InfoRow.svelte';
   import MiniChart from '$lib/components/MiniChart.svelte';
+  import Modal from '$lib/components/Modal.svelte';
+  import EmptyState from '$lib/components/EmptyState.svelte';
+  import Tooltip from '$lib/components/Tooltip.svelte';
   import { toast } from '$lib/toast';
 
   // Component library demo state
@@ -29,6 +32,12 @@
   ]);
   let termInput = $state('');
   let termInputEl = $state<HTMLInputElement | null>(null);
+
+  // ── New showcase state ───────────────────────────────────────────────────
+  let modalOpen = $state(false);
+  let progressValue = $state(65);
+  let toggleOn = $state(false);
+  let counter = $state(0);
 
   // ── v4.3 Component state ──────────────────────────────────────────────────
   let chipActive = $state(false);
@@ -531,6 +540,154 @@
   </div>
 </section>
 
+<!-- ════════════════════════════ MODALS & OVERLAYS ═════════════════════════ -->
+<section class="section">
+  <h3 class="section-heading">Modals & Overlays</h3>
+
+  <div class="demo-block">
+    <h4 class="demo-label">Modal</h4>
+    <Button onclick={() => (modalOpen = true)}>Open Modal</Button>
+    <Modal bind:open={modalOpen} title="Demo Modal" width="450px">
+      <p style="color: var(--text-secondary); font-size: 0.85rem;">
+        This is a reusable modal with title bar, close button, ESC support, and click-away dismissal.
+      </p>
+      {#snippet footer()}
+        <Button onclick={() => (modalOpen = false)}>Close</Button>
+        <Button
+          variant="primary"
+          onclick={() => {
+            modalOpen = false;
+            toast.success('Action confirmed!');
+          }}>Confirm</Button
+        >
+      {/snippet}
+    </Modal>
+  </div>
+
+  <div class="demo-block">
+    <h4 class="demo-label">Tooltips</h4>
+    <div class="demo-row">
+      <Tooltip text="Top tooltip" position="top"><Button size="sm">Top</Button></Tooltip>
+      <Tooltip text="Bottom tooltip with longer text for wrapping" position="bottom"
+        ><Button size="sm">Bottom</Button></Tooltip
+      >
+      <Tooltip text="Left tooltip" position="left"><Button size="sm">Left</Button></Tooltip>
+      <Tooltip text="Right tooltip" position="right"><Button size="sm">Right</Button></Tooltip>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════ EMPTY STATES ══════════════════════════════ -->
+<section class="section">
+  <h3 class="section-heading">Empty States</h3>
+
+  <div class="demo-block">
+    <div class="demo-row" style="gap: 16px;">
+      <div style="flex: 1;">
+        <EmptyState
+          icon="folder"
+          title="No Files"
+          hint="Upload or create files to see them here"
+          actionLabel="Upload"
+          onaction={() => toast.info('Upload clicked')}
+        />
+      </div>
+      <div style="flex: 1;">
+        <EmptyState icon="search" title="No Results" hint="Try adjusting your search or filters" />
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════ INTERACTIONS ══════════════════════════════ -->
+<section class="section">
+  <h3 class="section-heading">Interactions & State</h3>
+
+  <div class="demo-block">
+    <h4 class="demo-label">Counter with transition</h4>
+    <div class="demo-row">
+      <Button size="sm" onclick={() => counter--}>-</Button>
+      <span class="counter-display">{counter}</span>
+      <Button size="sm" onclick={() => counter++}>+</Button>
+      <Button size="sm" variant="accent" onclick={() => (counter = 0)}>Reset</Button>
+    </div>
+  </div>
+
+  <div class="demo-block">
+    <h4 class="demo-label">Progress bar</h4>
+    <div class="progress-demo">
+      <div class="progress-track">
+        <div class="progress-fill-demo" style="width: {progressValue}%"></div>
+      </div>
+      <span class="progress-label">{progressValue}%</span>
+    </div>
+    <input type="range" min="0" max="100" bind:value={progressValue} class="range-input" />
+  </div>
+
+  <div class="demo-block">
+    <h4 class="demo-label">Loading states</h4>
+    <div class="demo-row">
+      <Loading variant="spinner" />
+      <Loading variant="dots" />
+      <Loading variant="skeleton" count={1} height="24px" />
+      <Button loading disabled>Processing</Button>
+    </div>
+  </div>
+
+  <div class="demo-block">
+    <h4 class="demo-label">Badge variants</h4>
+    <div class="demo-row">
+      <Badge variant="success" dot pulse>Live</Badge>
+      <Badge variant="danger">Error</Badge>
+      <Badge variant="warning">Warning</Badge>
+      <Badge variant="info">Info</Badge>
+      <Badge variant="accent">Accent</Badge>
+      <Badge variant="purple">Purple</Badge>
+      <Badge variant="default">Default</Badge>
+      <Badge variant="success" size="md">Medium</Badge>
+    </div>
+  </div>
+
+  <div class="demo-block">
+    <h4 class="demo-label">Collapsible sections</h4>
+    <Collapsible title="Click to expand" bind:open={demoCollapse1}>
+      <p style="font-size: 0.82rem; color: var(--text-secondary);">
+        Collapsible content with smooth animation. Useful for FAQs, settings groups, and detail panels.
+      </p>
+    </Collapsible>
+    <Collapsible title="Already expanded" bind:open={demoCollapse2}>
+      <p style="font-size: 0.82rem; color: var(--text-secondary);">
+        Another collapsible section. These maintain independent state.
+      </p>
+    </Collapsible>
+  </div>
+</section>
+
+<!-- ════════════════════════════ ANIMATIONS ════════════════════════════════ -->
+<section class="section">
+  <h3 class="section-heading">Animations</h3>
+
+  <div class="demo-block">
+    <h4 class="demo-label">Card stagger entrance</h4>
+    <div class="demo-row">
+      {#each [0, 1, 2, 3, 4] as i}
+        <div class="card anim-card card-stagger" style="animation-delay: {i * 80}ms">
+          Card {i + 1}
+        </div>
+      {/each}
+    </div>
+  </div>
+
+  <div class="demo-block">
+    <h4 class="demo-label">Hover effects</h4>
+    <div class="demo-row">
+      <div class="card hover-lift">Hover lift</div>
+      <div class="card hover-glow">Hover glow</div>
+      <div class="card hover-scale">Hover scale</div>
+    </div>
+  </div>
+</section>
+
 <style>
   /* ── Page header ────────────────────────────────────────────────────────── */
   .page-title {
@@ -951,5 +1108,85 @@
     .card-grid {
       grid-template-columns: 1fr;
     }
+  }
+
+  /* New showcase items */
+  .counter-display {
+    font-size: 1.5rem;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--accent);
+    min-width: 60px;
+    text-align: center;
+    transition: transform 0.15s;
+  }
+
+  .progress-demo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+
+  .progress-track {
+    flex: 1;
+    height: 8px;
+    background: var(--bg-hover);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .progress-fill-demo {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 4px;
+    transition: width 0.3s ease-out;
+  }
+
+  .progress-label {
+    font-size: 0.78rem;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-muted);
+    min-width: 36px;
+  }
+
+  .range-input {
+    width: 100%;
+    accent-color: var(--accent);
+  }
+
+  .anim-card {
+    padding: 16px 20px;
+    text-align: center;
+    font-size: 0.82rem;
+    font-weight: 500;
+    min-width: 80px;
+  }
+
+  .hover-lift,
+  .hover-glow,
+  .hover-scale {
+    padding: 16px 20px;
+    text-align: center;
+    font-size: 0.82rem;
+    cursor: pointer;
+    min-width: 100px;
+    transition: all 0.2s;
+  }
+
+  .hover-lift:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+  }
+
+  .hover-glow:hover {
+    box-shadow:
+      0 0 15px var(--accent),
+      0 0 30px color-mix(in srgb, var(--accent) 30%, transparent);
+    border-color: var(--accent);
+  }
+
+  .hover-scale:hover {
+    transform: scale(1.05);
   }
 </style>
