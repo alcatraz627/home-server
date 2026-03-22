@@ -22,8 +22,17 @@ const dismissTimers = new Map<number, ReturnType<typeof setTimeout>>();
 function createToastStore() {
   const { subscribe, update } = writable<Toast[]>([]);
 
+  // Default durations by type: errors persist, info is short
+  const DEFAULT_DURATION: Record<ToastType, number> = {
+    success: 4000,
+    warning: 5000,
+    error: 0, // persists until dismissed
+    info: 2000,
+  };
+
   function add(type: ToastType, message: string, opts: ToastOptions = {}) {
-    const { duration = 4000, key } = opts;
+    const duration = opts.duration ?? DEFAULT_DURATION[type];
+    const { key } = opts;
     const id = nextId++;
 
     update((toasts) => {
