@@ -643,3 +643,50 @@ User feedback + audit findings from the v3.0.0 sprint. Organized by area.
 ### B5 — Escape Key + Modal Cleanup
 
 - [x] **Escape key closes modals globally** — add a `svelte:window on:keydown` handler in the layout or a shared action that dispatches escape to close the topmost open modal/panel. Modals to handle: SettingsPanel, MediaPlayer, FileBrowser, device manager, AI Chat fullscreen, any confirm dialogs
+
+---
+
+## v3.4 — UX Polish & Missing Pieces
+
+### C1 — Terminal
+
+- [ ] **Floating terminal option** — add a "Float" button that detaches the terminal into a draggable, resizable floating panel (position: fixed, bottom-right). The floating terminal persists across page navigation since it lives in the layout. Store float state in `sessionStorage`. This also preserves output since the terminal DOM is never unmounted
+- [ ] **Output buffer** — when restoring a session, the old output is lost because PTY doesn't have a scrollback buffer on the server. Fix: capture the last 5000 chars of PTY output in a ring buffer on the server side (in `terminal.ts`). On reconnect, send the buffer as an initial `output` message before live data
+
+### C2 — Peripheral Fixes
+
+- [ ] **Bluetooth connect/disconnect** — add `blueutil` (macOS) or `bluetoothctl` (Linux) integration. API: `POST /api/peripherals` with `{ action: 'bt-connect' | 'bt-disconnect', address: '...' }`. Add connect/disconnect toggle buttons on each Bluetooth device row. Show error if `blueutil` is not installed with install instructions (`brew install blueutil`)
+- [ ] **Fix audio HTML entities** — `&#x1F50A;` showing as text instead of icon. Replace with Unicode characters or `<Icon>` component in the peripherals audio tab
+- [ ] **5 more peripheral types** — research and add:
+  1. **Displays/Monitors** — `system_profiler SPDisplaysDataType -json`: resolution, refresh rate, GPU, built-in vs external
+  2. **Printers** — `system_profiler SPPrintersDataType -json` or `lpstat -p`: name, status, type
+  3. **Network Interfaces** — `ifconfig` or `networksetup -listallhardwareports`: interface name, MAC, IP, speed, status
+  4. **Thunderbolt/USB-C** — `system_profiler SPThunderboltDataType -json`: connected devices, bandwidth
+  5. **Camera/Microphone** — `system_profiler SPCameraDataType -json`: built-in camera status, model, any connected webcams
+- [ ] **System Info tab in Peripherals** — add a "System" tab showing: CPU model, core count + details per core (frequency, architecture), total/available RAM, macOS version, kernel version, hostname, serial number. Use `system_profiler SPHardwareDataType -json` and `sysctl` commands
+
+### C3 — Smart Lights
+
+- [ ] **Fix caching** — verify `cacheBulbs()` in `mergeBulbs()` is actually called and `sessionStorage.setItem` succeeds. Add `console.log` temporarily or check manually. The issue may be that `sessionStorage` key differs between the cache read (on mount) and write. Ensure both use `hs:lights-cache`
+- [ ] **Speed up return visits** — on mount, immediately render cached bulbs WITHOUT waiting for rediscovery. Currently `discovering = true` blocks rendering even when cache has data. Fix: set `discovering = false` initially if cache has bulbs, then run `rediscover()` in background with `mergeBulbs()` to update silently
+
+### C4 — Process Monitor
+
+- [ ] **Different swap chart color** — swap chart uses `var(--purple)` but make it more distinct. Use a unique color like `var(--orange)` or a gradient fill. Add a legend showing which color is which metric
+- [ ] **Per-core CPU mode** — add a "Per Core" toggle button in the system monitor. When enabled, show one mini SVG chart per CPU core (in a grid layout) instead of the single averaged chart. Each mini chart shows that core's individual usage. Use the `cpu.cores` array from the API response
+
+### C5 — Dashboard & Navbar
+
+- [ ] **Customizable dashboard** — allow users to show/hide dashboard sections. Add a gear icon in the dashboard header that opens a checklist of sections: System Stats, Tasks, Backups, Keeper, Disk, Activity, Top Processes, Quick Nav, Starred Files. Store preferences in localStorage `hs:dashboard-config`. Hidden sections are not rendered
+- [ ] **Better navbar icons** — the Icon component icons need vertical centering in their parent buttons. Fix: ensure all `.icon-btn` and header buttons use `display: inline-flex; align-items: center; justify-content: center;`. Check that SVG viewBox is consistent (20x20) across all icons
+- [ ] **CPU dropdown more options** — in the stats gear dropdown, add: network speed (bytes/sec with color — green for low, yellow for medium, red for high), I/O wait, swap percentage, disk throughput. Add small helper text under each toggle option explaining what it shows. Color the values: green < 50%, yellow 50-80%, red > 80%
+
+### C6 — Page Consistency
+
+- [ ] **Helper text for every page** — add a `.page-desc` paragraph at the top of EVERY page that doesn't have one. Check all 25 routes. Use consistent wording: brief description of what the page does + one key tip
+- [ ] **Consistent title font + size** — audit all `<h2>` page titles. Ensure all use `font-size: 1.3rem`, `font-family: var(--font-heading)`, and consistent margin-bottom (`16px`). Create a `.page-title` CSS class in `app.css` if needed
+- [ ] **Sidebar search more subtle** — reduce the search input prominence: smaller font (0.7rem), less padding, muted border, placeholder text "Search..." instead of "Search pages...". Only show the search input on focus or when sidebar has many items. Maybe collapse to a small magnifying glass icon that expands on click
+
+### C7 — Sidebar UX
+
+- [ ] **Double-click to star** — add `ondblclick` handler on nav links that calls `togglePin(item.href)`. Remove the hover-only star button (or keep it as alternative). Show a brief toast "Pinned {label}" or "Unpinned {label}"

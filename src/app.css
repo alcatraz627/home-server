@@ -832,6 +832,24 @@ select {
   border-radius: 3px;
 }
 
+/* Consistent page title */
+.page-title {
+  font-size: 1.3rem;
+  font-family: var(--font-heading, 'Space Grotesk', 'Inter', sans-serif);
+  font-weight: 600;
+  margin-bottom: 16px;
+  color: var(--text-primary);
+}
+
+/* Icon button vertical centering fix */
+.icon-btn,
+button .icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+}
+
 /* ===== Animations ===== */
 
 /* Button press */

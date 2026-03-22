@@ -433,7 +433,7 @@
     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <nav class:open={sidebarOpen}>
       <div class="nav-search">
-        <input type="text" placeholder="Search pages..." bind:value={navSearch} class="nav-search-input" />
+        <input type="text" placeholder="Search..." bind:value={navSearch} class="nav-search-input" />
       </div>
       {#if pinnedItems.length > 0 && !navSearch}
         <div class="nav-group">
@@ -483,6 +483,10 @@
                 class="nav-link"
                 class:active={isActive(item.href)}
                 onclick={() => (sidebarOpen = false)}
+                ondblclick={(e) => {
+                  e.preventDefault();
+                  togglePin(item.href);
+                }}
               >
                 <span class="nav-icon">{item.icon}</span>
                 <span class="nav-text">
@@ -870,13 +874,18 @@
 
   .nav-search-input {
     width: 100%;
-    padding: 5px 10px;
-    font-size: 0.75rem;
-    border-radius: 6px;
-    border: 1px solid var(--border);
-    background: var(--input-bg);
-    color: var(--text-primary);
+    padding: 4px 8px;
+    font-size: 0.7rem;
+    border-radius: 4px;
+    border: 1px solid transparent;
+    background: var(--bg-hover);
+    color: var(--text-secondary);
     font-family: inherit;
+    transition: all 0.15s;
+  }
+
+  .nav-search-input:hover {
+    border-color: var(--border);
   }
 
   .nav-search-input::placeholder {

@@ -273,7 +273,7 @@
     <div class="device-list">
       {#each audio as dev, i}
         <div class="device-row card-stagger" style="animation-delay: {i * 30}ms">
-          <div class="device-icon">{dev.type === 'input' ? '&#x1F3A4;' : '&#x1F50A;'}</div>
+          <div class="device-icon">{dev.type === 'input' ? '🎤' : '🔊'}</div>
           <div class="device-info">
             <span class="device-name">{dev.name}</span>
             <span class="device-meta">

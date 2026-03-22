@@ -28,7 +28,7 @@
   }
 
   let bulbs = $state<WizBulb[]>(loadCachedBulbs());
-  let discovering = $state(true);
+  let discovering = $state(bulbs.length === 0);
   let polling = $state(false);
   let pollInterval: ReturnType<typeof setInterval> | null = null;
   let initialLoad = $state(bulbs.length === 0);
@@ -159,6 +159,7 @@
   function mergeBulbs(fresh: WizBulb[]) {
     if (bulbs.length === 0) {
       bulbs = fresh;
+      cacheBulbs(fresh);
       return;
     }
     const existing = new Map(bulbs.map((b) => [b.mac, b]));
