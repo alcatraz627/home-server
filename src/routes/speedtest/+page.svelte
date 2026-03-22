@@ -441,10 +441,11 @@
     align-items: center;
   }
   .latency-value {
-    font-size: 2rem;
-    font-weight: 700;
+    font-size: 2.5rem;
+    font-weight: 800;
     color: var(--text-primary);
     line-height: 1;
+    font-family: 'JetBrains Mono', monospace;
   }
   .latency-unit {
     font-size: 0.9rem;

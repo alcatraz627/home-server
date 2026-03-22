@@ -91,6 +91,33 @@
       minute: '2-digit',
     });
   }
+
+  let confirmClear = $state(false);
+  let clearTimer: ReturnType<typeof setTimeout> | null = null;
+
+  async function clearHistory() {
+    try {
+      const res = await fetch('/api/benchmarks', {
+        method: 'DELETE',
+      });
+      if (!res.ok) throw new Error('Failed to clear history');
+      history = [];
+      current = {};
+      phase = 'idle';
+      confirmClear = false;
+      toast.success('Benchmark history cleared');
+    } catch {
+      toast.error('Failed to clear history');
+    }
+  }
+
+  function requestClearHistory() {
+    if (clearTimer) clearTimeout(clearTimer);
+    confirmClear = true;
+    clearTimer = setTimeout(() => {
+      confirmClear = false;
+    }, 3000);
+  }
 </script>
 
 <div class="page">
@@ -191,7 +218,14 @@
 
   {#if history.length > 0}
     <div class="history-section">
-      <h2>History</h2>
+      <div class="history-header">
+        <h2>History</h2>
+        {#if confirmClear}
+          <button class="btn-clear btn-confirm" onclick={clearHistory}>Confirm Clear?</button>
+        {:else}
+          <button class="btn-clear" onclick={requestClearHistory}>Clear History</button>
+        {/if}
+      </div>
       <div class="card history-table-wrap">
         <table>
           <thead>

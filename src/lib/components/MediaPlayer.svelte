@@ -350,9 +350,11 @@
             <div class="controls-right">
               <button class="ctrl-btn vol-btn" title={muted ? 'Unmute' : 'Mute'} onclick={toggleMute}>
                 {#if muted || volume === 0}
-                  <Icon name="eye-off" size={14} />
+                  <Icon name="volume-off" size={14} />
+                {:else if volume < 0.5}
+                  <Icon name="volume-low" size={14} />
                 {:else}
-                  <Icon name="eye" size={14} />
+                  <Icon name="volume-high" size={14} />
                 {/if}
               </button>
               <div class="volume-track">
