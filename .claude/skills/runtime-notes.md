@@ -4,6 +4,20 @@ Append-only log of skill run insights. Newest entries at top.
 
 ---
 
+## session: Three feature additions (path bar, peripherals tabs, cron lifecycle) -- 2026-03-22
+
+**Purpose:** Added editable path bar to file browser, USB/Audio/Battery tabs to peripherals, and cron-aware delete flow to tasks page.
+
+**Insights:**
+
+1. Svelte 5 does not support `onmousedown|preventDefault` modifier syntax -- must use inline `(e) => { e.preventDefault(); ... }` instead.
+2. The peripherals page used a flat if/else chain for wifi vs bluetooth tabs. Adding more tabs required restructuring to `{:else if activeTab === 'x'}` blocks for each tab.
+3. The scheduler module uses `scheduledJobs` Map with keys like `task:{id}` and `backup:{id}`, making it easy to add targeted unschedule without clearing all jobs.
+4. `system_profiler SPUSBDataType -json` returns nested `_items` arrays (controllers containing devices), requiring recursive traversal to collect all USB devices.
+5. The tasks page data flow goes through `+page.server.ts` load -> `+page.svelte` props AND client-side refresh via `/api/tasks` GET -- both paths need to return `scheduledCount`.
+
+---
+
 ## session: Lights/Clipboard/Keeper UI improvements — 2026-03-22
 
 **Purpose:** Improved visual hierarchy for smart lights bulb cards, redesigned clipboard UX with grouped entries, and added Claude CLI status info to Keeper page.
