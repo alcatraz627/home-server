@@ -29,9 +29,10 @@ describe('macOS-specific tests', () => {
 
   it('/api/apps returns macOS .app bundles', async () => {
     const { data } = await apiJson('/api/apps');
-    assert.ok(data.length > 0, 'should find macOS applications');
-    // Standard macOS apps that should exist
-    const hasSystem = data.some((a: any) => a.name === 'Safari' || a.name === 'Finder' || a.name === 'System Settings');
+    assert.ok(data.apps.length > 0, 'should find macOS applications');
+    const hasSystem = data.apps.some(
+      (a: any) => a.name === 'Safari' || a.name === 'Finder' || a.name === 'System Settings',
+    );
     assert.ok(hasSystem, 'should include standard macOS apps');
   });
 

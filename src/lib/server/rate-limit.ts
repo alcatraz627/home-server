@@ -56,9 +56,9 @@ export const RATE_LIMITS: Record<string, { max: number; windowMs: number }> = {
   '/api/network': { max: 30, windowMs: 60_000 }, // 30 req/min
   '/api/ports': { max: 10, windowMs: 60_000 }, // 10 req/min
   '/api/ai/chat': { max: 20, windowMs: 60_000 }, // 20 req/min
-  '/api/speedtest': { max: 5, windowMs: 60_000 }, // 5 req/min
+  '/api/speedtest': { max: 15, windowMs: 60_000 }, // 15 req/min
   '/api/dns/trace': { max: 15, windowMs: 60_000 }, // 15 req/min
   '/api/packets': { max: 5, windowMs: 60_000 }, // 5 req/min
-  '/api/benchmarks': { max: 3, windowMs: 300_000 }, // 3 per 5min
+  '/api/benchmarks': { max: 10, windowMs: 300_000 }, // 10 per 5min
   '/api/databases': { max: 30, windowMs: 60_000 }, // 30 req/min
 };

@@ -760,7 +760,9 @@
     <div class="modal-panel" onclick={(e) => e.stopPropagation()} role="dialog" aria-label="Manage Devices">
       <div class="modal-header">
         <h3>Manage Devices</h3>
-        <button class="icon-btn" onclick={() => (manageDevicesOpen = false)}><Icon name="close" size={16} /></button>
+        <button class="icon-btn" aria-label="Close" onclick={() => (manageDevicesOpen = false)}
+          ><Icon name="close" size={16} /></button
+        >
       </div>
 
       <div class="modal-body">

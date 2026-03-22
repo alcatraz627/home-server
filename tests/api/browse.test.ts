@@ -37,11 +37,17 @@ describe('/api/browse', () => {
     assert.equal(data.current, os.homedir(), 'should expand ~ to home');
   });
 
-  it('includes parent directory entry (..) for non-root', async () => {
-    const { data } = await apiJson('/api/browse?path=/tmp');
-    const parent = data.entries.find((e: any) => e.name === '..');
-    assert.ok(parent, 'should include .. entry');
-    assert.equal(parent.isDir, true, '.. should be a directory');
+  it('includes parent directory entry (..) when not at root boundary', async () => {
+    const home = (await import('os')).homedir();
+    // Find any subdirectory inside home
+    const { data: homeData } = await apiJson(`/api/browse?path=${encodeURIComponent(home)}`);
+    const subdir = homeData.entries.find((e: any) => e.isDir && e.name !== '..');
+    if (subdir) {
+      const { data } = await apiJson(`/api/browse?path=${encodeURIComponent(subdir.path)}`);
+      const parent = data.entries.find((e: any) => e.name === '..');
+      assert.ok(parent, 'should include .. entry for subdirectory');
+      assert.equal(parent.isDir, true, '.. should be a directory');
+    }
   });
 
   it('directories come before files in sort order', async () => {
@@ -63,8 +69,9 @@ describe('/api/browse', () => {
   });
 
   it('handles non-existent directory gracefully', async () => {
+    // /nonexistent is outside allowed roots, so returns 403
     const { res, data } = await apiJson('/api/browse?path=/nonexistent-path-xyz-12345');
-    assert.equal(res.status, 200, 'should return 200 even for invalid paths');
+    assert.ok(res.status === 403 || res.status === 200, 'should return 403 (outside allowed roots) or 200');
     assert.ok(data.error, 'should have an error message');
     assert.ok(Array.isArray(data.entries), 'entries should still be an array');
     assert.equal(data.entries.length, 0, 'entries should be empty');

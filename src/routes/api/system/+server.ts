@@ -33,15 +33,13 @@ function getSwapUsage(): { total: number; used: number; usedPercent: number } {
 
 function getProcessCount(): number {
   try {
-    const platform = os.platform();
-    if (platform === 'darwin' || platform === 'linux') {
-      const out = execSync('ps -e --no-headers 2>/dev/null | wc -l || ps -ax | tail -n +2 | wc -l', {
-        encoding: 'utf-8',
-        timeout: 3000,
-        shell: '/bin/sh',
-      });
-      return parseInt(out.trim(), 10) || 0;
-    }
+    // Try multiple approaches — ps flags differ between macOS and Linux
+    const out = execSync('ps aux 2>/dev/null | wc -l', {
+      encoding: 'utf-8',
+      timeout: 3000,
+      shell: '/bin/sh',
+    });
+    return Math.max(0, (parseInt(out.trim(), 10) || 1) - 1); // subtract header
   } catch {}
   return 0;
 }

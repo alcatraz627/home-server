@@ -312,7 +312,9 @@
         <a href="/api/logs?action=download&file={encodeURIComponent(previewFile)}" class="btn-download" download>
           <Icon name="download" size={14} />
         </a>
-        <button class="icon-btn" onclick={() => (previewFile = null)}><Icon name="close" size={16} /></button>
+        <button class="icon-btn" aria-label="Close preview" onclick={() => (previewFile = null)}
+          ><Icon name="close" size={16} /></button
+        >
       </div>
       <pre class="preview-content">{previewContent}</pre>
     </div>

@@ -1,4 +1,5 @@
 import dgram from 'node:dgram';
+import { spawnSync } from 'node:child_process';
 import { createLogger } from './logger';
 
 const log = createLogger('wol');
@@ -55,7 +56,6 @@ export function sendMagicPacket(mac: string): Promise<void> {
  */
 export function pingHost(ip: string): Promise<boolean> {
   return new Promise((resolve) => {
-    const { spawnSync } = require('node:child_process');
     try {
       const result = spawnSync('ping', ['-c', '1', '-W', '1', ip], { timeout: 3000, stdio: 'pipe' });
       resolve(result.status === 0);
