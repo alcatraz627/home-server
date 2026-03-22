@@ -10,5 +10,5 @@
  */
 export const APP = {
   title: 'Home Server',
-  version: '1.15.1-frost-lake-09',
+  version: '2.0.0-aurora-peak-01',
 } as const;

@@ -733,16 +733,52 @@
     },
   ];
 
+  // Custom templates (localStorage)
+  let customTemplates = $state<Template[]>(loadCustomTemplates());
+
+  function loadCustomTemplates(): Template[] {
+    if (typeof localStorage === 'undefined') return [];
+    try {
+      return JSON.parse(localStorage.getItem('hs:custom-templates') || '[]');
+    } catch {
+      return [];
+    }
+  }
+
+  function saveCustomTemplates() {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('hs:custom-templates', JSON.stringify(customTemplates));
+    }
+  }
+
+  function saveAsTemplate(status: (typeof statuses)[0]) {
+    const t: Template = {
+      name: status.config.name,
+      command: status.config.command,
+      timeout: status.config.timeout,
+      retries: status.config.maxRetries,
+      schedule: status.config.schedule,
+      desc: `Custom template from "${status.config.name}"`,
+      tags: ['custom'],
+    };
+    customTemplates = [...customTemplates, t];
+    saveCustomTemplates();
+    toast.success(`Saved "${t.name}" as template`);
+  }
+
+  // Merge built-in + custom templates
+  let allTemplates = $derived([...customTemplates, ...TEMPLATES]);
+
   // Template search/filter/pagination
   let templateSearch = $state('');
   let templateTag = $state('');
   let templatePage = $state(0);
   const TEMPLATES_PER_PAGE = 9;
 
-  let allTags = $derived([...new Set(TEMPLATES.flatMap((t) => t.tags))].sort());
+  let allTags = $derived([...new Set(allTemplates.flatMap((t) => t.tags))].sort());
 
   let filteredTemplates = $derived.by(() => {
-    let result = TEMPLATES;
+    let result = allTemplates;
     if (templateSearch) {
       const q = templateSearch.toLowerCase();
       result = result.filter(
@@ -1021,7 +1057,7 @@
       <input type="text" class="template-search" placeholder="Search templates..." bind:value={templateSearch} />
       <div class="tag-bar">
         <button class="tag-btn" class:active={templateTag === ''} onclick={() => (templateTag = '')}
-          >All ({TEMPLATES.length})</button
+          >All ({allTemplates.length})</button
         >
         {#each allTags as tag}
           <button
@@ -1192,6 +1228,7 @@
             >
               {expandedTask === status.config.id ? '▲' : '▼'}
             </button>
+            <button class="btn btn-sm" onclick={() => saveAsTemplate(status)} title="Save as template">📋</button>
             <button class="btn btn-sm btn-danger" onclick={() => deleteTask(status.config.id)}>✕</button>
           </div>
         </div>
