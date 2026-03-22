@@ -829,3 +829,55 @@ User feedback + audit findings from the v3.0.0 sprint. Organized by area.
 - [x] **Linux support** — bluetoothctl, lsusb, lscpu, .desktop file parsing for Raspberry Pi
 - [x] **lucide-svelte icons** — full migration from ASCII/Unicode to lucide components across 22+ files
 - [x] **Page documentation** — services, notifications, docker, logs, apps docs
+
+---
+
+## v4.3 — Keyboard UX, Component Consolidation, Page Polish
+
+### H1 — Keyboard Accessibility
+
+- [ ] **Global search keybinding** — `/` focuses sidebar search (like GitHub/Notion). `Ctrl+K` or `Cmd+K` opens a command palette or focuses the page-specific search. Show the keybinding hint as a small muted badge at the right end of the input (e.g., `⌘K`), Notion-style. Ensure keybindings don't fire when user is already in an input/textarea
+- [ ] **Keeper keyboard navigation** — redesign the Keeper page for keyboard-first editing:
+  - Arrow up/down navigates between requests in the list
+  - Enter expands/collapses the selected request
+  - Tab moves between fields within an expanded request
+  - Escape collapses back to list
+  - Status buttons accessible via keyboard shortcuts (d=draft, r=ready, s=start, h=halt, x=done)
+  - Notion-like inline editing: click title to edit in-place, auto-save on blur
+  - Smooth expand/collapse animations preserved
+  - Visual focus ring on the active item
+
+### H2 — Component Consolidation (Phase 2)
+
+- [ ] **Card component** — create `src/lib/components/Card.svelte` with props: `padding?: string`, `hover?: boolean`, `stagger?: boolean`, `staggerIndex?: number`. Wraps the `.card` CSS class + hover-lift + card-stagger. Audit all 29 pages for inline `.card` div usage and migrate
+- [ ] **Toolbar component** — create `src/lib/components/Toolbar.svelte` for page action bars. Props: `children` (left-aligned actions), `actions` snippet (right-aligned). Standard flex layout with gap. Replace inline header action divs across all pages
+- [ ] **PageHeader component** — implement the spec from `docs/components/PageHeader.md`. Props: `title`, `description`, `actions` snippet. Replace inline `<h2 class="page-title">` + `<p class="page-desc">` patterns
+- [ ] **Loading placeholder consolidation** — audit where `<Loading>` component is used vs inline skeletons. Replace all inline skeleton HTML with `<Loading>` component
+- [ ] **DataChip component** — create for displaying labeled data values (e.g., "CPU: 45%", "MEM: 8.2GB"). Props: `label`, `value`, `color?`, `icon?`. Used in: dashboard stats, process monitor, navbar stats, device info
+- [ ] **InteractiveChip component** — clickable chips with indicators (e.g., tag filters, status toggles). Props: `label`, `active?: boolean`, `color?`, `icon?`, `onclick`. Used in: bookmark tags, task status filters, network tool suggestions
+- [ ] **InfoLabel audit** — catalog ALL information display patterns across the app (status text, metadata rows, detail labels, stat values, badge-like text), then consolidate into 3-4 standard components: Badge (exists), DataChip (new), InfoRow (key-value pair), StatusDot (colored dot + text)
+- [ ] **Tab bar improvements** — enhance the Tabs component with: smooth underline slide animation (CSS transition on a pseudo-element that moves to the active tab), better active state (background highlight option), compact mode for narrow spaces
+
+### H3 — Smart Lights
+
+- [ ] **Fix bulb name persistence** — names are stored by MAC address but bulb IPs can change on DHCP renewal. The current system works IF MAC stays constant (it does). Verify `mergeBulbs()` matches by MAC. If names disappear, the issue is likely the server config file not being read — add debug logging to `/api/lights/config` GET to confirm the file is found and parsed. Also add a "Reconcile" button that re-matches names from the config to current bulbs
+
+### H4 — WiFi Scanner
+
+- [ ] **Extended WiFi info** — for each network, show: noise level, signal-to-noise ratio, PHY mode (802.11ac/ax), channel width (20/40/80 MHz), vendor (OUI lookup from BSSID). Add a "Details" expandable row per network
+- [ ] **Network commands** — add quick action buttons: "Ping gateway", "Traceroute to gateway", "DNS test", "Speed to gateway". Each runs the command via API and shows output inline. Also show the current connection's gateway IP, subnet mask, DNS servers (from `networksetup -getinfo` on macOS or `ip route` on Linux)
+
+### H5 — System Monitor
+
+- [ ] **More data variety** — add to the process page system monitor: disk I/O chart (read/write bytes/sec), open file descriptor count over time, TCP connection count over time, context switches/sec. Extend `/api/system` to return these (use `sysctl` on macOS, `/proc` on Linux)
+- [ ] **Better monitor UI** — add a legend to each chart, axis labels (time on X, value on Y), zoom/time range selector (last 1m/5m/15m), hover tooltip showing exact value at a point. Consider a full-width monitor mode toggle
+
+### H6 — Apps Page
+
+- [ ] **Kill/force-kill app** — add "Quit" and "Force Quit" buttons per running app. Quit: `osascript -e 'tell application "AppName" to quit'` (macOS) or `kill PID`. Force quit: `kill -9 PID`. Show confirmation dialog before force quit
+- [ ] **Process details** — "Info" button per app that fetches process stats: PID, CPU%, MEM%, open files count, path to executable, bundle version. Use existing `/api/processes/:pid` detail endpoint
+- [ ] **macOS app icons** — extract app icons using `defaults read /Applications/AppName.app/Contents/Info.plist CFBundleIconFile` + read the .icns file. Convert to PNG via `sips -s format png`. Cache in `~/.home-server/app-icons/`. Fall back to first-letter placeholder if extraction fails
+
+### H7 — Kanban Board
+
+- [ ] **Kanban UI improvements** — improve card visual design: subtle shadow on hover, color label as left border stripe (not dot), due date with relative time ("in 2 days"), drag ghost with opacity. Add: card description field (collapsible), assignee field, priority indicator (P1/P2/P3 with colors). Column header: card count, "Add card" button at bottom of each column. Archive column for completed cards. Smooth drag animation with insertion indicator line
