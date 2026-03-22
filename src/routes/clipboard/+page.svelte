@@ -20,7 +20,10 @@
   function initDevice() {
     let id = localStorage.getItem('clipboard-device-id');
     if (!id) {
-      id = crypto.randomUUID();
+      id =
+        typeof crypto !== 'undefined' && crypto.randomUUID
+          ? crypto.randomUUID()
+          : Math.random().toString(36).slice(2) + Date.now().toString(36);
       localStorage.setItem('clipboard-device-id', id);
     }
     deviceId = id;

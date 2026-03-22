@@ -70,11 +70,46 @@ export const POST: RequestHandler = async ({ request }) => {
     const filePath = path.join(SCREENSHOTS_DIR, filename);
 
     try {
-      // macOS screencapture (silent mode)
-      execSync(`screencapture -x "${filePath}"`, { timeout: 10000 });
+      const platform = os.platform();
+      if (platform === 'darwin') {
+        // macOS screencapture — try main display, fall back to clipboard
+        try {
+          execSync(`screencapture -x -t png "${filePath}"`, { timeout: 10000 });
+        } catch {
+          // If direct capture fails (no screen recording permission), try clipboard mode
+          try {
+            execSync(`screencapture -x -c -t png`, { timeout: 10000 });
+            execSync(
+              `osascript -e 'tell application "System Events" to set the clipboard to (the clipboard as «class PNGf»)'`,
+              { timeout: 5000 },
+            );
+          } catch {
+            return json(
+              {
+                error:
+                  'Screenshot failed. Grant Screen Recording permission: System Settings → Privacy & Security → Screen Recording → enable for Terminal/your IDE.',
+              },
+              { status: 500 },
+            );
+          }
+        }
+      } else {
+        // Linux: try scrot, import, or gnome-screenshot
+        try {
+          execSync(`scrot "${filePath}" 2>/dev/null || import -window root "${filePath}" 2>/dev/null`, {
+            timeout: 10000,
+            shell: '/bin/sh',
+          });
+        } catch {
+          return json({ error: 'No screenshot tool available (install scrot or imagemagick)' }, { status: 500 });
+        }
+      }
 
       if (!fs.existsSync(filePath)) {
-        return json({ error: 'Screenshot capture failed' }, { status: 500 });
+        return json(
+          { error: 'Screenshot capture failed — file was not created. Check screen recording permissions.' },
+          { status: 500 },
+        );
       }
 
       const stat = fs.statSync(filePath);

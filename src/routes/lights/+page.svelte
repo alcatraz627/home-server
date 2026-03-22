@@ -329,9 +329,77 @@
   let allRooms = $derived([...new Set(Object.values(rooms))].filter(Boolean).sort());
   let roomFilter = $state('');
 
+  // Drag-and-drop reordering
+  const ORDER_KEY = 'hs:bulb-order';
+  let draggedMac = $state<string | null>(null);
+  let dragOverMac = $state<string | null>(null);
+
+  function loadOrder(): string[] {
+    if (typeof localStorage === 'undefined') return [];
+    try {
+      return JSON.parse(localStorage.getItem(ORDER_KEY) || '[]');
+    } catch {
+      return [];
+    }
+  }
+
+  function saveOrder(order: string[]) {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(ORDER_KEY, JSON.stringify(order));
+    }
+  }
+
+  let storedOrder = $state<string[]>(loadOrder());
+
+  function sortByOrder(list: WizBulb[]): WizBulb[] {
+    if (storedOrder.length === 0) return list;
+    return [...list].sort((a, b) => {
+      const ai = storedOrder.indexOf(a.mac);
+      const bi = storedOrder.indexOf(b.mac);
+      if (ai === -1 && bi === -1) return 0;
+      if (ai === -1) return 1;
+      if (bi === -1) return -1;
+      return ai - bi;
+    });
+  }
+
+  function handleDragStart(mac: string) {
+    draggedMac = mac;
+  }
+
+  function handleDragOver(e: DragEvent, mac: string) {
+    e.preventDefault();
+    dragOverMac = mac;
+  }
+
+  function handleDrop(mac: string) {
+    if (!draggedMac || draggedMac === mac) {
+      draggedMac = null;
+      dragOverMac = null;
+      return;
+    }
+    const currentList = sortByOrder(roomFilter ? bulbs.filter((b) => rooms[b.mac] === roomFilter) : bulbs);
+    const macs = currentList.map((b) => b.mac);
+    const fromIdx = macs.indexOf(draggedMac);
+    const toIdx = macs.indexOf(mac);
+    if (fromIdx !== -1 && toIdx !== -1) {
+      macs.splice(fromIdx, 1);
+      macs.splice(toIdx, 0, draggedMac);
+      storedOrder = macs;
+      saveOrder(macs);
+    }
+    draggedMac = null;
+    dragOverMac = null;
+  }
+
+  function handleDragEnd() {
+    draggedMac = null;
+    dragOverMac = null;
+  }
+
   let filteredBulbs = $derived.by(() => {
-    if (!roomFilter) return bulbs;
-    return bulbs.filter((b) => rooms[b.mac] === roomFilter);
+    let list = roomFilter ? bulbs.filter((b) => rooms[b.mac] === roomFilter) : bulbs;
+    return sortByOrder(list);
   });
 
   // Quick presets (built-in)
@@ -567,7 +635,7 @@
   </div>
 {/if}
 
-{#if initialLoad}
+{#if discovering && bulbs.length === 0}
   <div class="bulb-grid">
     {#each Array(4) as _, i}
       <div class="skeleton-card card-stagger" style="animation-delay: {i * 40}ms; height: 200px;"></div>

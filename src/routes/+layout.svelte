@@ -10,6 +10,7 @@
   import Toast from '$lib/components/Toast.svelte';
   import AiChat from '$lib/components/AiChat.svelte';
   import SettingsPanel from '$lib/components/SettingsPanel.svelte';
+  import Tooltip from '$lib/components/Tooltip.svelte';
   import { browser } from '$app/environment';
   import { targetDevice, remoteDevices, setTarget, addDevice, removeDevice, getApiBase } from '$lib/device-context';
   import { NAV_GROUPS } from '$lib/constants/nav';
@@ -245,6 +246,20 @@
   onMount(() => {
     initTheme();
   });
+
+  function handleGlobalKeydown(e: KeyboardEvent) {
+    if (e.key === 'Escape') {
+      if (settingsOpen) {
+        settingsOpen = false;
+      } else if (manageDevicesOpen) {
+        manageDevicesOpen = false;
+      } else if (statsDropdownOpen) {
+        statsDropdownOpen = false;
+      } else if (sidebarOpen) {
+        sidebarOpen = false;
+      }
+    }
+  }
 </script>
 
 <svelte:head>
@@ -252,6 +267,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
 </svelte:head>
+
+<svelte:window onkeydown={handleGlobalKeydown} />
 
 <div class="app">
   <header>
@@ -359,27 +376,27 @@
     </div>
 
     <!-- Theme indicator -->
-    <!-- svelte-ignore a11y_click_events_have_key_events -->
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div
-      class="theme-indicator"
-      onclick={() => (settingsOpen = true)}
-      title="Theme: {currentThemeLabel} — click to open settings"
-      role="button"
-      tabindex="0"
-    >
-      <span class="theme-label">{currentThemeLabel}</span>
-      <span class="theme-dots">
-        <span class="theme-dot" style="background: {currentSwatch.bg}"></span>
-        <span class="theme-dot" style="background: {currentSwatch.accent}"></span>
-        <span class="theme-dot" style="background: {currentSwatch.text}"></span>
-      </span>
-    </div>
+    <Tooltip text="Change theme" position="bottom">
+      <!-- svelte-ignore a11y_click_events_have_key_events -->
+      <!-- svelte-ignore a11y_no_static_element_interactions -->
+      <div class="theme-indicator" onclick={() => (settingsOpen = true)} role="button" tabindex="0">
+        <span class="theme-label">{currentThemeLabel}</span>
+        <span class="theme-dots">
+          <span class="theme-dot" style="background: {currentSwatch.bg}"></span>
+          <span class="theme-dot" style="background: {currentSwatch.accent}"></span>
+          <span class="theme-dot" style="background: {currentSwatch.text}"></span>
+        </span>
+      </div>
+    </Tooltip>
 
     <!-- Help button -->
-    <button class="icon-btn" aria-label="Help" onclick={() => goto(helpUrl())} title="Help">(?)</button>
+    <Tooltip text="Help" position="bottom">
+      <button class="icon-btn" aria-label="Help" onclick={() => goto(helpUrl())}>(?)</button>
+    </Tooltip>
 
-    <button class="icon-btn" aria-label="Settings" onclick={() => (settingsOpen = true)} title="Settings">⚙</button>
+    <Tooltip text="Settings" position="bottom">
+      <button class="icon-btn" aria-label="Settings" onclick={() => (settingsOpen = true)}>⚙</button>
+    </Tooltip>
 
     <div class="device-selector">
       <select

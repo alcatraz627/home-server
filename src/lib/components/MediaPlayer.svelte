@@ -173,15 +173,36 @@
     return src;
   }
 
-  function copyStreamUrl() {
-    navigator.clipboard.writeText(getStreamUrl());
-    toast.success('Stream URL copied to clipboard');
+  async function copyStreamUrl() {
+    const url = getStreamUrl();
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(url);
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = url;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      toast.success('Stream URL copied');
+    } catch {
+      toast.error('Failed to copy URL');
+    }
   }
 
   function openVlc() {
     const streamUrl = getStreamUrl();
-    window.open(`vlc://${streamUrl}`, '_blank');
+    // Show URL for manual copy since vlc:// protocol may not be registered
     showVlcInfo = true;
+    try {
+      window.open(`vlc://${streamUrl}`, '_self');
+    } catch {
+      // Protocol handler not available — that's fine, URL is shown below
+    }
   }
 
   let seekPercent = $derived(duration > 0 ? (currentTime / duration) * 100 : 0);
@@ -307,7 +328,7 @@
                 <button class="ctrl-btn" disabled={!canPrev} title="Previous (P)" onclick={prevTrack}>&#9198;</button>
               {/if}
               <button class="ctrl-btn play-btn" title="Play/Pause (Space)" onclick={togglePlay}>
-                {playing ? '&#9646;&#9646;' : '&#9654;'}
+                {playing ? '⏸' : '▶'}
               </button>
               {#if hasPlaylist}
                 <button class="ctrl-btn" disabled={!canNext} title="Next (N)" onclick={nextTrack}>&#9197;</button>
@@ -378,7 +399,7 @@
               >
                 <span class="playlist-num">{i + 1}</span>
                 <span class="playlist-name" title={item.filename}>{item.filename}</span>
-                <span class="playlist-type-icon">{item.type === 'video' ? '&#9654;' : '&#9835;'}</span>
+                <span class="playlist-type-icon">{item.type === 'video' ? '▶' : '♫'}</span>
               </button>
             {/each}
           </div>

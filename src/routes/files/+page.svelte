@@ -175,6 +175,41 @@
 
   // Search, sort, filter
   let search = $state('');
+  let searchScope = $state<'folder' | 'all'>('folder');
+  let globalResults = $state<{ name: string; path: string; size: number; modified: string }[]>([]);
+  let globalSearching = $state(false);
+  let showGlobalResults = $state(false);
+  let searchDebounce: ReturnType<typeof setTimeout> | null = null;
+
+  function handleSearchInput() {
+    if (searchScope !== 'all' || !search.trim()) {
+      globalResults = [];
+      showGlobalResults = false;
+      return;
+    }
+    if (searchDebounce) clearTimeout(searchDebounce);
+    searchDebounce = setTimeout(async () => {
+      globalSearching = true;
+      try {
+        const res = await fetch(`/api/files/search?q=${encodeURIComponent(search.trim())}`);
+        const data = await res.json();
+        globalResults = data.results;
+        showGlobalResults = true;
+      } catch {
+        globalResults = [];
+      } finally {
+        globalSearching = false;
+      }
+    }, 300);
+  }
+
+  function navigateToSearchResult(result: { name: string; path: string }) {
+    const dir = result.path.includes('/') ? result.path.substring(0, result.path.lastIndexOf('/')) : '';
+    showGlobalResults = false;
+    search = '';
+    navigateTo(dir);
+  }
+
   let sortField = $state<'name' | 'size' | 'modified' | 'mime'>('name');
   let sortAsc = $state(true);
   let typeFilter = $state('');
@@ -674,7 +709,55 @@
 
 <!-- Search and filter bar -->
 <div class="file-controls">
-  <input type="text" class="search-input" placeholder="Search files..." bind:value={search} />
+  <div class="search-wrap">
+    <input
+      type="text"
+      class="search-input"
+      placeholder={searchScope === 'all' ? 'Search all files...' : 'Search this folder...'}
+      bind:value={search}
+      oninput={handleSearchInput}
+      onfocus={() => {
+        if (searchScope === 'all' && globalResults.length > 0) showGlobalResults = true;
+      }}
+      onblur={() => setTimeout(() => (showGlobalResults = false), 200)}
+    />
+    <div class="search-scope-toggle">
+      <button
+        class="scope-btn"
+        class:active={searchScope === 'folder'}
+        onclick={() => {
+          searchScope = 'folder';
+          showGlobalResults = false;
+          globalResults = [];
+        }}>This folder</button
+      >
+      <button
+        class="scope-btn"
+        class:active={searchScope === 'all'}
+        onclick={() => {
+          searchScope = 'all';
+          handleSearchInput();
+        }}>All files</button
+      >
+    </div>
+    {#if showGlobalResults && searchScope === 'all'}
+      <div class="global-results">
+        {#if globalSearching}
+          <div class="global-result-item global-searching">Searching...</div>
+        {:else if globalResults.length === 0}
+          <div class="global-result-item global-empty">No files found</div>
+        {:else}
+          {#each globalResults as result}
+            <button class="global-result-item" onclick={() => navigateToSearchResult(result)}>
+              <span class="global-result-name">{result.name}</span>
+              <span class="global-result-path">{result.path}</span>
+              <span class="global-result-size">{formatSize(result.size)}</span>
+            </button>
+          {/each}
+        {/if}
+      </div>
+    {/if}
+  </div>
   {#if uniqueTypes.length > 1}
     <select class="type-filter" bind:value={typeFilter}>
       <option value="">All types</option>
@@ -1085,6 +1168,14 @@
     margin-bottom: 14px;
   }
 
+  .search-wrap {
+    flex: 1;
+    position: relative;
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
   .search-input {
     flex: 1;
     padding: 7px 12px;
@@ -1099,6 +1190,98 @@
   .search-input:focus {
     outline: none;
     border-color: var(--accent);
+  }
+
+  .search-scope-toggle {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .scope-btn {
+    padding: 6px 10px;
+    font-size: 0.72rem;
+    border: none;
+    background: var(--btn-bg);
+    color: var(--text-muted);
+    cursor: pointer;
+    font-family: inherit;
+    white-space: nowrap;
+  }
+
+  .scope-btn.active {
+    background: var(--accent-bg);
+    color: var(--accent);
+  }
+
+  .scope-btn:hover:not(.active) {
+    color: var(--text-primary);
+  }
+
+  .global-results {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin-top: 4px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    max-height: 320px;
+    overflow-y: auto;
+    z-index: 100;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  }
+
+  .global-result-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 8px 12px;
+    font-size: 0.8rem;
+    border: none;
+    background: none;
+    color: var(--text-primary);
+    cursor: pointer;
+    font-family: inherit;
+    text-align: left;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .global-result-item:hover {
+    background: var(--bg-secondary);
+  }
+
+  .global-result-item.global-searching,
+  .global-result-item.global-empty {
+    color: var(--text-muted);
+    cursor: default;
+    justify-content: center;
+  }
+
+  .global-result-name {
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .global-result-path {
+    flex: 1;
+    font-size: 0.7rem;
+    color: var(--text-faint);
+    font-family: 'JetBrains Mono', monospace;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .global-result-size {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    white-space: nowrap;
   }
 
   .type-filter {

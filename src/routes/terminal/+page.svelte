@@ -164,6 +164,10 @@
       tab.connected = true;
       tabs = [...tabs]; // trigger reactivity
       if (tabs[activeTab]?.id === tab.id) tab.terminal?.focus();
+      // Show reconnection message if restoring a saved session
+      if (tab.sessionId && sessionParam) {
+        tab.terminal?.write('\r\n\x1b[2m[Session restored — press Enter to continue]\x1b[0m\r\n');
+      }
     };
 
     ws.onmessage = (event) => {
