@@ -602,3 +602,44 @@ User feedback + audit findings from the v3.0.0 sprint. Organized by area.
 - [x] **Smart lights: save bulb name + room** — fix sessionStorage cache. Allow saving both bulb name AND room name per bulb separately
 - [x] **File browser path bar** — editable breadcrumb path bar above file list. Clickable segments. Typeable path. Error on invalid
 - [x] **10 more themes** — One Dark, Gruvbox Dark, Gruvbox Light, Everforest, Rosé Pine, Ayu Dark, Ayu Light, Material Dark, Kanagawa, Cyberpunk. Ensure header/body/mono fonts are independently configurable in SettingsPanel
+
+---
+
+## v3.3 — Bug Fixes & Polish
+
+### B1 — Critical Bugs
+
+- [ ] **`crypto.randomUUID` not available on HTTP** — clipboard page and anywhere using `crypto.randomUUID()` crashes on non-HTTPS contexts. Replace with a manual UUID generator: `Math.random().toString(36).slice(2) + Date.now().toString(36)` or similar. Affects: `src/routes/clipboard/+page.svelte` line 23
+- [ ] **MediaPlayer copyStreamUrl crash** — `navigator.clipboard.writeText` fails on HTTP (non-secure context). Add the same `execCommand('copy')` textarea fallback used elsewhere. Fix in `src/lib/components/MediaPlayer.svelte` line 177
+- [ ] **MediaPlayer VLC link malformed** — URL shows `vlc://http//` instead of `vlc://http://`. Fix the protocol URL construction in MediaPlayer.svelte. The `vlc://` scheme may also not be registered — show the direct HTTP URL prominently as a copyable field instead of relying on the protocol handler
+- [ ] **MediaPlayer play/pause button shows raw HTML entity** — `&#9654;` renders as text instead of the triangle symbol. Use the actual Unicode character `▶` directly or ensure `{@html}` is used for entity rendering
+- [ ] **Screenshot capture fails** — `screencapture -x` fails with "could not create image from display" on macOS when run from a non-GUI context or without screen recording permission. Fix: add `-t png` flag, try with `-c` (clipboard) as fallback, and return a descriptive error message about System Preferences → Privacy → Screen Recording permission. Fix in `src/routes/api/screenshots/+server.ts`
+- [ ] **Terminal still loses sessions on navigation** — the session persistence fix may not be fully working. Verify: does `sessionStorage` actually store/restore session IDs? Is the WebSocket reconnecting to existing PTY sessions? Debug in `src/routes/terminal/+page.svelte` — check `loadSessionIds()` and `addTab(existingSessionId)` flow
+- [ ] **Lights page loader not showing** — the skeleton/loading state during bulb discovery is not visible. Check that `initialLoad` is true while `discovering` is true and bulbs are empty. The cached bulbs may be rendering immediately, making the loader invisible — only show loader when cache is also empty
+
+### B2 — Icon System Overhaul
+
+- [ ] **Create central icon registry** — create `src/lib/icons.ts` exporting a `Record<string, string>` map of icon names to SVG strings (inline SVG, not font icons). Use clean 16×16 or 20×20 SVG paths. Include at minimum: `save`, `add`, `delete`, `edit`, `refresh`, `search`, `close`, `chevron-down`, `chevron-right`, `star`, `star-filled`, `play`, `pause`, `stop`, `copy`, `download`, `upload`, `settings`, `help`, `terminal`, `file`, `folder`, `check`, `warning`, `error`, `info`, `link`, `external-link`, `menu`, `filter`, `sort-asc`, `sort-desc`, `home`, `grid`, `list`
+- [ ] **Create `<Icon>` component** — `src/lib/components/Icon.svelte` with props `name: string`, `size?: number` (default 16), `class?: string`. Renders the SVG inline from the registry. Usage: `<Icon name="save" />` or `<Icon name="refresh" size={20} />`
+- [ ] **Replace HTML entities everywhere** — audit all `.svelte` files for `&#xxxx;` entities and Unicode symbols used as icons. Replace with `<Icon name="...">` from the registry. Key areas: navbar buttons, task card status icons, sidebar group chevrons, file browser action buttons, media player controls, AI chat FAB
+
+### B3 — Common Components
+
+- [ ] **Tooltip component** — create `src/lib/components/Tooltip.svelte`. Props: `text: string`, `position?: 'top' | 'bottom' | 'left' | 'right'` (default top). Wraps a slot element, shows tooltip on hover with `position: absolute` and fade-in animation. Apply to: navbar help `(?)` button (tooltip: "Help"), settings gear (tooltip: "Settings"), stat chips, any icon-only button
+- [ ] **Modal component** — create `src/lib/components/Modal.svelte`. Props: `open: boolean` (bindable), `title?: string`, `width?: string` (default '500px'). Features: escape key closes, click-outside closes, slide-in animation, scrollable body, sticky header/footer. Migrate existing modals (device manager, media player, file preview) to use this shared component
+
+### B4 — Feature Enhancements
+
+- [ ] **Files: global search toggle** — in the file browser, add a toggle next to the search input: "This folder" vs "All files". When "All files" is selected, search sends a query to a new API endpoint `GET /api/files/search?q=term` that recursively searches filenames. Results load async with a loading indicator. The API uses `fs.readdirSync` recursively with a depth limit of 5
+- [ ] **Lights: card reordering** — allow drag-and-drop reordering of bulb cards. Use HTML5 drag API (same pattern as kanban). Store order in localStorage under `hs:bulb-order` as an array of MAC addresses. On load, sort bulbs by stored order
+- [ ] **Peripherals: better loading + cache** — show skeleton cards during scan. Cache scan results in `sessionStorage` under `hs:peripherals-cache`. On return visit, render cached data immediately while refreshing in background (same pattern as lights cache)
+- [ ] **QR: image overlay + styles** — allow uploading a small logo image to overlay in the center of the QR code. Add QR style options: rounded dots, square dots, dot colors. Use canvas compositing for the overlay
+- [ ] **QR WiFi: auto-fill from connected network** — call `/api/peripherals` or `/api/wifi` to get the current SSID and pre-fill the WiFi QR form. Add a download button that triggers `canvas.toBlob()` → `URL.createObjectURL()` → download link. Add a share button using `navigator.share()` if available
+- [ ] **Speed test: explanation + visuals** — add a description section explaining how the test works (download blob from server → measure throughput, upload blob → measure, ping → measure latency). Add animated SVG gauge that fills during test. Show results as large bold numbers with units
+- [ ] **AI Chat FAB** — replace text "AI" with an SVG icon from the icon registry. Double-clicking the chat header bar should toggle maximize/minimize. Use a proper send arrow icon instead of `→`
+- [ ] **Benchmarks: more data + delete history** — add network benchmark (fetch speed to external endpoints). Add a "Clear History" button. Show more detail per run: timestamp, individual test durations, system info at time of test
+- [ ] **Network + tools docs** — write `docs/pages/` docs for any pages missing them (check if network.md, wifi.md, packets.md exist and are complete)
+
+### B5 — Escape Key + Modal Cleanup
+
+- [ ] **Escape key closes modals globally** — add a `svelte:window on:keydown` handler in the layout or a shared action that dispatches escape to close the topmost open modal/panel. Modals to handle: SettingsPanel, MediaPlayer, FileBrowser, device manager, AI Chat fullscreen, any confirm dialogs
