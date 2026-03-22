@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { PageData } from './$types';
   import { toast } from '$lib/toast';
+  import EmptyState from '$lib/components/EmptyState.svelte';
   import { fetchApi } from '$lib/api';
   import Icon from '$lib/components/Icon.svelte';
   import Badge from '$lib/components/Badge.svelte';
@@ -117,9 +118,13 @@
   <p class="page-desc">Capture and browse server screenshots. View full-size images or delete old captures.</p>
 
   {#if screenshots.length === 0}
-    <div class="card empty">
-      <p>No screenshots yet. Click "Take Screenshot" to capture one.</p>
-    </div>
+    <EmptyState
+      icon="screenshot"
+      title="No screenshots yet"
+      hint="Click Take Screenshot to capture the current screen"
+      actionLabel="Take Screenshot"
+      onaction={capture}
+    />
   {:else}
     <div class="gallery">
       {#each screenshots as shot (shot.filename)}

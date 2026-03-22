@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { PageData } from './$types';
   import { toast } from '$lib/toast';
+  import EmptyState from '$lib/components/EmptyState.svelte';
   import { fetchApi } from '$lib/api';
   import Button from '$lib/components/Button.svelte';
   import Badge from '$lib/components/Badge.svelte';
@@ -219,9 +220,7 @@
   {/if}
 
   {#if filtered.length === 0}
-    <div class="card empty">
-      <p>No bookmarks found.</p>
-    </div>
+    <EmptyState icon="link" title="No bookmarks found" hint="Add a bookmark or adjust your search filters" />
   {:else}
     <div class="bookmark-list">
       {#each filtered as bm, i (bm.id)}

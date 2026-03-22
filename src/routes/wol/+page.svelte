@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { PageData } from './$types';
   import { toast } from '$lib/toast';
+  import EmptyState from '$lib/components/EmptyState.svelte';
   import { fetchApi } from '$lib/api';
 
   interface WolDevice {
@@ -173,9 +174,11 @@
   {/if}
 
   {#if devices.length === 0}
-    <div class="card empty">
-      <p>No devices configured. Add a device to get started.</p>
-    </div>
+    <EmptyState
+      icon="wol"
+      title="No devices configured"
+      hint="Add a device with its MAC address to send Wake-on-LAN packets"
+    />
   {:else}
     <div class="device-grid">
       {#each devices as device (device.id)}

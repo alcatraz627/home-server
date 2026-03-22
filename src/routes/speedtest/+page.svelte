@@ -1,5 +1,6 @@
 <script lang="ts">
   import { toast } from '$lib/toast';
+  import PageHeader from '$lib/components/PageHeader.svelte';
   import { fetchApi } from '$lib/api';
 
   interface SpeedResult {

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { toast } from '$lib/toast';
+  import PageHeader from '$lib/components/PageHeader.svelte';
   import { fetchApi } from '$lib/api';
   import Button from '$lib/components/Button.svelte';
   import Tabs from '$lib/components/Tabs.svelte';

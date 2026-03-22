@@ -1,5 +1,7 @@
 <script lang="ts">
   import { toast } from '$lib/toast';
+  import EmptyState from '$lib/components/EmptyState.svelte';
+  import PageHeader from '$lib/components/PageHeader.svelte';
   import { fetchApi } from '$lib/api';
 
   interface DnsResult {
