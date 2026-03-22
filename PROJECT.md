@@ -585,20 +585,20 @@ User feedback + audit findings from the v3.0.0 sprint. Organized by area.
 - [x] **Wire universal stars store** — `$lib/stars.ts` exists but is imported by 0 pages. Files page uses own `hs:starred-files`, processes uses `hs:starred-pids`. Migrate both to the shared store. Add star buttons to: bulb cards, backup cards, task cards, tailscale device rows. Starred items sort to top
 - [x] **Skeleton loading screens** — CSS classes `.skeleton`, `.skeleton-text`, `.skeleton-card` are defined but used on 0 pages. Add skeleton placeholders to: processes (while fetching process list), lights (while discovering bulbs), tailscale (while loading devices), dashboard (while loading stats). Match the eventual layout shape
 - [x] **Card stagger animation** — `.card-stagger` only used on 2 pages. Apply `card-stagger` with `animation-delay: {i * 40}ms` to card grids on: dashboard widgets, lights bulb grid, files list, bookmarks, kanban columns
-- [ ] **Multi-device API proxying** — `getApiBase()` function exists but no page uses it. Create a `fetchApi()` wrapper in `$lib/api.ts` that automatically prefixes the base URL from `targetDevice` store. Replace raw `fetch('/api/...')` calls with `fetchApi('/api/...')` across all pages
-- [ ] **Process table sort + toggle** — make column headers clickable to sort asc/desc. Add a toggle button for CPU/MEM columns to switch between percentage and absolute values (MB for memory, CPU time)
-- [ ] **Disk extended info** — populate the `fstype` field in `getSystemDiskUsage()`. Return device name and inode count. Show in dashboard disk cards and tasks page disk section
-- [ ] **AI chat code highlighting** — add a lightweight syntax highlighter (Prism.js or highlight.js) for code blocks in Claude responses. Detect ``` fenced blocks and apply language-specific highlighting
-- [ ] **Dashboard enrichment** — add: terminal preview (last output line from active session, clickable), starred files quick-access list, starred bulbs with toggle, disk usage trend mini-charts (SVG sparklines from last 10 data points)
+- [x] **Multi-device API proxying** — `getApiBase()` function exists but no page uses it. Create a `fetchApi()` wrapper in `$lib/api.ts` that automatically prefixes the base URL from `targetDevice` store. Replace raw `fetch('/api/...')` calls with `fetchApi('/api/...')` across all pages
+- [x] **Process table sort + toggle** — make column headers clickable to sort asc/desc. Add a toggle button for CPU/MEM columns to switch between percentage and absolute values (MB for memory, CPU time)
+- [x] **Disk extended info** — populate the `fstype` field in `getSystemDiskUsage()`. Return device name and inode count. Show in dashboard disk cards and tasks page disk section
+- [x] **AI chat code highlighting** — add a lightweight syntax highlighter (Prism.js or highlight.js) for code blocks in Claude responses. Detect ``` fenced blocks and apply language-specific highlighting
+- [x] **Dashboard enrichment** — add: terminal preview (last output line from active session, clickable), starred files quick-access list, starred bulbs with toggle, disk usage trend mini-charts (SVG sparklines from last 10 data points)
 
 ### F7 — User Feedback (v3.0.1)
 
-- [ ] **Page descriptions + helper tips** — add a brief description/helper text at the top of EVERY page explaining what it does and how to use it. Use a consistent `.page-desc` styling
-- [ ] **Tab bar border-radius fix** — elements like tab bars with bottom borders look weird with border-radius. Use `border-radius: 0` on tab containers with connected bottom borders
-- [ ] **More peripherals** — add: USB devices (`system_profiler SPUSBDataType`), audio devices (`SPAudioDataType`), displays (`SPDisplaysDataType`), storage (`SPStorageDataType`), battery (`pmset -g batt`)
-- [ ] **Keeper status explanation** — show in Keeper UI whether `claude` CLI is installed, what the agent can do, how to use it
-- [ ] **Tasks cron lifecycle** — when deleting a scheduled task, unregister from `node-cron`. Add warning dialog. Show active cron count in tasks header
-- [ ] **Process monitor: swap + I/O** — add swap usage + disk I/O to system monitor charts. Extend `/api/system`
-- [ ] **Smart lights: save bulb name + room** — fix sessionStorage cache. Allow saving both bulb name AND room name per bulb separately
-- [ ] **File browser path bar** — editable breadcrumb path bar above file list. Clickable segments. Typeable path. Error on invalid
+- [x] **Page descriptions + helper tips** — add a brief description/helper text at the top of EVERY page explaining what it does and how to use it. Use a consistent `.page-desc` styling
+- [x] **Tab bar border-radius fix** — elements like tab bars with bottom borders look weird with border-radius. Use `border-radius: 0` on tab containers with connected bottom borders
+- [x] **More peripherals** — add: USB devices (`system_profiler SPUSBDataType`), audio devices (`SPAudioDataType`), displays (`SPDisplaysDataType`), storage (`SPStorageDataType`), battery (`pmset -g batt`)
+- [x] **Keeper status explanation** — show in Keeper UI whether `claude` CLI is installed, what the agent can do, how to use it
+- [x] **Tasks cron lifecycle** — when deleting a scheduled task, unregister from `node-cron`. Add warning dialog. Show active cron count in tasks header
+- [x] **Process monitor: swap + I/O** — add swap usage + disk I/O to system monitor charts. Extend `/api/system`
+- [x] **Smart lights: save bulb name + room** — fix sessionStorage cache. Allow saving both bulb name AND room name per bulb separately
+- [x] **File browser path bar** — editable breadcrumb path bar above file list. Clickable segments. Typeable path. Error on invalid
 - [x] **10 more themes** — One Dark, Gruvbox Dark, Gruvbox Light, Everforest, Rosé Pine, Ayu Dark, Ayu Light, Material Dark, Kanagawa, Cyberpunk. Ensure header/body/mono fonts are independently configurable in SettingsPanel
