@@ -396,6 +396,35 @@ function getBatteryInfo(): BatteryInfo | null {
       } catch {}
 
       return { percentage, charging, timeRemaining, cycleCount };
+    } else {
+      // Linux: /sys/class/power_supply/BAT*
+      const fs = require('fs');
+      const batDirs = [
+        '/sys/class/power_supply/BAT0',
+        '/sys/class/power_supply/BAT1',
+        '/sys/class/power_supply/battery',
+      ];
+      for (const batDir of batDirs) {
+        if (fs.existsSync(batDir)) {
+          const readFile = (name: string) => {
+            try {
+              return fs.readFileSync(`${batDir}/${name}`, 'utf-8').trim();
+            } catch {
+              return '';
+            }
+          };
+          const capacity = parseInt(readFile('capacity'), 10);
+          const status = readFile('status'); // Charging, Discharging, Full, Not charging
+          if (!isNaN(capacity)) {
+            return {
+              percentage: capacity,
+              charging: status === 'Charging' || status === 'Full',
+              timeRemaining: status === 'Full' ? 'Full' : status || 'Unknown',
+              cycleCount: parseInt(readFile('cycle_count'), 10) || null,
+            };
+          }
+        }
+      }
     }
     return null;
   } catch {

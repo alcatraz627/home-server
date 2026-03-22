@@ -16,12 +16,44 @@ function webSocketPlugin(): Plugin {
 
           const wss = new ws.WebSocketServer({ noServer: true });
 
+          // PIN verification helper — reads from ~/.home-server/terminal-pin.json
+          function verifyPin(pin: string | null): boolean {
+            try {
+              const fs = require('fs');
+              const path = require('path');
+              const os = require('os');
+              const crypto = require('crypto');
+              const pinFile = path.join(os.homedir(), '.home-server', 'terminal-pin.json');
+              if (!fs.existsSync(pinFile)) return true; // No PIN set = allowed
+              const config = JSON.parse(fs.readFileSync(pinFile, 'utf-8'));
+              if (!config.enabled) return true;
+              if (!pin) return false;
+              const hash = crypto
+                .createHash('sha256')
+                .update(pin + config.salt)
+                .digest('hex');
+              return hash === config.hash;
+            } catch {
+              return true; // On error, allow (don't lock out)
+            }
+          }
+
           server.httpServer!.on('upgrade', (request: any, socket: any, head: any) => {
             const pathname = new URL(request.url || '', `http://${request.headers.host}`).pathname;
 
             if (pathname !== '/ws/terminal') return;
 
             console.log('[terminal] WebSocket upgrade request received');
+
+            // Check PIN before allowing upgrade
+            const upgradeUrl = new URL(request.url || '', `http://${request.headers.host}`);
+            const pin = upgradeUrl.searchParams.get('pin');
+            if (!verifyPin(pin)) {
+              console.log('[terminal] PIN verification failed — rejecting connection');
+              socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
+              socket.destroy();
+              return;
+            }
 
             wss.handleUpgrade(request, socket, head, (wsConn: any) => {
               const url = new URL(request.url || '', `http://${request.headers.host}`);

@@ -308,19 +308,19 @@ Even under Tailscale-only, these modules have outsized blast radius:
 
 ## Tech Debt: Security Items
 
-| ID     | Item                                                                                                           | Priority | Effort     |
-| ------ | -------------------------------------------------------------------------------------------------------------- | -------- | ---------- |
-| ~~S1~~ | ~~Replace `execSync` string interpolation with `spawn` array args~~ ✅ Done (v4.5) — network, wol, peripherals | ~~P1~~   | ~~Medium~~ |
-| ~~S2~~ | ~~Validate/allowlist `interface` param in packets API~~ ✅ Done (v4.3.1)                                       | ~~P1~~   | ~~Low~~    |
-| ~~S3~~ | ~~Use `crypto.randomUUID()` for terminal session IDs~~ ✅ Done (v4.3.1) — all 11 server files migrated         | ~~P2~~   | ~~Low~~    |
-| ~~S4~~ | ~~Filter env vars passed to terminal PTY~~ ✅ Done (v4.3.1) — blacklist + pattern matching                     | ~~P2~~   | ~~Low~~    |
-| S5     | Restrict `/api/browse` to configurable allowlist of directories                                                | P2       | Low        |
-| ~~S6~~ | ~~Mask sensitive env vars in process detail endpoint~~ ✅ N/A — no env vars exposed                            | ~~P2~~   | ~~Low~~    |
-| ~~S7~~ | ~~Replace `find` shell-out in file search with Node.js `fs.readdir`~~ ✅ Done (v4.5) — wildcard-to-regex       | ~~P2~~   | ~~Medium~~ |
-| ~~S8~~ | ~~Add security response headers in `hooks.server.ts`~~ ✅ Done (v4.3.1)                                        | ~~P3~~   | ~~Low~~    |
-| ~~S9~~ | ~~Sanitize error messages to not leak file paths~~ ✅ Done (v4.5) — browse API returns generic errors          | ~~P3~~   | ~~Low~~    |
-| S10    | Add optional PIN gate for terminal WebSocket                                                                   | P3       | Medium     |
-| S11    | Rate limiting on expensive endpoints                                                                           | P3       | Medium     |
+| ID      | Item                                                                                                           | Priority | Effort     |
+| ------- | -------------------------------------------------------------------------------------------------------------- | -------- | ---------- |
+| ~~S1~~  | ~~Replace `execSync` string interpolation with `spawn` array args~~ ✅ Done (v4.5) — network, wol, peripherals | ~~P1~~   | ~~Medium~~ |
+| ~~S2~~  | ~~Validate/allowlist `interface` param in packets API~~ ✅ Done (v4.3.1)                                       | ~~P1~~   | ~~Low~~    |
+| ~~S3~~  | ~~Use `crypto.randomUUID()` for terminal session IDs~~ ✅ Done (v4.3.1) — all 11 server files migrated         | ~~P2~~   | ~~Low~~    |
+| ~~S4~~  | ~~Filter env vars passed to terminal PTY~~ ✅ Done (v4.3.1) — blacklist + pattern matching                     | ~~P2~~   | ~~Low~~    |
+| ~~S5~~  | ~~Restrict `/api/browse` to configurable allowlist~~ ✅ Done (v4.5) — homedir + /tmp + /var/log + /etc         | ~~P2~~   | ~~Low~~    |
+| ~~S6~~  | ~~Mask sensitive env vars in process detail endpoint~~ ✅ N/A — no env vars exposed                            | ~~P2~~   | ~~Low~~    |
+| ~~S7~~  | ~~Replace `find` shell-out in file search with Node.js `fs.readdir`~~ ✅ Done (v4.5) — wildcard-to-regex       | ~~P2~~   | ~~Medium~~ |
+| ~~S8~~  | ~~Add security response headers in `hooks.server.ts`~~ ✅ Done (v4.3.1)                                        | ~~P3~~   | ~~Low~~    |
+| ~~S9~~  | ~~Sanitize error messages to not leak file paths~~ ✅ Done (v4.5) — browse API returns generic errors          | ~~P3~~   | ~~Low~~    |
+| ~~S10~~ | ~~Add optional PIN gate for terminal WebSocket~~ ✅ Done (v4.5) — SHA-256 hashed PIN in ~/.home-server/        | ~~P3~~   | ~~Medium~~ |
+| ~~S11~~ | ~~Rate limiting on expensive endpoints~~ ✅ Done (v4.5) — in-memory per-IP limiter in hooks.server.ts          | ~~P3~~   | ~~Medium~~ |
 
 ---
 

@@ -5,6 +5,7 @@
   import EmptyState from '$lib/components/EmptyState.svelte';
   import Badge from '$lib/components/Badge.svelte';
   import Icon from '$lib/components/Icon.svelte';
+  import Button from '$lib/components/Button.svelte';
   import { fetchApi } from '$lib/api';
 
   interface Tab {
@@ -41,6 +42,47 @@
   let ctrlMode = $state(false);
   let serverSessions = $state<ServerSession[]>([]);
   let sessionPollTimer: ReturnType<typeof setInterval> | null = null;
+
+  // PIN gate
+  let pinRequired = $state(false);
+  let pinVerified = $state(false);
+  let pinInput = $state('');
+  let pinError = $state('');
+  let terminalPin = $state(''); // verified PIN to include in WS URL
+
+  async function checkPinRequired() {
+    try {
+      const res = await fetch('/api/terminal/pin');
+      if (res.ok) {
+        const data = await res.json();
+        pinRequired = data.enabled;
+        if (!pinRequired) pinVerified = true;
+      }
+    } catch {
+      pinVerified = true; // On error, allow
+    }
+  }
+
+  async function submitPin() {
+    pinError = '';
+    try {
+      const res = await fetch('/api/terminal/pin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'verify', pin: pinInput }),
+      });
+      const data = await res.json();
+      if (data.valid) {
+        pinVerified = true;
+        terminalPin = pinInput;
+        pinInput = '';
+      } else {
+        pinError = 'Incorrect PIN';
+      }
+    } catch {
+      pinError = 'Verification failed';
+    }
+  }
 
   /** Persist session IDs to sessionStorage so tabs survive navigation */
   function saveSessionIds() {
@@ -83,6 +125,8 @@
 
   onMount(async () => {
     if (!browser) return;
+
+    await checkPinRequired();
 
     const xtermMod = await import('@xterm/xterm');
     const fitMod = await import('@xterm/addon-fit');
@@ -214,7 +258,8 @@
     const rows = tab.terminal?.rows || 24;
     const isRestoring = !!tab.sessionId;
     const sessionParam = tab.sessionId ? `&session=${tab.sessionId}` : '';
-    const url = `${protocol}//${location.host}/ws/terminal?cols=${cols}&rows=${rows}${sessionParam}`;
+    const pinParam = terminalPin ? `&pin=${encodeURIComponent(terminalPin)}` : '';
+    const url = `${protocol}//${location.host}/ws/terminal?cols=${cols}&rows=${rows}${sessionParam}${pinParam}`;
 
     const ws = new WebSocket(url);
 
@@ -420,130 +465,208 @@
   <link rel="stylesheet" href="/xterm.css" />
 </svelte:head>
 
-<div class="terminal-page">
-  <div class="page-header">
-    <h2 class="page-title">Terminal</h2>
-    <p class="page-desc">Interactive shell sessions with tabbed terminals, font controls, and persistent sessions.</p>
+{#if pinRequired && !pinVerified}
+  <div class="pin-gate">
+    <div class="pin-card">
+      <Icon name="lock" size={32} />
+      <h3>Terminal PIN Required</h3>
+      <p>Enter your PIN to access the terminal.</p>
+      <input
+        type="password"
+        class="pin-input"
+        bind:value={pinInput}
+        placeholder="Enter PIN"
+        onkeydown={(e) => e.key === 'Enter' && submitPin()}
+        maxlength="20"
+      />
+      {#if pinError}
+        <p class="pin-error">{pinError}</p>
+      {/if}
+      <Button variant="primary" onclick={submitPin}>Unlock</Button>
+    </div>
   </div>
+{:else}
+  <div class="terminal-page">
+    <div class="page-header">
+      <h2 class="page-title">Terminal</h2>
+      <p class="page-desc">Interactive shell sessions with tabbed terminals, font controls, and persistent sessions.</p>
+    </div>
 
-  <!-- Session summary bar -->
-  {#if serverSessions.length > 0}
-    <div class="session-bar">
-      <span class="session-bar-label">Running:</span>
-      {#each serverSessions as session}
+    <!-- Session summary bar -->
+    {#if serverSessions.length > 0}
+      <div class="session-bar">
+        <span class="session-bar-label">Running:</span>
+        {#each serverSessions as session}
+          <!-- svelte-ignore a11y_click_events_have_key_events -->
+          <!-- svelte-ignore a11y_no_static_element_interactions -->
+          <button
+            class="session-badge"
+            class:active={currentTab?.sessionId === session.id}
+            onclick={() => attachToSession(session)}
+            title="PID {session.pid} — {formatUptime(session.uptime)}"
+          >
+            <Badge variant={currentTab?.sessionId === session.id ? 'accent' : 'default'} size="sm" dot pulse>
+              {session.label}:{session.id.slice(0, 4)}
+            </Badge>
+          </button>
+        {/each}
+      </div>
+    {/if}
+
+    <div class="terminal-header">
+      <div class="tab-bar">
         <!-- svelte-ignore a11y_click_events_have_key_events -->
         <!-- svelte-ignore a11y_no_static_element_interactions -->
-        <button
-          class="session-badge"
-          class:active={currentTab?.sessionId === session.id}
-          onclick={() => attachToSession(session)}
-          title="PID {session.pid} — {formatUptime(session.uptime)}"
-        >
-          <Badge variant={currentTab?.sessionId === session.id ? 'accent' : 'default'} size="sm" dot pulse>
-            {session.label}:{session.id.slice(0, 4)}
-          </Badge>
-        </button>
-      {/each}
-    </div>
-  {/if}
-
-  <div class="terminal-header">
-    <div class="tab-bar">
-      <!-- svelte-ignore a11y_click_events_have_key_events -->
-      <!-- svelte-ignore a11y_no_static_element_interactions -->
-      {#each tabs as tab, i}
-        <div
-          class="tab"
-          class:active={activeTab === i}
-          onclick={() => switchTab(i)}
-          onmousedown={(e) => handleTabMouseDown(e, i)}
-        >
-          <span class="tab-dot" class:connected={tab.connected}></span>
-          {#if renamingTab === i}
-            <input
-              class="tab-rename-input"
-              type="text"
-              bind:value={renameValue}
-              onclick={(e) => e.stopPropagation()}
-              onkeydown={(e) => {
-                if (e.key === 'Enter') submitRenameTab(i);
-                if (e.key === 'Escape') renamingTab = null;
-              }}
-              onblur={() => submitRenameTab(i)}
-            />
-          {:else}
-            <span class="tab-label" ondblclick={() => startRenameTab(i)}>{tab.label}</span>
-          {/if}
-          <button
-            class="tab-close"
-            onclick={(e) => {
-              e.stopPropagation();
-              closeTab(i);
-            }}>x</button
+        {#each tabs as tab, i}
+          <div
+            class="tab"
+            class:active={activeTab === i}
+            onclick={() => switchTab(i)}
+            onmousedown={(e) => handleTabMouseDown(e, i)}
           >
-        </div>
-      {/each}
-      <button class="tab tab-add" onclick={() => addTab()}>+</button>
+            <span class="tab-dot" class:connected={tab.connected}></span>
+            {#if renamingTab === i}
+              <input
+                class="tab-rename-input"
+                type="text"
+                bind:value={renameValue}
+                onclick={(e) => e.stopPropagation()}
+                onkeydown={(e) => {
+                  if (e.key === 'Enter') submitRenameTab(i);
+                  if (e.key === 'Escape') renamingTab = null;
+                }}
+                onblur={() => submitRenameTab(i)}
+              />
+            {:else}
+              <span class="tab-label" ondblclick={() => startRenameTab(i)}>{tab.label}</span>
+            {/if}
+            <button
+              class="tab-close"
+              onclick={(e) => {
+                e.stopPropagation();
+                closeTab(i);
+              }}>x</button
+            >
+          </div>
+        {/each}
+        <button class="tab tab-add" onclick={() => addTab()}>+</button>
+      </div>
+      <div class="toolbar">
+        <button class="tool-btn" onclick={() => changeFontSize(-1)} title="Decrease font">A-</button>
+        <span class="font-size">{fontSize}px</span>
+        <button class="tool-btn" onclick={() => changeFontSize(1)} title="Increase font">A+</button>
+        <button class="tool-btn" onclick={clearTerminal} title="Clear terminal">Clear</button>
+      </div>
     </div>
-    <div class="toolbar">
-      <button class="tool-btn" onclick={() => changeFontSize(-1)} title="Decrease font">A-</button>
-      <span class="font-size">{fontSize}px</span>
-      <button class="tool-btn" onclick={() => changeFontSize(1)} title="Increase font">A+</button>
-      <button class="tool-btn" onclick={clearTerminal} title="Clear terminal">Clear</button>
+
+    {#if tabs.length === 0}
+      <div class="empty-wrapper">
+        <EmptyState
+          icon=">"
+          title="No terminal sessions"
+          hint="Open a new shell to get started"
+          actionLabel="New Terminal"
+          onaction={() => addTab()}
+        />
+      </div>
+    {:else}
+      <div class="terminal-panels">
+        {#each tabs as tab, i}
+          <div class="terminal-container" class:visible={activeTab === i} bind:this={terminalEls[tab.id]}></div>
+        {/each}
+      </div>
+    {/if}
+
+    <!-- Mobile extra keys bar -->
+    <div class="mobile-keys">
+      <button class="mk" onclick={() => sendKey('\t')}>TAB</button>
+      <button class="mk" class:active={ctrlMode} onclick={toggleCtrl}>CTRL</button>
+      <button class="mk" onclick={() => sendKey('\x1b')}>ESC</button>
+      <button class="mk" onclick={() => sendKey('|')}>|</button>
+      <button class="mk" onclick={() => sendKey('/')}>/</button>
+      <button class="mk" onclick={() => sendKey('-')}>-</button>
+      <button class="mk" onclick={() => sendKey('~')}>~</button>
+      <button class="mk" onclick={() => sendEscape('\x1b[D')}><Icon name="arrow-left" size={14} /></button>
+      <button class="mk" onclick={() => sendEscape('\x1b[A')}><Icon name="arrow-up" size={14} /></button>
+      <button class="mk" onclick={() => sendEscape('\x1b[B')}><Icon name="arrow-down" size={14} /></button>
+      <button class="mk" onclick={() => sendEscape('\x1b[C')}><Icon name="arrow-right" size={14} /></button>
     </div>
+
+    <!-- Bottom status bar -->
+    {#if currentTab}
+      <div class="status-bar">
+        <span class="status-item">
+          <span class="status-dot" class:connected={currentTab.connected} class:exited={currentTab.exited}></span>
+          {connectionStatus}
+        </span>
+        <span class="status-sep">|</span>
+        <span class="status-item">session: {shortSessionId}</span>
+        <span class="status-sep">|</span>
+        <span class="status-item">{currentTab.shellType || 'shell'}</span>
+        <span class="status-sep">|</span>
+        <span class="status-item">{currentTab.cols} x {currentTab.rows}</span>
+      </div>
+    {/if}
   </div>
-
-  {#if tabs.length === 0}
-    <div class="empty-wrapper">
-      <EmptyState
-        icon=">"
-        title="No terminal sessions"
-        hint="Open a new shell to get started"
-        actionLabel="New Terminal"
-        onaction={() => addTab()}
-      />
-    </div>
-  {:else}
-    <div class="terminal-panels">
-      {#each tabs as tab, i}
-        <div class="terminal-container" class:visible={activeTab === i} bind:this={terminalEls[tab.id]}></div>
-      {/each}
-    </div>
-  {/if}
-
-  <!-- Mobile extra keys bar -->
-  <div class="mobile-keys">
-    <button class="mk" onclick={() => sendKey('\t')}>TAB</button>
-    <button class="mk" class:active={ctrlMode} onclick={toggleCtrl}>CTRL</button>
-    <button class="mk" onclick={() => sendKey('\x1b')}>ESC</button>
-    <button class="mk" onclick={() => sendKey('|')}>|</button>
-    <button class="mk" onclick={() => sendKey('/')}>/</button>
-    <button class="mk" onclick={() => sendKey('-')}>-</button>
-    <button class="mk" onclick={() => sendKey('~')}>~</button>
-    <button class="mk" onclick={() => sendEscape('\x1b[D')}><Icon name="arrow-left" size={14} /></button>
-    <button class="mk" onclick={() => sendEscape('\x1b[A')}><Icon name="arrow-up" size={14} /></button>
-    <button class="mk" onclick={() => sendEscape('\x1b[B')}><Icon name="arrow-down" size={14} /></button>
-    <button class="mk" onclick={() => sendEscape('\x1b[C')}><Icon name="arrow-right" size={14} /></button>
-  </div>
-
-  <!-- Bottom status bar -->
-  {#if currentTab}
-    <div class="status-bar">
-      <span class="status-item">
-        <span class="status-dot" class:connected={currentTab.connected} class:exited={currentTab.exited}></span>
-        {connectionStatus}
-      </span>
-      <span class="status-sep">|</span>
-      <span class="status-item">session: {shortSessionId}</span>
-      <span class="status-sep">|</span>
-      <span class="status-item">{currentTab.shellType || 'shell'}</span>
-      <span class="status-sep">|</span>
-      <span class="status-item">{currentTab.cols} x {currentTab.rows}</span>
-    </div>
-  {/if}
-</div>
+{/if}
 
 <style>
+  .pin-gate {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 60vh;
+  }
+
+  .pin-card {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 40px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--bg-secondary);
+    max-width: 320px;
+    color: var(--text-faint);
+  }
+
+  .pin-card h3 {
+    font-size: 1rem;
+    color: var(--text-primary);
+    margin: 0;
+  }
+
+  .pin-card p {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    margin: 0;
+  }
+
+  .pin-input {
+    width: 180px;
+    padding: 10px 16px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--input-bg);
+    color: var(--text-primary);
+    font-size: 1.1rem;
+    font-family: 'JetBrains Mono', monospace;
+    text-align: center;
+    letter-spacing: 0.2em;
+  }
+
+  .pin-input:focus {
+    border-color: var(--accent);
+    outline: none;
+  }
+
+  .pin-error {
+    font-size: 0.78rem;
+    color: var(--danger);
+    margin: 0;
+  }
   .terminal-page {
     display: flex;
     flex-direction: column;

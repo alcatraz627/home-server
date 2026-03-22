@@ -41,7 +41,7 @@ The project runs on Node.js/SvelteKit. Most platform-specific code lives in **se
 | **USB devices**                           |  ✅   |    ✅    | `lsusb` parsing on Linux                                         |
 | **Audio devices**                         |  ✅   |    ✅    | `pactl list sinks/sources` + `aplay -l`/`arecord -l` fallback    |
 | **Display info**                          |  ✅   |    ✅    | `xrandr --current` for connected displays                        |
-| **Battery**                               |  ✅   |    ❌    | Uses `pmset` — needs `/sys/class/power_supply/`                  |
+| **Battery**                               |  ✅   |    ✅    | `/sys/class/power_supply/BAT*` with capacity + status + cycle    |
 | **System info**                           |  ✅   |    ✅    | `lscpu`, `free -b`, `/etc/os-release` on Linux                   |
 | **Screenshots**                           |  ✅   |    ⚠️    | `scrot` fallback exists but `osascript` fallback fails           |
 | **App launcher**                          |  ✅   |    ✅    | Parses `.desktop` files from `/usr/share/applications/` on Linux |

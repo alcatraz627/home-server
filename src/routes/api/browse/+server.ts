@@ -11,6 +11,33 @@ export interface BrowseEntry {
   size: number;
 }
 
+/**
+ * Allowed browse roots. Users can only browse within these directories.
+ * The parent (..) navigation is also constrained to stay within an allowed root.
+ */
+function getAllowedRoots(): string[] {
+  const roots = [os.homedir()];
+
+  // Also allow common system dirs for inspection (read-only)
+  const inspectDirs = ['/tmp', '/var/log', '/etc'];
+  for (const dir of inspectDirs) {
+    if (fs.existsSync(dir)) roots.push(dir);
+  }
+
+  // Allow UPLOAD_DIR if set
+  try {
+    const uploadDir = path.resolve(process.env.UPLOAD_DIR || './uploads');
+    if (!roots.includes(uploadDir)) roots.push(uploadDir);
+  } catch {}
+
+  return roots.map((r) => path.resolve(r));
+}
+
+function isWithinAllowedRoot(targetPath: string, roots: string[]): boolean {
+  const resolved = path.resolve(targetPath);
+  return roots.some((root) => resolved === root || resolved.startsWith(root + path.sep));
+}
+
 export const GET: RequestHandler = async ({ url }) => {
   let dirPath = url.searchParams.get('path') || os.homedir();
   // Expand ~ to home directory
@@ -18,6 +45,20 @@ export const GET: RequestHandler = async ({ url }) => {
     dirPath = dirPath.replace(/^~/, os.homedir());
   }
   const resolved = path.resolve(dirPath);
+  const allowedRoots = getAllowedRoots();
+
+  // Check if the requested path is within an allowed root
+  if (!isWithinAllowedRoot(resolved, allowedRoots)) {
+    return json(
+      {
+        current: resolved,
+        entries: [],
+        error: 'Access denied — path is outside allowed directories',
+        allowedRoots,
+      },
+      { status: 403 },
+    );
+  }
 
   try {
     const entries = fs.readdirSync(resolved, { withFileTypes: true });
@@ -41,15 +82,14 @@ export const GET: RequestHandler = async ({ url }) => {
         return a.name.localeCompare(b.name);
       });
 
-    // Add parent directory entry
+    // Add parent directory entry — but only if parent is still within allowed roots
     const parent = path.dirname(resolved);
-    if (parent !== resolved) {
+    if (parent !== resolved && isWithinAllowedRoot(parent, allowedRoots)) {
       items.unshift({ name: '..', path: parent, isDir: true, size: 0 });
     }
 
     return json({ current: resolved, entries: items });
   } catch (e: any) {
-    // Sanitize error — don't leak full file paths
     const code = e.code || '';
     const safeError =
       code === 'ENOENT'

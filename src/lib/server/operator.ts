@@ -233,7 +233,11 @@ export function getSystemDiskUsage(): {
 }[] {
   try {
     const platform = os.platform();
-    const raw = execSync('df -h / /Volumes/* 2>/dev/null || df -h', { encoding: 'utf-8', timeout: 3000 });
+    const dfCmd =
+      platform === 'darwin'
+        ? 'df -h / /Volumes/* 2>/dev/null || df -h'
+        : 'df -h --exclude-type=tmpfs --exclude-type=devtmpfs --exclude-type=squashfs 2>/dev/null || df -h';
+    const raw = execSync(dfCmd, { encoding: 'utf-8', timeout: 3000, shell: '/bin/sh' });
     const lines = raw.trim().split('\n').slice(1);
 
     // Build a map of device/mount -> fstype
@@ -251,8 +255,11 @@ export function getSystemDiskUsage(): {
           }
         }
       } else {
-        // Linux: use df -T for filesystem type
-        const dfT = execSync('df -T / 2>/dev/null || true', { encoding: 'utf-8', timeout: 3000 });
+        // Linux: use df -T for filesystem type (all real filesystems)
+        const dfT = execSync(
+          'df -T --exclude-type=tmpfs --exclude-type=devtmpfs --exclude-type=squashfs 2>/dev/null || df -T 2>/dev/null || true',
+          { encoding: 'utf-8', timeout: 3000, shell: '/bin/sh' },
+        );
         const dfTLines = dfT.trim().split('\n').slice(1);
         for (const line of dfTLines) {
           const parts = line.trim().split(/\s+/);
