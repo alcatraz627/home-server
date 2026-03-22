@@ -370,7 +370,9 @@
                 />
               </div>
               {#if type === 'video'}
-                <button class="ctrl-btn" title="Fullscreen (F)" onclick={requestFullscreen}>&#x26F6;</button>
+                <button class="ctrl-btn" title="Fullscreen (F)" onclick={requestFullscreen}
+                  ><Icon name="maximize" size={14} /></button
+                >
               {/if}
             </div>
           </div>

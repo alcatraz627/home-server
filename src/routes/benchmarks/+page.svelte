@@ -410,10 +410,35 @@
   .history-section {
     margin-top: 2rem;
   }
-  .history-section h2 {
+  .history-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+  }
+  .history-header h2 {
     font-size: 1.1rem;
     color: var(--text-primary);
-    margin-bottom: 0.75rem;
+    margin: 0;
+  }
+  .btn-clear {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.78rem;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--btn-bg);
+    color: var(--text-muted);
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .btn-clear:hover {
+    border-color: var(--danger);
+    color: var(--danger);
+  }
+  .btn-clear.btn-confirm {
+    border-color: var(--danger);
+    background: var(--danger);
+    color: #fff;
   }
   .history-table-wrap {
     padding: 0;

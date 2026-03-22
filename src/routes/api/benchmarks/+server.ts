@@ -155,3 +155,8 @@ export const POST: RequestHandler = async ({ request }) => {
 
   return json({ error: 'Invalid action' }, { status: 400 });
 };
+
+export const DELETE: RequestHandler = async () => {
+  writeResults([]);
+  return json({ ok: true });
+};

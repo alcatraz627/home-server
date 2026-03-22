@@ -2,6 +2,20 @@
 
 Append-only log of skill run insights. Newest entries at top.
 
+## session: Central icon system creation — 2026-03-22
+
+**Purpose:** Created a centralized SVG icon registry and Icon component, then replaced Unicode/HTML entity icons in layout, AiChat, and MediaPlayer.
+
+**Insights:**
+
+1. The project uses Svelte 5 runes syntax ($props, $derived, $state) -- component props use `$props<{...}>()` pattern.
+2. Prettier with prettier-plugin-svelte reformats Svelte templates aggressively (wrapping element content onto new lines with `>content</tag` patterns), so edits must match the post-formatted state.
+3. The icon registry needed volume-off/low/high icons beyond the original spec -- the media player had 3-level volume states that don't map to any of the originally requested icons.
+4. Layout file has a Tooltip wrapper component that was not in the original read -- files can change between reads due to external edits or linter runs.
+5. When replacing inline text/entities with Icon components inside ternary expressions, Svelte requires `{#if}...{:else}...{/if}` blocks rather than ternary `{condition ? a : b}` when using components.
+
+---
+
 ## session: Create shared Tooltip and Modal components — 2026-03-22
 
 **Purpose:** Added reusable Tooltip and Modal Svelte 5 components and integrated Tooltip into the navbar header.

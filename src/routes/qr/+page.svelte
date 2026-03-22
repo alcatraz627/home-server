@@ -457,8 +457,8 @@
       const res = await fetch('/api/wifi');
       if (!res.ok) throw new Error('Failed to get WiFi info');
       const data = await res.json();
-      if (data.currentConnection?.ssid) {
-        ssid = data.currentConnection.ssid;
+      if (data.current?.ssid) {
+        ssid = data.current.ssid;
         mode = 'wifi';
         toast.success(`Filled SSID: ${ssid}`);
       } else {
