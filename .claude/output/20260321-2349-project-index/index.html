@@ -1,0 +1,1311 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Project Index</title>
+    <meta property="og:title" content="Project Index" />
+    <meta property="og:description" content="home-server — /Users/alcatraz627/Code/Personal/home-server" />
+    <meta property="og:type" content="article" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Project Index" />
+    <meta name="twitter:description" content="home-server — /Users/alcatraz627/Code/Personal/home-server" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = { darkMode: 'class', corePlugins: { preflight: false } };
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,500;0,600;0,700&family=Source+Sans+3:ital,wght@0,400;0,600&family=Merriweather:ital,wght@0,400;0,700&family=Roboto:wght@400;500;700&family=Open+Sans:wght@400;600;700&family=Nunito:wght@400;600;700&family=DM+Sans:wght@400;500;700&family=Work+Sans:wght@400;500;700&family=Lora:ital,wght@0,400;0,700;1,400&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&family=EB+Garamond:ital,wght@0,400;0,700;1,400&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <!-- Header -->
+    <header
+      class="fixed inset-x-0 top-0 z-50 flex items-center gap-3 px-5 bg-[var(--surface)] border-b border-[var(--border)]"
+      style="height: var(--header-h)"
+    >
+      <span class="hdr-badge">Report</span>
+
+      <div class="flex-1 min-w-0 flex flex-col">
+        <div class="hdr-title">Project Index</div>
+        <div class="hdr-subtitle">home-server — /Users/alcatraz627/Code/Personal/home-server</div>
+      </div>
+
+      <div class="search-wrap">
+        <span class="search-icon">
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+          >
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+        </span>
+        <input type="text" id="search" placeholder="Search… (⌘K)" autocomplete="off" spellcheck="false" />
+        <span id="search-count"></span>
+      </div>
+
+      <div class="flex items-center gap-1 shrink-0 toolbar">
+        <div class="font-picker">
+          <button id="font-btn" class="tool-btn">
+            Aa <span class="font-label btn-label">System</span>
+            <svg
+              width="10"
+              height="10"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+              stroke-linecap="round"
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+          <div id="font-menu" class="font-menu">
+            <div class="font-group-label">Sans-serif</div>
+            <button class="font-opt" data-font="system">System UI <span class="font-preview">Aa</span></button>
+            <button class="font-opt" data-font="inter">Inter <span class="font-preview">Aa</span></button>
+            <button class="font-opt" data-font="roboto">Roboto <span class="font-preview">Aa</span></button>
+            <button class="font-opt" data-font="opensans">Open Sans <span class="font-preview">Aa</span></button>
+            <button class="font-opt" data-font="source">Source Sans <span class="font-preview">Aa</span></button>
+            <button class="font-opt" data-font="nunito">Nunito <span class="font-preview">Aa</span></button>
+            <button class="font-opt" data-font="dmsans">DM Sans <span class="font-preview">Aa</span></button>
+            <button class="font-opt" data-font="worksans">Work Sans <span class="font-preview">Aa</span></button>
+            <button class="font-opt" data-font="helvetica">Helvetica Neue <span class="font-preview">Aa</span></button>
+            <button class="font-opt" data-font="verdana">Verdana <span class="font-preview">Aa</span></button>
+            <div class="font-group-label">Serif</div>
+            <button class="font-opt" data-font="georgia">Georgia <span class="font-preview">Aa</span></button>
+            <button class="font-opt" data-font="lora">Lora <span class="font-preview">Aa</span></button>
+            <button class="font-opt" data-font="merriweather">Merriweather <span class="font-preview">Aa</span></button>
+            <button class="font-opt" data-font="playfair">Playfair Display <span class="font-preview">Aa</span></button>
+            <button class="font-opt" data-font="palatino">Palatino <span class="font-preview">Aa</span></button>
+            <button class="font-opt" data-font="crimson">Crimson Pro <span class="font-preview">Aa</span></button>
+            <button class="font-opt" data-font="garamond">EB Garamond <span class="font-preview">Aa</span></button>
+            <button class="font-opt" data-font="libre">Libre Baskerville <span class="font-preview">Aa</span></button>
+            <div class="font-group-label">Modern</div>
+            <button class="font-opt" data-font="jakarta">Plus Jakarta Sans <span class="font-preview">Aa</span></button>
+            <button class="font-opt" data-font="spacegrotesk">
+              Space Grotesk <span class="font-preview">Aa</span>
+            </button>
+            <button class="font-opt" data-font="ibmplex">IBM Plex Sans <span class="font-preview">Aa</span></button>
+            <div class="font-group-label">Monospace</div>
+            <button class="font-opt" data-font="mono">JetBrains Mono <span class="font-preview">Aa</span></button>
+            <button class="font-opt" data-font="ibmplexmono">IBM Plex Mono <span class="font-preview">Aa</span></button>
+          </div>
+        </div>
+        <button id="theme-btn" class="tool-btn"></button>
+        <div class="color-picker">
+          <button id="color-btn" class="tool-btn">
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            >
+              <circle cx="13.5" cy="6.5" r=".5" />
+              <circle cx="17.5" cy="10.5" r=".5" />
+              <circle cx="8.5" cy="7.5" r=".5" />
+              <circle cx="6.5" cy="12.5" r=".5" />
+              <path
+                d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"
+              />
+            </svg>
+            <span class="btn-label">Color</span>
+          </button>
+          <div id="color-menu" class="color-menu">
+            <div class="font-group-label">Accent Color</div>
+            <div class="color-swatches">
+              <button class="color-swatch" data-accent="indigo" style="--swatch: #6366f1" title="Indigo"></button>
+              <button class="color-swatch" data-accent="violet" style="--swatch: #8b5cf6" title="Violet"></button>
+              <button class="color-swatch" data-accent="purple" style="--swatch: #a855f7" title="Purple"></button>
+              <button class="color-swatch" data-accent="fuchsia" style="--swatch: #d946ef" title="Fuchsia"></button>
+              <button class="color-swatch" data-accent="pink" style="--swatch: #ec4899" title="Pink"></button>
+              <button class="color-swatch" data-accent="rose" style="--swatch: #f43f5e" title="Rose"></button>
+              <button class="color-swatch" data-accent="red" style="--swatch: #ef4444" title="Red"></button>
+              <button class="color-swatch" data-accent="orange" style="--swatch: #f97316" title="Orange"></button>
+              <button class="color-swatch" data-accent="amber" style="--swatch: #f59e0b" title="Amber"></button>
+              <button class="color-swatch" data-accent="yellow" style="--swatch: #eab308" title="Yellow"></button>
+              <button class="color-swatch" data-accent="lime" style="--swatch: #84cc16" title="Lime"></button>
+              <button class="color-swatch" data-accent="emerald" style="--swatch: #10b981" title="Emerald"></button>
+              <button class="color-swatch" data-accent="teal" style="--swatch: #14b8a6" title="Teal"></button>
+              <button class="color-swatch" data-accent="cyan" style="--swatch: #06b6d4" title="Cyan"></button>
+              <button class="color-swatch" data-accent="sky" style="--swatch: #0ea5e9" title="Sky"></button>
+              <button class="color-swatch" data-accent="blue" style="--swatch: #3b82f6" title="Blue"></button>
+            </div>
+          </div>
+        </div>
+        <button id="print-btn" class="tool-btn">
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+          >
+            <polyline points="6 9 6 2 18 2 18 9" />
+            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+            <rect x="6" y="14" width="12" height="8" />
+          </svg>
+          <span class="btn-label">Print</span>
+        </button>
+      </div>
+
+      <span class="hdr-gen">Generated 2026-03-21 · 10 sections · 7 code blocks · 3 tables</span>
+    </header>
+
+    <!-- Layout -->
+    <div class="flex" style="margin-top: var(--header-h); min-height: calc(100vh - var(--header-h))">
+      <nav
+        class="sidebar shrink-0 bg-[var(--surface)] border-r border-[var(--border)]"
+        style="
+          position: sticky;
+          top: var(--header-h);
+          height: calc(100vh - var(--header-h));
+          overflow-y: auto;
+          padding: 12px 0 24px;
+          width: var(--sidebar-w);
+        "
+      >
+        <ul>
+          <li class="nav-group">Sections</li>
+          <li class="nav-section nav-h2"><a href="#overview">Overview</a></li>
+          <li class="nav-section nav-h2"><a href="#vision">Vision</a></li>
+          <li class="nav-section nav-h2"><a href="#directory-structure">Directory Structure</a></li>
+          <li class="nav-section nav-h2">
+            <a href="#key-files">Key Files</a>
+            <ul>
+              <li class="nav-section nav-h3"><a href="#configuration">Configuration</a></li>
+              <li class="nav-section nav-h3"><a href="#entry-points">Entry Points</a></li>
+            </ul>
+          </li>
+          <li class="nav-section nav-h2">
+            <a href="#dependencies">Dependencies</a>
+            <ul>
+              <li class="nav-section nav-h3"><a href="#production">Production</a></li>
+              <li class="nav-section nav-h3"><a href="#development">Development</a></li>
+              <li class="nav-section nav-h3">
+                <a href="#system-dependencies-not-in-packagejson">System Dependencies</a>
+              </li>
+            </ul>
+          </li>
+          <li class="nav-section nav-h2">
+            <a href="#architectural-patterns">Architectural Patterns</a>
+            <ul>
+              <li class="nav-section nav-h3"><a href="#server-module-pattern">Server Module Pattern</a></li>
+              <li class="nav-section nav-h3"><a href="#document-renderer-registry">Document Renderer Registry</a></li>
+              <li class="nav-section nav-h3"><a href="#two-tier-process-stats">Two-Tier Process Stats</a></li>
+              <li class="nav-section nav-h3"><a href="#cron-scheduling">Cron Scheduling</a></li>
+              <li class="nav-section nav-h3"><a href="#data-storage">Data Storage</a></li>
+              <li class="nav-section nav-h3"><a href="#styling">Styling</a></li>
+              <li class="nav-section nav-h3"><a href="#state-management">State Management</a></li>
+              <li class="nav-section nav-h3"><a href="#api-communication">API Communication</a></li>
+              <li class="nav-section nav-h3"><a href="#notifications">Notifications</a></li>
+              <li class="nav-section nav-h3"><a href="#security">Security</a></li>
+            </ul>
+          </li>
+          <li class="nav-section nav-h2"><a href="#routes--pages">Routes / Pages</a></li>
+          <li class="nav-section nav-h2"><a href="#api-endpoints">API Endpoints</a></li>
+          <li class="nav-section nav-h2">
+            <a href="#key-code-snippets">Key Code Snippets</a>
+            <ul>
+              <li class="nav-section nav-h3"><a href="#snippet-app-ts">app.ts — Version tracking</a></li>
+              <li class="nav-section nav-h3"><a href="#snippet-hooks-server">hooks.server.ts — Scheduler init</a></li>
+              <li class="nav-section nav-h3">
+                <a href="#snippet-renderers">renderers/index.ts — Renderer registry</a>
+              </li>
+              <li class="nav-section nav-h3"><a href="#snippet-wiz">wiz.ts — UDP discovery</a></li>
+              <li class="nav-section nav-h3"><a href="#snippet-operator">operator.ts — Task runner</a></li>
+              <li class="nav-section nav-h3"><a href="#snippet-theme">theme.ts — Theme persistence</a></li>
+              <li class="nav-section nav-h3"><a href="#snippet-ws">ws.ts — WebSocket terminal</a></li>
+            </ul>
+          </li>
+          <li class="nav-section nav-h2"><a href="#notes">Notes</a></li>
+        </ul>
+      </nav>
+
+      <main class="content grow min-w-0" style="padding: 48px 64px; max-width: 960px">
+        <section data-section-id="overview">
+          <h2 id="overview">Overview</h2>
+          <ul>
+            <li><strong>Framework:</strong> SvelteKit 2.x (Svelte 5 with Runes)</li>
+            <li><strong>Language:</strong> TypeScript (strict mode)</li>
+            <li><strong>Package Manager:</strong> npm</li>
+            <li><strong>Project Type:</strong> Fullstack — personal device management dashboard</li>
+            <li><strong>Runtime:</strong> Node.js 20 (Alpine Docker image)</li>
+            <li><strong>Adapter:</strong> @sveltejs/adapter-node (SSR, outputs to <code>build/</code>)</li>
+            <li><strong>Version:</strong> 1.1.1-still-lake-9</li>
+          </ul>
+        </section>
+        <section data-section-id="vision">
+          <h2 id="vision">Vision</h2>
+          <p>
+            A personal device management platform running across devices (laptop, phone, Raspberry Pi) connected via
+            <strong>Tailscale VPN</strong>. Provides a unified control plane for file transfers, smart home control,
+            backups, process management, and operator tasks — all accessible from any device on the tailnet with zero
+            cloud dependency.
+          </p>
+        </section>
+        <section data-section-id="directory-structure">
+          <h2 id="directory-structure">Directory Structure</h2>
+          <div class="tree-wrap">
+            <details open class="tree-node">
+              <summary>
+                <span class="tree-label tree-dir-label">src/</span>
+                <span class="tree-desc">Application source code</span>
+              </summary>
+              <div class="tree-children">
+                <div class="tree-leaf">
+                  <span class="tree-label tree-file-label" data-ext="html">app.html</span>
+                  <span class="tree-desc">HTML shell template</span>
+                </div>
+                <div class="tree-leaf">
+                  <span class="tree-label tree-file-label" data-ext="css">app.css</span>
+                  <span class="tree-desc">Global CSS with design token system (dark/light themes)</span>
+                </div>
+                <div class="tree-leaf">
+                  <span class="tree-label tree-file-label" data-ext="ts">app.d.ts</span>
+                  <span class="tree-desc">SvelteKit type declarations</span>
+                </div>
+                <div class="tree-leaf">
+                  <span class="tree-label tree-file-label" data-ext="ts">hooks.server.ts</span>
+                  <span class="tree-desc">Server hooks (request logging, lazy scheduler init)</span>
+                </div>
+                <details class="tree-node">
+                  <summary>
+                    <span class="tree-label tree-dir-label">lib/</span>
+                    <span class="tree-desc">Shared library code</span>
+                  </summary>
+                  <div class="tree-children">
+                    <div class="tree-leaf">
+                      <span class="tree-label tree-file-label">constants/</span>
+                      <span class="tree-desc">App-wide constants (app.ts with version)</span>
+                    </div>
+                    <div class="tree-leaf">
+                      <span class="tree-label tree-file-label">components/</span>
+                      <span class="tree-desc">Reusable UI components (DataTable.svelte)</span>
+                    </div>
+                    <details class="tree-node">
+                      <summary>
+                        <span class="tree-label tree-dir-label">renderers/</span>
+                        <span class="tree-desc">Plugin-style document renderer registry</span>
+                      </summary>
+                      <div class="tree-children">
+                        <div class="tree-leaf">
+                          <span class="tree-label tree-file-label" data-ext="ts">excel.ts</span>
+                          <span class="tree-desc">Excel/SheetJS renderer</span>
+                        </div>
+                        <div class="tree-leaf">
+                          <span class="tree-label tree-file-label" data-ext="ts">word.ts</span>
+                          <span class="tree-desc">Word/Mammoth renderer</span>
+                        </div>
+                        <div class="tree-leaf">
+                          <span class="tree-label tree-file-label" data-ext="ts">markdown.ts</span>
+                          <span class="tree-desc">Markdown renderer (custom regex)</span>
+                        </div>
+                        <div class="tree-leaf">
+                          <span class="tree-label tree-file-label" data-ext="ts">json.ts</span>
+                          <span class="tree-desc">JSON syntax highlighting</span>
+                        </div>
+                        <div class="tree-leaf">
+                          <span class="tree-label tree-file-label" data-ext="ts">text.ts</span>
+                          <span class="tree-desc">Text catch-all renderer</span>
+                        </div>
+                        <div class="tree-leaf">
+                          <span class="tree-label tree-file-label" data-ext="ts">index.ts</span>
+                          <span class="tree-desc">Registry and lookup functions</span>
+                        </div>
+                      </div>
+                    </details>
+                    <details class="tree-node">
+                      <summary>
+                        <span class="tree-label tree-dir-label">server/</span>
+                        <span class="tree-desc">Server-only modules (one file per domain)</span>
+                      </summary>
+                      <div class="tree-children">
+                        <div class="tree-leaf">
+                          <span class="tree-label tree-file-label" data-ext="ts">backups.ts</span>
+                          <span class="tree-desc">Rsync-based incremental backup engine</span>
+                        </div>
+                        <div class="tree-leaf">
+                          <span class="tree-label tree-file-label" data-ext="ts">config.ts</span>
+                          <span class="tree-desc">Upload directory and file size config</span>
+                        </div>
+                        <div class="tree-leaf">
+                          <span class="tree-label tree-file-label" data-ext="ts">files.ts</span>
+                          <span class="tree-desc">File CRUD with path traversal protection</span>
+                        </div>
+                        <div class="tree-leaf">
+                          <span class="tree-label tree-file-label" data-ext="ts">metadata.ts</span>
+                          <span class="tree-desc">JSON sidecar metadata store for uploads</span>
+                        </div>
+                        <div class="tree-leaf">
+                          <span class="tree-label tree-file-label" data-ext="ts">notify.ts</span>
+                          <span class="tree-desc">Push notifications via ntfy.sh</span>
+                        </div>
+                        <div class="tree-leaf">
+                          <span class="tree-label tree-file-label" data-ext="ts">operator.ts</span>
+                          <span class="tree-desc">Task runner with retry, timeout, exponential backoff</span>
+                        </div>
+                        <div class="tree-leaf">
+                          <span class="tree-label tree-file-label" data-ext="ts">processes.ts</span>
+                          <span class="tree-desc">OS process listing, signal sending, deep inspection</span>
+                        </div>
+                        <div class="tree-leaf">
+                          <span class="tree-label tree-file-label" data-ext="ts">scheduler.ts</span>
+                          <span class="tree-desc">Cron-based job scheduling (node-cron)</span>
+                        </div>
+                        <div class="tree-leaf">
+                          <span class="tree-label tree-file-label" data-ext="ts">tailscale.ts</span>
+                          <span class="tree-desc">Tailscale CLI status parser</span>
+                        </div>
+                        <div class="tree-leaf">
+                          <span class="tree-label tree-file-label" data-ext="ts">terminal.ts</span>
+                          <span class="tree-desc">PTY session management (node-pty)</span>
+                        </div>
+                        <div class="tree-leaf">
+                          <span class="tree-label tree-file-label" data-ext="ts">wiz.ts</span>
+                          <span class="tree-desc">Wiz smart bulb UDP discovery and control</span>
+                        </div>
+                        <div class="tree-leaf">
+                          <span class="tree-label tree-file-label" data-ext="ts">ws.ts</span>
+                          <span class="tree-desc">WebSocket server for terminal connections</span>
+                        </div>
+                      </div>
+                    </details>
+                    <div class="tree-leaf">
+                      <span class="tree-label tree-file-label" data-ext="ts">types.ts</span>
+                      <span class="tree-desc">Shared TypeScript interfaces (DeviceInfo, Widget)</span>
+                    </div>
+                    <div class="tree-leaf">
+                      <span class="tree-label tree-file-label" data-ext="ts">theme.ts</span>
+                      <span class="tree-desc">Dark/light theme Svelte store with localStorage persistence</span>
+                    </div>
+                    <div class="tree-leaf">
+                      <span class="tree-label tree-file-label" data-ext="ts">markdown.ts</span>
+                      <span class="tree-desc">Lightweight regex-based Markdown-to-HTML renderer</span>
+                    </div>
+                    <div class="tree-leaf">
+                      <span class="tree-label tree-file-label" data-ext="ts">json-viewer.ts</span>
+                      <span class="tree-desc">JSON syntax highlighting and tree viewer</span>
+                    </div>
+                  </div>
+                </details>
+                <details class="tree-node">
+                  <summary>
+                    <span class="tree-label tree-dir-label">routes/</span>
+                    <span class="tree-desc">SvelteKit file-based routing</span>
+                  </summary>
+                  <div class="tree-children">
+                    <div class="tree-leaf">
+                      <span class="tree-label tree-file-label" data-ext="svelte">+page.svelte</span>
+                      <span class="tree-desc">Dashboard home (widget grid)</span>
+                    </div>
+                    <div class="tree-leaf">
+                      <span class="tree-label tree-file-label" data-ext="svelte">+layout.svelte</span>
+                      <span class="tree-desc">App shell (sidebar nav, header, theme toggle, loading bar)</span>
+                    </div>
+                    <div class="tree-leaf">
+                      <span class="tree-label tree-file-label" data-ext="ts">+layout.server.ts</span>
+                      <span class="tree-desc">Provides device hostname/platform/arch to all pages</span>
+                    </div>
+                    <div class="tree-leaf">
+                      <span class="tree-label tree-file-label">files/</span>
+                      <span class="tree-desc">File manager page (upload, download, preview, rename)</span>
+                    </div>
+                    <div class="tree-leaf">
+                      <span class="tree-label tree-file-label">lights/</span>
+                      <span class="tree-desc">Wiz smart bulb control page</span>
+                    </div>
+                    <div class="tree-leaf">
+                      <span class="tree-label tree-file-label">processes/</span>
+                      <span class="tree-desc">Process manager page (list, inspect, signal, tree view)</span>
+                    </div>
+                    <div class="tree-leaf">
+                      <span class="tree-label tree-file-label">tailscale/</span>
+                      <span class="tree-desc">Tailscale device status page</span>
+                    </div>
+                    <div class="tree-leaf">
+                      <span class="tree-label tree-file-label">backups/</span>
+                      <span class="tree-desc">Backup management page (configure, run, schedule)</span>
+                    </div>
+                    <div class="tree-leaf">
+                      <span class="tree-label tree-file-label">tasks/</span>
+                      <span class="tree-desc">Operator task runner and disk usage page</span>
+                    </div>
+                    <div class="tree-leaf">
+                      <span class="tree-label tree-file-label">terminal/</span>
+                      <span class="tree-desc">Web-based xterm.js terminal</span>
+                    </div>
+                    <details class="tree-node">
+                      <summary>
+                        <span class="tree-label tree-dir-label">api/</span>
+                        <span class="tree-desc">REST API endpoints</span>
+                      </summary>
+                      <div class="tree-children">
+                        <div class="tree-leaf">
+                          <span class="tree-label tree-file-label">files/</span>
+                          <span class="tree-desc">File list (GET), upload (POST)</span>
+                        </div>
+                        <div class="tree-leaf">
+                          <span class="tree-label tree-file-label">files/[filename]/</span>
+                          <span class="tree-desc">File download/delete/rename</span>
+                        </div>
+                        <div class="tree-leaf">
+                          <span class="tree-label tree-file-label">processes/</span>
+                          <span class="tree-desc">Process list (GET)</span>
+                        </div>
+                        <div class="tree-leaf">
+                          <span class="tree-label tree-file-label">processes/[pid]/</span>
+                          <span class="tree-desc">Process detail/signal</span>
+                        </div>
+                        <div class="tree-leaf">
+                          <span class="tree-label tree-file-label">lights/</span>
+                          <span class="tree-desc">Bulb discovery</span>
+                        </div>
+                        <div class="tree-leaf">
+                          <span class="tree-label tree-file-label">lights/[ip]/</span>
+                          <span class="tree-desc">Individual bulb control</span>
+                        </div>
+                        <div class="tree-leaf">
+                          <span class="tree-label tree-file-label">tailscale/</span>
+                          <span class="tree-desc">Tailscale status</span>
+                        </div>
+                        <div class="tree-leaf">
+                          <span class="tree-label tree-file-label">backups/</span>
+                          <span class="tree-desc">Backup management</span>
+                        </div>
+                        <div class="tree-leaf">
+                          <span class="tree-label tree-file-label">tasks/</span>
+                          <span class="tree-desc">Task management</span>
+                        </div>
+                      </div>
+                    </details>
+                  </div>
+                </details>
+              </div>
+            </details>
+            <details open class="tree-node">
+              <summary>
+                <span class="tree-label tree-dir-label">static/</span> <span class="tree-desc">Static assets</span>
+              </summary>
+              <div class="tree-children">
+                <div class="tree-leaf">
+                  <span class="tree-label tree-file-label" data-ext="svg">favicon.svg</span>
+                  <span class="tree-desc">App favicon</span>
+                </div>
+                <div class="tree-leaf">
+                  <span class="tree-label tree-file-label" data-ext="txt">robots.txt</span>
+                  <span class="tree-desc">Robots exclusion</span>
+                </div>
+                <div class="tree-leaf">
+                  <span class="tree-label tree-file-label" data-ext="css">xterm.css</span>
+                  <span class="tree-desc">Terminal styles</span>
+                </div>
+              </div>
+            </details>
+            <div class="tree-leaf">
+              <span class="tree-label tree-file-label">uploads/</span>
+              <span class="tree-desc">Default file upload directory (configurable via UPLOAD_DIR env)</span>
+            </div>
+            <div class="tree-leaf">
+              <span class="tree-label tree-file-label" data-ext="yml">docker-compose.yml</span>
+              <span class="tree-desc">Single-service Docker Compose config</span>
+            </div>
+            <div class="tree-leaf">
+              <span class="tree-label tree-file-label">Dockerfile</span>
+              <span class="tree-desc">Multi-stage Node.js 20 Alpine build</span>
+            </div>
+          </div>
+        </section>
+        <section data-section-id="key-files">
+          <h2 id="key-files">Key Files</h2>
+          <h3 id="configuration">Configuration</h3>
+          <ul>
+            <li><code>package.json</code> — Project dependencies and scripts (dev, build, preview, start, docker:*)</li>
+            <li><code>tsconfig.json</code> — Extends SvelteKit-generated config, strict mode, bundler resolution</li>
+            <li>
+              <code>svelte.config.js</code> — adapter-node (output: build), CSRF trusted origins (Tailscale IPs), Svelte
+              5 runes enabled
+            </li>
+            <li>
+              <code>vite.config.ts</code> — SvelteKit plugin + custom WebSocket terminal plugin, host 0.0.0.0, port from
+              env
+            </li>
+            <li>
+              <code>Dockerfile</code> — Multi-stage build: builder (npm ci + vite build) -&gt; runner (node
+              build/index.js)
+            </li>
+            <li>
+              <code>docker-compose.yml</code> — Dashboard service on port 3000, volume-mounted uploads, ORIGIN from
+              Tailscale hostname
+            </li>
+            <li><code>CLAUDE.md</code> — Agent instructions: version bump format and rules</li>
+            <li><code>PROJECT.md</code> — Product blueprint: vision, goals, milestones, architecture, roles</li>
+          </ul>
+          <h3 id="entry-points">Entry Points</h3>
+          <ul>
+            <li><code>src/app.html</code> — HTML shell with SvelteKit head/body placeholders</li>
+            <li>
+              <code>src/routes/+layout.svelte</code> — Root layout: sidebar navigation, header with hostname, theme
+              toggle, loading shimmer
+            </li>
+            <li>
+              <code>src/routes/+layout.server.ts</code> — Provides <code>os.hostname()</code>,
+              <code>os.platform()</code>, <code>os.arch()</code> to all pages
+            </li>
+            <li><code>src/hooks.server.ts</code> — Lazy scheduler start on first request, request duration logging</li>
+            <li><code>src/lib/constants/app.ts</code> — App name and version constant (updated after every change)</li>
+          </ul>
+        </section>
+        <section data-section-id="dependencies">
+          <h2 id="dependencies">Dependencies</h2>
+          <h3 id="production">Production</h3>
+          <ul>
+            <li><a href="https://npmjs.com/package/ws">ws</a> (^8.19.0) — WebSocket server for terminal connections</li>
+            <li><a href="https://npmjs.com/package/node-pty">node-pty</a> (^1.1.0) — Pseudo-terminal for web shell</li>
+            <li><a href="https://npmjs.com/package/@xterm/xterm">@xterm/xterm</a> (^6.0.0) — Terminal emulator UI</li>
+            <li>
+              <a href="https://npmjs.com/package/@xterm/addon-fit">@xterm/addon-fit</a> (^0.11.0) — Auto-fit terminal to
+              container
+            </li>
+            <li><a href="https://npmjs.com/package/node-cron">node-cron</a> (^4.2.1) — Cron-based job scheduling</li>
+            <li>
+              <a href="https://npmjs.com/package/mammoth">mammoth</a> (^1.12.0) — Word document (.docx) to HTML
+              conversion
+            </li>
+            <li>
+              <a href="https://npmjs.com/package/xlsx">xlsx</a> (^0.18.5) — Excel/spreadsheet file parsing (SheetJS)
+            </li>
+            <li>
+              <a href="https://npmjs.com/package/@types/node-cron">@types/node-cron</a> (^3.0.11) — TypeScript types for
+              node-cron
+            </li>
+            <li><a href="https://npmjs.com/package/@types/ws">@types/ws</a> (^8.18.1) — TypeScript types for ws</li>
+          </ul>
+          <h3 id="development">Development</h3>
+          <ul>
+            <li>
+              <a href="https://npmjs.com/package/svelte">svelte</a> (^5.51.0) — UI framework (Svelte 5 with Runes)
+            </li>
+            <li>
+              <a href="https://npmjs.com/package/@sveltejs/kit">@sveltejs/kit</a> (^2.50.2) — Full-stack web framework
+            </li>
+            <li>
+              <a href="https://npmjs.com/package/@sveltejs/adapter-node">@sveltejs/adapter-node</a> (^5.0.0) — Node.js
+              server adapter
+            </li>
+            <li>
+              <a href="https://npmjs.com/package/@sveltejs/vite-plugin-svelte">@sveltejs/vite-plugin-svelte</a> (^6.2.4)
+              — Vite integration for Svelte
+            </li>
+            <li><a href="https://npmjs.com/package/vite">vite</a> (^7.3.1) — Build tool and dev server</li>
+            <li><a href="https://npmjs.com/package/typescript">typescript</a> (^5.9.3) — Static type checking</li>
+            <li>
+              <a href="https://npmjs.com/package/svelte-check">svelte-check</a> (^4.4.2) — Svelte-specific type checking
+            </li>
+            <li>
+              <a href="https://npmjs.com/package/@types/node">@types/node</a> (^25.5.0) — Node.js type definitions
+            </li>
+          </ul>
+          <h3 id="system-dependencies-not-in-packagejson">System Dependencies (not in package.json)</h3>
+          <ul>
+            <li><code>rsync</code> — Used by backup engine for incremental file sync</li>
+            <li><code>tailscale</code> — CLI used to query tailnet device status</li>
+            <li><code>lsof</code> — Used for process inspection (open files, network connections)</li>
+          </ul>
+        </section>
+        <section data-section-id="architectural-patterns">
+          <h2 id="architectural-patterns">Architectural Patterns</h2>
+          <h3 id="server-module-pattern">Server Module Pattern</h3>
+          <p>
+            Each domain has exactly one server-side module in <code>src/lib/server/</code>. Modules export typed
+            interfaces and pure functions. No cross-imports between server helpers — API routes are thin wrappers
+            calling into these modules.
+          </p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Module</th>
+                  <th>Domain</th>
+                  <th>Key Exports</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>files.ts</code></td>
+                  <td>File management</td>
+                  <td>
+                    <code>listFiles</code>, <code>saveFile</code>, <code>getFileStream</code>, <code>deleteFile</code>
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>metadata.ts</code></td>
+                  <td>File metadata sidecar</td>
+                  <td><code>getFileMetadata</code>, <code>setFileMetadata</code>, <code>getAllMetadata</code></td>
+                </tr>
+                <tr>
+                  <td><code>processes.ts</code></td>
+                  <td>OS process management</td>
+                  <td><code>listProcesses</code>, <code>sendSignal</code>, <code>getProcessDetail</code></td>
+                </tr>
+                <tr>
+                  <td><code>wiz.ts</code></td>
+                  <td>Smart bulb control</td>
+                  <td><code>discoverBulbs</code>, <code>setBulbState</code>, <code>getBulbState</code></td>
+                </tr>
+                <tr>
+                  <td><code>tailscale.ts</code></td>
+                  <td>VPN device status</td>
+                  <td><code>getTailscaleStatus</code></td>
+                </tr>
+                <tr>
+                  <td><code>backups.ts</code></td>
+                  <td>Incremental rsync backups</td>
+                  <td><code>runBackup</code>, <code>getBackupStatuses</code>, <code>saveBackupConfig</code></td>
+                </tr>
+                <tr>
+                  <td><code>operator.ts</code></td>
+                  <td>Task runner</td>
+                  <td><code>runTask</code>, <code>getTaskStatuses</code>, <code>getSystemDiskUsage</code></td>
+                </tr>
+                <tr>
+                  <td><code>scheduler.ts</code></td>
+                  <td>Cron scheduling</td>
+                  <td><code>startScheduler</code>, <code>scheduleAll</code></td>
+                </tr>
+                <tr>
+                  <td><code>notify.ts</code></td>
+                  <td>Push notifications (ntfy)</td>
+                  <td><code>sendNotification</code>, <code>notifyTaskComplete</code></td>
+                </tr>
+                <tr>
+                  <td><code>terminal.ts</code></td>
+                  <td>PTY sessions</td>
+                  <td><code>createSession</code>, <code>getSession</code>, <code>resizeSession</code></td>
+                </tr>
+                <tr>
+                  <td><code>ws.ts</code></td>
+                  <td>WebSocket server</td>
+                  <td><code>setupWebSocket</code></td>
+                </tr>
+                <tr>
+                  <td><code>config.ts</code></td>
+                  <td>Environment config</td>
+                  <td><code>getUploadDir</code>, <code>MAX_FILE_SIZE</code></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <h3 id="document-renderer-registry">Document Renderer Registry</h3>
+          <p>
+            Plugin-style pattern in <code>src/lib/renderers/</code>. Each renderer implements the
+            <code>DocumentRenderer</code> interface (<code>name</code>, <code>canRender(mime, filename)</code>,
+            <code>render(data, filename)</code>). Renderers are registered in priority order — first match wins. Adding
+            a new file format requires only implementing the interface and adding to the registry array.
+          </p>
+          <p>
+            Current renderers: Excel (SheetJS), Word (Mammoth), Markdown (custom regex), JSON (syntax highlighting),
+            Text (catch-all).
+          </p>
+          <h3 id="two-tier-process-stats">Two-Tier Process Stats</h3>
+          <p>
+            Process data is split into passive (cheap, always fetched: CPU, MEM, PID, user) and active (expensive,
+            on-demand via Inspect button: open files, threads, network connections, environment vars). This prevents
+            performance overhead from <code>lsof</code> and proc filesystem reads.
+          </p>
+          <h3 id="cron-scheduling">Cron Scheduling</h3>
+          <p>
+            Tasks and backups both support cron expressions. The scheduler is lazily initialized on the first HTTP
+            request via <code>hooks.server.ts</code>. It polls <code>node-cron</code> validated expressions from JSON
+            config files stored in <code>~/.home-server/</code>.
+          </p>
+          <h3 id="data-storage">Data Storage</h3>
+          <p>No database — all persistent state is JSON files:</p>
+          <ul>
+            <li><code>~/.home-server/tasks.json</code> — Task configurations</li>
+            <li><code>~/.home-server/task-history.json</code> — Task run history (capped at 200 entries)</li>
+            <li><code>~/.home-server/backups.json</code> — Backup configurations</li>
+            <li><code>~/.home-server/backup-history.json</code> — Backup run history (capped at 100 entries)</li>
+            <li><code>&lt;uploads&gt;/.meta.json</code> — Per-file metadata sidecar</li>
+          </ul>
+          <h3 id="styling">Styling</h3>
+          <p>
+            CSS custom properties design system with dark/light themes. All colors use <code>var(--token)</code> tokens
+            defined in <code>app.css</code>. Theme preference persists to <code>localStorage</code> under
+            <code>hs:theme</code>. GitHub-dark-inspired default palette. No CSS framework — hand-written CSS with scoped
+            <code>&lt;style&gt;</code> blocks in Svelte components.
+          </p>
+          <h3 id="state-management">State Management</h3>
+          <p>
+            Svelte 5 Runes (<code>$state</code>, <code>$derived</code>, <code>$effect</code>, <code>$props</code>) for
+            component state. Svelte stores (<code>writable</code>) for global state (theme). No external state
+            management library. Server-side data loaded via SvelteKit <code>+page.server.ts</code> load functions.
+          </p>
+          <h3 id="api-communication">API Communication</h3>
+          <p>
+            SvelteKit API routes (<code>+server.ts</code>) returning JSON via <code>json()</code> helper. Client pages
+            use SvelteKit's built-in <code>fetch</code> and load functions. WebSocket for real-time terminal I/O. UDP
+            datagrams for Wiz bulb communication.
+          </p>
+          <h3 id="notifications">Notifications</h3>
+          <p>
+            Push notifications via <a href="https://ntfy.sh">ntfy.sh</a> — configurable topic and server via
+            <code>NTFY_TOPIC</code> / <code>NTFY_SERVER</code> environment variables. Notifications sent on task/backup
+            completion (success or failure).
+          </p>
+          <h3 id="security">Security</h3>
+          <ul>
+            <li>
+              Path traversal protection in file operations (<code>safePath</code> validates resolved paths stay within
+              base directory)
+            </li>
+            <li>CSRF trusted origins configured for Tailscale IPs</li>
+            <li>Signal sending restricted to a whitelist of POSIX signals</li>
+            <li>No authentication — relies on Tailscale VPN for access control (tailnet-only access)</li>
+          </ul>
+        </section>
+        <section data-section-id="routes--pages">
+          <h2 id="routes--pages">Routes / Pages</h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Route</th>
+                  <th>Purpose</th>
+                  <th>Data Source</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>/</code></td>
+                  <td>Dashboard — widget grid linking to all features</td>
+                  <td>Static widget list</td>
+                </tr>
+                <tr>
+                  <td><code>/files</code></td>
+                  <td>File manager — upload, download, preview, rename</td>
+                  <td>API + server load</td>
+                </tr>
+                <tr>
+                  <td><code>/lights</code></td>
+                  <td>Wiz bulb control — discovery, on/off, brightness, RGB</td>
+                  <td>UDP broadcast</td>
+                </tr>
+                <tr>
+                  <td><code>/processes</code></td>
+                  <td>Process manager — list, sort, inspect, signal, tree</td>
+                  <td><code>ps</code> command</td>
+                </tr>
+                <tr>
+                  <td><code>/tailscale</code></td>
+                  <td>Tailscale device status — online peers, IPs</td>
+                  <td><code>tailscale status</code></td>
+                </tr>
+                <tr>
+                  <td><code>/backups</code></td>
+                  <td>Backup manager — configure, run, schedule rsync jobs</td>
+                  <td>JSON config files</td>
+                </tr>
+                <tr>
+                  <td><code>/tasks</code></td>
+                  <td>Operator tasks — CRUD, run, schedule, disk usage chart</td>
+                  <td>JSON config files</td>
+                </tr>
+                <tr>
+                  <td><code>/terminal</code></td>
+                  <td>Web terminal — xterm.js + node-pty via WebSocket</td>
+                  <td>PTY over WebSocket</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <section data-section-id="api-endpoints">
+          <h2 id="api-endpoints">API Endpoints</h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Method</th>
+                  <th>Endpoint</th>
+                  <th>Purpose</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>GET</td>
+                  <td><code>/api/files</code></td>
+                  <td>List files (with metadata)</td>
+                </tr>
+                <tr>
+                  <td>POST</td>
+                  <td><code>/api/files</code></td>
+                  <td>Upload file (multipart form)</td>
+                </tr>
+                <tr>
+                  <td>GET</td>
+                  <td><code>/api/files/[filename]</code></td>
+                  <td>Download file</td>
+                </tr>
+                <tr>
+                  <td>DELETE</td>
+                  <td><code>/api/files/[filename]</code></td>
+                  <td>Delete file</td>
+                </tr>
+                <tr>
+                  <td>PATCH</td>
+                  <td><code>/api/files/[filename]</code></td>
+                  <td>Rename file</td>
+                </tr>
+                <tr>
+                  <td>GET</td>
+                  <td><code>/api/processes</code></td>
+                  <td>List processes (sortable)</td>
+                </tr>
+                <tr>
+                  <td>GET</td>
+                  <td><code>/api/processes/[pid]</code></td>
+                  <td>Process detail (active tier)</td>
+                </tr>
+                <tr>
+                  <td>POST</td>
+                  <td><code>/api/processes/[pid]</code></td>
+                  <td>Send signal to process</td>
+                </tr>
+                <tr>
+                  <td>GET</td>
+                  <td><code>/api/lights</code></td>
+                  <td>Discover Wiz bulbs</td>
+                </tr>
+                <tr>
+                  <td>GET</td>
+                  <td><code>/api/lights/[ip]</code></td>
+                  <td>Get bulb state</td>
+                </tr>
+                <tr>
+                  <td>POST</td>
+                  <td><code>/api/lights/[ip]</code></td>
+                  <td>Set bulb state</td>
+                </tr>
+                <tr>
+                  <td>GET</td>
+                  <td><code>/api/tailscale</code></td>
+                  <td>Get tailnet device status</td>
+                </tr>
+                <tr>
+                  <td>GET</td>
+                  <td><code>/api/backups</code></td>
+                  <td>Get backup configs and statuses</td>
+                </tr>
+                <tr>
+                  <td>POST</td>
+                  <td><code>/api/backups</code></td>
+                  <td>Create/update backup config</td>
+                </tr>
+                <tr>
+                  <td>GET</td>
+                  <td><code>/api/tasks</code></td>
+                  <td>Get task configs and statuses</td>
+                </tr>
+                <tr>
+                  <td>POST</td>
+                  <td><code>/api/tasks</code></td>
+                  <td>Create/update/run task</td>
+                </tr>
+                <tr>
+                  <td>WS</td>
+                  <td><code>/ws/terminal</code></td>
+                  <td>Terminal WebSocket connection</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <section data-section-id="key-code-snippets">
+          <h2 id="key-code-snippets">Key Code Snippets</h2>
+          <h3 id="snippet-app-ts">src/lib/constants/app.ts — Version tracking constant</h3>
+          <div class="code-wrap">
+            <div class="code-header">
+              <span class="code-lang">ts</span>
+              <div class="code-actions">
+                <button class="code-expand" aria-label="Expand">
+                  <svg
+                    width="11"
+                    height="11"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                  >
+                    <polyline points="15 3 21 3 21 9" />
+                    <polyline points="9 21 3 21 3 15" />
+                    <line x1="21" y1="3" x2="14" y2="10" />
+                    <line x1="3" y1="21" x2="10" y2="14" />
+                  </svg>
+                  Expand
+                </button>
+                <button class="copy-btn">Copy</button>
+              </div>
+            </div>
+            <pre><code><span class="kw">export</span> <span class="kw">const</span> APP = {
+	title: <span class="nm">0</span>,
+	version: <span class="nm">1</span>,
+} as <span class="kw">const</span>;</code></pre>
+          </div>
+          <h3 id="snippet-hooks-server">src/hooks.server.ts — Lazy scheduler init and request logging</h3>
+          <div class="code-wrap">
+            <div class="code-header">
+              <span class="code-lang">ts</span>
+              <div class="code-actions">
+                <button class="code-expand" aria-label="Expand">
+                  <svg
+                    width="11"
+                    height="11"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                  >
+                    <polyline points="15 3 21 3 21 9" />
+                    <polyline points="9 21 3 21 3 15" />
+                    <line x1="21" y1="3" x2="14" y2="10" />
+                    <line x1="3" y1="21" x2="10" y2="14" />
+                  </svg>
+                  Expand
+                </button>
+                <button class="copy-btn">Copy</button>
+              </div>
+            </div>
+            <pre><code><span class="kw">import</span> <span class="kw">type</span> { Handle } <span class="kw">from</span> <span class="nm">0</span>;
+<span class="kw">import</span> { startScheduler } <span class="kw">from</span> <span class="nm">1</span>;
+
+<span class="kw">let</span> schedulerStarted = <span class="kw">false</span>;
+
+<span class="kw">export</span> <span class="kw">const</span> handle: Handle = <span class="kw">async</span> ({ event, resolve }) =&gt; {
+	<span class="kw">if</span> (!schedulerStarted) {
+		schedulerStarted = <span class="kw">true</span>;
+		startScheduler().<span class="kw">catch</span>(err =&gt; console.error(<span class="nm">2</span>, err));
+	}
+
+	<span class="kw">const</span> start = Date.now();
+	<span class="kw">const</span> response = <span class="kw">await</span> resolve(event);
+	<span class="kw">const</span> duration = Date.now() - start;
+
+	console.log(<span class="nm">3</span>);
+	<span class="kw">return</span> response;
+};</code></pre>
+          </div>
+          <h3 id="snippet-renderers">src/lib/renderers/index.ts — Plugin-style document renderer registry</h3>
+          <div class="code-wrap">
+            <div class="code-header">
+              <span class="code-lang">ts</span>
+              <div class="code-actions">
+                <button class="code-expand" aria-label="Expand">
+                  <svg
+                    width="11"
+                    height="11"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                  >
+                    <polyline points="15 3 21 3 21 9" />
+                    <polyline points="9 21 3 21 3 15" />
+                    <line x1="21" y1="3" x2="14" y2="10" />
+                    <line x1="3" y1="21" x2="10" y2="14" />
+                  </svg>
+                  Expand
+                </button>
+                <button class="copy-btn">Copy</button>
+              </div>
+            </div>
+            <pre><code><span class="kw">export</span> <span class="kw">interface</span> DocumentRenderer {
+	name: <span class="kw">string</span>;
+	canRender: (mime: <span class="kw">string</span>, filename: <span class="kw">string</span>) =&gt; <span class="kw">boolean</span>;
+	render: (data: ArrayBuffer, filename: <span class="kw">string</span>) =&gt; Promise&lt;RenderResult&gt;;
+}
+
+<span class="kw">const</span> RENDERERS: DocumentRenderer[] = [
+	excelRenderer,
+	wordRenderer,
+	markdownRenderer,
+	jsonRenderer,
+	textRenderer,  <span class="nm">0</span>
+];
+
+<span class="kw">export</span> <span class="kw">function</span> getRenderer(mime: <span class="kw">string</span>, filename: <span class="kw">string</span>): DocumentRenderer | <span class="kw">null</span> {
+	<span class="kw">return</span> RENDERERS.find(r =&gt; r.canRender(mime, filename)) || <span class="kw">null</span>;
+}</code></pre>
+          </div>
+          <h3 id="snippet-wiz">src/lib/server/wiz.ts — Wiz bulb UDP discovery pattern</h3>
+          <div class="code-wrap">
+            <div class="code-header">
+              <span class="code-lang">ts</span>
+              <div class="code-actions">
+                <button class="code-expand" aria-label="Expand">
+                  <svg
+                    width="11"
+                    height="11"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                  >
+                    <polyline points="15 3 21 3 21 9" />
+                    <polyline points="9 21 3 21 3 15" />
+                    <line x1="21" y1="3" x2="14" y2="10" />
+                    <line x1="3" y1="21" x2="10" y2="14" />
+                  </svg>
+                  Expand
+                </button>
+                <button class="copy-btn">Copy</button>
+              </div>
+            </div>
+            <pre><code><span class="kw">export</span> <span class="kw">async</span> <span class="kw">function</span> discoverBulbs(): Promise&lt;WizBulb[]&gt; {
+	<span class="kw">const</span> localIp = getLocalIp();
+	<span class="kw">const</span> message = JSON.stringify({
+		method: <span class="nm">0</span>,
+		params: { phoneMac: <span class="nm">1</span>, register: <span class="kw">false</span>, phoneIp: localIp, id: <span class="nm">2</span> }
+	});
+
+	<span class="kw">const</span> bulbs = <span class="kw">new</span> Map&lt;<span class="kw">string</span>, WizBulb&gt;();
+	<span class="kw">const</span> socket = dgram.createSocket(<span class="nm">3</span>);
+
+	<span class="kw">return</span> <span class="kw">new</span> Promise((resolve) =&gt; {
+		socket.on(<span class="nm">4</span>, (msg, rinfo) =&gt; {
+			<span class="kw">try</span> {
+				<span class="kw">const</span> data = JSON.parse(msg.toString());
+				<span class="kw">if</span> (data.result?.mac) {
+					bulbs.set(data.result.mac, parseBulbResult(rinfo.address, data.result));
+				}
+			} <span class="kw">catch</span> { /* ignore */ }
+		});
+
+		socket.bind(() =&gt; {
+			socket.setBroadcast(<span class="kw">true</span>);
+			socket.send(Buffer.<span class="kw">from</span>(message), <span class="nm">0</span>, message.length, WIZ_PORT, <span class="nm">5</span>);
+		});
+
+		setTimeout(() =&gt; { socket.close(); resolve(Array.<span class="kw">from</span>(bulbs.values())); }, DISCOVERY_TIMEOUT);
+	});
+}</code></pre>
+          </div>
+          <h3 id="snippet-operator">src/lib/server/operator.ts — Task runner with retry and exponential backoff</h3>
+          <div class="code-wrap">
+            <div class="code-header">
+              <span class="code-lang">ts</span>
+              <div class="code-actions">
+                <button class="code-expand" aria-label="Expand">
+                  <svg
+                    width="11"
+                    height="11"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                  >
+                    <polyline points="15 3 21 3 21 9" />
+                    <polyline points="9 21 3 21 3 15" />
+                    <line x1="21" y1="3" x2="14" y2="10" />
+                    <line x1="3" y1="21" x2="10" y2="14" />
+                  </svg>
+                  Expand
+                </button>
+                <button class="copy-btn">Copy</button>
+              </div>
+            </div>
+            <pre><code>proc.on(<span class="nm">1</span>, <span class="kw">async</span> (code: <span class="kw">number</span> | <span class="kw">null</span>) =&gt; {
+	clearTimeout(timer);
+	run.completedAt = <span class="kw">new</span> Date().toISOString();
+	run.exitCode = code;
+	run.duration = Date.now() - startMs;
+
+	<span class="kw">if</span> (run.status !== <span class="nm">2</span>) {
+		run.status = code === <span class="nm">0</span> ? <span class="nm">3</span> : <span class="nm">4</span>;
+	}
+
+	runningTasks.delete(taskId);
+	<span class="kw">await</span> appendTaskHistory(run);
+
+	<span class="kw">if</span> (config.notify &amp;&amp; (run.status === <span class="nm">5</span> || attempt &gt;= config.maxRetries)) {
+		notifyTaskComplete(config.name, run.status as <span class="kw">any</span>, run.duration || <span class="kw">undefined</span>).<span class="kw">catch</span>(() =&gt; {});
+	}
+
+	<span class="nm">0</span>
+	<span class="kw">if</span> (run.status === <span class="nm">6</span> &amp;&amp; attempt &lt; config.maxRetries) {
+		<span class="kw">const</span> delay = Math.pow(<span class="nm">2</span>, attempt) * <span class="nm">1000</span>;
+		setTimeout(() =&gt; runTask(taskId, attempt + <span class="nm">1</span>), delay);
+	}
+});</code></pre>
+          </div>
+          <h3 id="snippet-theme">src/lib/theme.ts — Dark/light theme with localStorage persistence</h3>
+          <div class="code-wrap">
+            <div class="code-header">
+              <span class="code-lang">ts</span>
+              <div class="code-actions">
+                <button class="code-expand" aria-label="Expand">
+                  <svg
+                    width="11"
+                    height="11"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                  >
+                    <polyline points="15 3 21 3 21 9" />
+                    <polyline points="9 21 3 21 3 15" />
+                    <line x1="21" y1="3" x2="14" y2="10" />
+                    <line x1="3" y1="21" x2="10" y2="14" />
+                  </svg>
+                  Expand
+                </button>
+                <button class="copy-btn">Copy</button>
+              </div>
+            </div>
+            <pre><code><span class="kw">export</span> <span class="kw">const</span> theme = writable&lt;Theme&gt;(getInitialTheme());
+
+<span class="kw">export</span> <span class="kw">function</span> toggleTheme() {
+	theme.update(t =&gt; {
+		<span class="kw">const</span> next = t === <span class="nm">0</span> ? <span class="nm">1</span> : <span class="nm">2</span>;
+		<span class="kw">if</span> (browser) {
+			localStorage.setItem(<span class="nm">3</span>, next);
+			document.documentElement.setAttribute(<span class="nm">4</span>, next);
+		}
+		<span class="kw">return</span> next;
+	});
+}</code></pre>
+          </div>
+          <h3 id="snippet-ws">src/lib/server/ws.ts — WebSocket terminal bridge (PTY to client)</h3>
+          <div class="code-wrap">
+            <div class="code-header">
+              <span class="code-lang">ts</span>
+              <div class="code-actions">
+                <button class="code-expand" aria-label="Expand">
+                  <svg
+                    width="11"
+                    height="11"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                  >
+                    <polyline points="15 3 21 3 21 9" />
+                    <polyline points="9 21 3 21 3 15" />
+                    <line x1="21" y1="3" x2="14" y2="10" />
+                    <line x1="3" y1="21" x2="10" y2="14" />
+                  </svg>
+                  Expand
+                </button>
+                <button class="copy-btn">Copy</button>
+              </div>
+            </div>
+            <pre><code><span class="kw">function</span> handleTerminalConnection(ws: WebSocket, url: URL) {
+	<span class="kw">const</span> cols = parseInt(url.searchParams.get(<span class="nm">0</span>) || <span class="nm">1</span>);
+	<span class="kw">const</span> rows = parseInt(url.searchParams.get(<span class="nm">2</span>) || <span class="nm">3</span>);
+	<span class="kw">const</span> sessionId = url.searchParams.get(<span class="nm">4</span>);
+
+	<span class="kw">let</span> session = sessionId ? getSession(sessionId) : <span class="kw">undefined</span>;
+	<span class="kw">if</span> (!session) { session = createSession(cols, rows); }
+
+	ws.send(JSON.stringify({ <span class="kw">type</span>: <span class="nm">5</span>, id: session.id }));
+
+	<span class="kw">const</span> dataHandler = session.pty.onData((data: <span class="kw">string</span>) =&gt; {
+		<span class="kw">if</span> (ws.readyState === WebSocket.OPEN) {
+			ws.send(JSON.stringify({ <span class="kw">type</span>: <span class="nm">6</span>, data }));
+		}
+	});
+
+	ws.on(<span class="nm">7</span>, (raw) =&gt; {
+		<span class="kw">const</span> msg = JSON.parse(raw.toString());
+		<span class="kw">if</span> (msg.<span class="kw">type</span> === <span class="nm">8</span> &amp;&amp; session) { session.pty.write(msg.data); }
+		<span class="kw">else</span> <span class="kw">if</span> (msg.<span class="kw">type</span> === <span class="nm">9</span> &amp;&amp; session) { resizeSession(session.id, msg.cols, msg.rows); }
+	});
+
+	ws.on(<span class="nm">10</span>, () =&gt; { dataHandler.dispose(); });
+}</code></pre>
+          </div>
+        </section>
+        <section data-section-id="notes">
+          <h2 id="notes">Notes</h2>
+          <ul>
+            <li>
+              <strong>No database</strong> — All persistence is via JSON files in <code>~/.home-server/</code> and the
+              uploads directory. Suitable for single-user personal use.
+            </li>
+            <li>
+              <strong>No authentication</strong> — Security relies entirely on Tailscale VPN. The app is only accessible
+              within the tailnet.
+            </li>
+            <li>
+              <strong>Svelte 5 Runes</strong> — The project uses Svelte 5's new reactivity model (<code>$state</code>,
+              <code>$derived</code>, <code>$effect</code>, <code>$props</code>) instead of the older
+              <code>$:</code> reactive declarations.
+            </li>
+            <li>
+              <strong>CSRF trusted origins</strong> include Tailscale and local network IPs, configured in
+              <code>svelte.config.js</code>.
+            </li>
+            <li>
+              <strong>WebSocket terminal</strong> is attached via a custom Vite plugin during dev and directly in
+              production via the HTTP server upgrade event.
+            </li>
+            <li>
+              <strong>Version tagging</strong> follows <code>major.minor.patch-word-word-number</code> format. Must be
+              updated after every change per <code>CLAUDE.md</code> instructions.
+            </li>
+            <li>
+              <strong>Docker deployment</strong> uses multi-stage build with Node 20 Alpine. Uploads volume-mounted at
+              <code>/data/uploads</code>.
+            </li>
+            <li>
+              <strong>Config lives in <code>~/.home-server/</code></strong> — not in the project directory. Tasks and
+              backups persist across deployments.
+            </li>
+            <li>
+              <strong>Notification integration</strong> is optional — requires <code>NTFY_TOPIC</code> env var to enable
+              ntfy.sh push notifications.
+            </li>
+          </ul>
+        </section>
+        <div id="no-results">No sections match your search — try different terms.</div>
+      </main>
+    </div>
+
+    <!-- Code preview dialog -->
+    <dialog id="code-dialog">
+      <div class="dlg-header">
+        <span class="dlg-lang"></span>
+        <span class="dlg-title"></span>
+        <div class="dlg-actions">
+          <span class="dlg-lines"></span>
+          <button class="dlg-copy">Copy</button>
+          <button class="dlg-close" aria-label="Close">✕</button>
+        </div>
+      </div>
+      <div class="dlg-body"></div>
+    </dialog>
+
+    <script src="./report.js" defer></script>
+  </body>
+</html>
