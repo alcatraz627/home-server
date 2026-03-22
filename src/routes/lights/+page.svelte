@@ -577,10 +577,15 @@
   </div>
 {:else}
   <div class="bulb-grid">
-    {#each filteredBulbs as bulb}
+    {#each filteredBulbs as bulb, i}
       <!-- svelte-ignore a11y_click_events_have_key_events -->
       <!-- svelte-ignore a11y_no_static_element_interactions -->
-      <div class="bulb-card" class:off={!bulb.state} class:selected={selectedBulbs.has(bulb.mac)}>
+      <div
+        class="bulb-card card-stagger"
+        style="animation-delay: {i * 40}ms"
+        class:off={!bulb.state}
+        class:selected={selectedBulbs.has(bulb.mac)}
+      >
         <!-- Color swatch header -->
         <div
           class="bulb-swatch"

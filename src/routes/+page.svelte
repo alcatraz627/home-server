@@ -63,7 +63,7 @@
 
 <!-- System Stats Row -->
 <div class="stats-row">
-  <div class="stat-card">
+  <div class="stat-card card-stagger" style="animation-delay: 0ms">
     <div class="stat-header">Memory</div>
     <div class="stat-value" style="color: {memColor}">{system.memUsedPercent}%</div>
     <div class="stat-bar">
@@ -72,7 +72,7 @@
     <div class="stat-detail">{system.memTotal} GB total</div>
   </div>
 
-  <div class="stat-card">
+  <div class="stat-card card-stagger" style="animation-delay: 40ms">
     <div class="stat-header">CPU Load</div>
     <div class="stat-value" style="color: {loadColor}">{system.loadAvg}</div>
     <div class="stat-bar">
@@ -84,14 +84,14 @@
     <div class="stat-detail">{system.cpuCount} cores</div>
   </div>
 
-  <div class="stat-card">
+  <div class="stat-card card-stagger" style="animation-delay: 80ms">
     <div class="stat-header">Uptime</div>
     <div class="stat-value">{system.uptime}h</div>
     <div class="stat-detail">{Math.floor(system.uptime / 24)}d {system.uptime % 24}h</div>
   </div>
 
-  {#each dashboard.disk as d}
-    <div class="stat-card">
+  {#each dashboard.disk as d, i}
+    <div class="stat-card card-stagger" style="animation-delay: {(i + 3) * 40}ms">
       <div class="stat-header">Disk <code>{d.mount}</code></div>
       <div
         class="stat-value"
@@ -120,7 +120,7 @@
 
 <!-- Status Cards -->
 <div class="status-grid">
-  <a href="/tasks" class="status-card">
+  <a href="/tasks" class="status-card card-stagger" style="animation-delay: 0ms">
     <div class="status-icon">⚙</div>
     <div class="status-body">
       <h3>Tasks</h3>
@@ -137,7 +137,7 @@
     </div>
   </a>
 
-  <a href="/backups" class="status-card">
+  <a href="/backups" class="status-card card-stagger" style="animation-delay: 40ms">
     <div class="status-icon">⟲</div>
     <div class="status-body">
       <h3>Backups</h3>
@@ -159,7 +159,7 @@
     </div>
   </a>
 
-  <a href="/keeper" class="status-card">
+  <a href="/keeper" class="status-card card-stagger" style="animation-delay: 80ms">
     <div class="status-icon">◈</div>
     <div class="status-body">
       <h3>Keeper</h3>
@@ -248,8 +248,8 @@
 <!-- Quick Nav -->
 <h3 class="section-title">Quick Access</h3>
 <div class="nav-grid">
-  {#each widgets as w}
-    <a href={w.href} class="nav-card">
+  {#each widgets as w, i}
+    <a href={w.href} class="nav-card card-stagger" style="animation-delay: {i * 40}ms">
       <span class="nav-icon">{w.icon}</span>
       <span>{w.label}</span>
     </a>

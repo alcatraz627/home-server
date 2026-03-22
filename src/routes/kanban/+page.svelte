@@ -160,9 +160,10 @@
         </div>
 
         <div class="column-cards">
-          {#each columnCards(col.key) as card (card.id)}
+          {#each columnCards(col.key) as card, i (card.id)}
             <div
-              class="card kanban-card"
+              class="card kanban-card card-stagger"
+              style="animation-delay: {i * 40}ms"
               draggable="true"
               ondragstart={(e) => handleDragStart(e, card.id)}
               role="listitem"

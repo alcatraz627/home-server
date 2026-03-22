@@ -221,8 +221,8 @@
     </div>
   {:else}
     <div class="bookmark-list">
-      {#each filtered as bm (bm.id)}
-        <div class="card bookmark-item">
+      {#each filtered as bm, i (bm.id)}
+        <div class="card bookmark-item card-stagger" style="animation-delay: {i * 40}ms">
           <div class="bookmark-main">
             <img
               src={faviconUrl(bm.url)}

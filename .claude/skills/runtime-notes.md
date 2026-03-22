@@ -4,6 +4,20 @@ Append-only log of skill run insights. Newest entries at top.
 
 ---
 
+## session: Sidebar nav groups + per-page docs — 2026-03-22
+
+**Purpose:** Restructured sidebar navigation into collapsible groups with pinning, and created 24 per-page documentation files with categorized docs page.
+
+**Insights:**
+
+1. Svelte 5 does not support `onclick|stopPropagation` modifier syntax; use `onclick={(e) => { e.stopPropagation(); ... }}` instead
+2. HTML entities inside Svelte `{}` expressions render as literal text; use Unicode escapes (`'\u2605'`) for dynamic content, but HTML entities (`&#9733;`) work fine in static HTML positions
+3. The layout.svelte has an external linter/formatter that may add imports (e.g., `THEME_SWATCHES`, `goto`) -- these should not be reverted
+4. `docs/pages/` directory already existed but was empty; the `+page.server.ts` previously only scanned `docs/` (not subdirs), so it needed updating to collect from `docs/pages/`
+5. The `DocFile` interface needed a `category` field added to support grouped rendering in the docs page
+
+---
+
 ## session: Audit and fix fetch() error handling across all page files — 2026-03-22
 
 **Purpose:** Added try/catch with toast.error() notifications to every unguarded fetch() call across 7 page files.
