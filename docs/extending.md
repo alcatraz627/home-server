@@ -126,7 +126,7 @@ In `src/routes/+page.svelte`, add to the `widgets` array:
 }
 ```
 
-In `src/routes/+layout.svelte`, add to the `nav` array:
+In `src/lib/constants/nav.ts`, add to the appropriate group:
 
 ```typescript
 { href: '/mywidget', label: 'My Widget', icon: '◆' }

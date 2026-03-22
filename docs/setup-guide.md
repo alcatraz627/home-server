@@ -4,12 +4,14 @@ Complete walkthrough to get Home Server running from scratch.
 
 ## Prerequisites
 
-| Requirement | Version | Check |
-|------------|---------|-------|
-| Node.js | 20+ (v23 works) | `node --version` |
-| npm | 9+ | `npm --version` |
-| Tailscale | Latest | `/Applications/Tailscale.app/Contents/MacOS/Tailscale status` |
-| rsync | Any (pre-installed on macOS/Linux) | `which rsync` |
+| Requirement | Version | Check | Notes |
+|------------|---------|-------|-------|
+| Node.js | 20+ (v23 works) | `node --version` | |
+| npm | 9+ | `npm --version` | |
+| Tailscale | Latest | `/Applications/Tailscale.app/Contents/MacOS/Tailscale status` | |
+| rsync | Any (pre-installed on macOS/Linux) | `which rsync` | Required for backups |
+| blueutil | Any (optional) | `which blueutil` | macOS Bluetooth scanning; `brew install blueutil` |
+| Xcode CLT | Any (macOS) | `xcode-select -p` | Required for node-pty native compilation |
 
 ## Step 1: Clone & Install
 
@@ -181,3 +183,15 @@ Increase `MAX_FILE_SIZE` in `.env`. For production, also set `BODY_SIZE_LIMIT=In
 ### Tailscale shows only one device
 
 Ensure Tailscale is installed, running, and signed in with the same account on all devices. Check the [Tailscale admin console](https://login.tailscale.com/admin/machines).
+
+### node-pty build errors
+
+`node-pty` requires native compilation tools. On macOS, install Xcode Command Line Tools: `xcode-select --install`. If the error persists, try `npm rebuild node-pty`. On Linux, ensure `build-essential` and `python3` are installed.
+
+### Screenshots fail on macOS
+
+The screenshot capture uses `screencapture` which requires Screen Recording permission. Grant access in **System Settings > Privacy & Security > Screen Recording** for your terminal app or Node.js.
+
+### Bluetooth scanning not working
+
+On macOS, Bluetooth scanning requires `blueutil`. Install via Homebrew: `brew install blueutil`. Without it, the Peripherals page will show a Bluetooth error but WiFi scanning will still work.

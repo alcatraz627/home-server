@@ -2,6 +2,47 @@
 
 Append-only log of skill run insights. Newest entries at top.
 
+## session: arch-qa — manage devices navbar — 2026-03-22
+
+**Purpose:** Traced the "Manage Devices" feature from navbar UI through device-context store to API layer.
+
+**Insights:**
+
+1. The device system is purely client-side — `localStorage` stores both the selected target (`hs:device-context`) and the device list (`hs:remote-devices`). No server-side persistence.
+2. `fetchApi` wrapper in `src/lib/api.ts` exists but is not yet consumed by any page — pages still use raw `fetch()`. The device-targeting plumbing is in place but adoption is incomplete.
+3. The modal, device selector dropdown, and all device state management live entirely in `+layout.svelte` and `device-context.ts` — only two files to understand the whole feature.
+4. `removeDevice` has a safety check: if the removed device was the active target, it resets to `'local'`.
+
+---
+
+## session: Documentation refinement pass — 2026-03-22
+
+**Purpose:** Comprehensive audit and update of all documentation files to match the current v3.6 codebase state.
+
+**Insights:**
+
+1. The README had stale counts everywhere: "31 API endpoints" (actual: 35 route files), "11 components" (actual: 17), "10 themes" in the App Infrastructure table (actual: 20), "25 pages" (actual: 26 with /apps).
+2. Architecture.md module boundaries table only listed 7 domains but the codebase has 14+ including keeper, wol, bookmarks, kanban, network tools, peripherals, and apps.
+3. The extending.md still referenced `+layout.svelte` for nav registration, but nav was moved to `src/lib/constants/nav.ts` — stale after the navbar overhaul.
+4. The roadmap.md "Architecture Notes" section listed "10 themes" which was outdated since the v3.5 theme expansion to 20.
+5. No docs/pages/ file exists for `/apps` (the app launcher page) — this is a gap that could be addressed in a future session.
+
+---
+
+## session: Media player enhancements + dashboard drag-and-drop layout — 2026-03-22
+
+**Purpose:** Added playback speed dropdown, PiP, download button to MediaPlayer; replaced checkbox-based dashboard section visibility with full drag-and-drop reordering system.
+
+**Insights:**
+
+1. The Svelte autoformatter/autofixer modifies files between edits — `new Set<string>(...)` generic syntax inside `<script>` blocks can be stripped or rewritten by the linter chain. Using `as any` casts or explicit type annotations (`const x: Set<string> = ...`) is more robust in Svelte script blocks.
+2. Dashboard drag-and-drop required splitting previously grouped sections (Tasks/Backups/Keeper were in one `status-grid`, Activity/Processes in one `detail-row`) into individually-draggable wrappers — each section gets its own `.dashboard-section` div with independent grid layout inside.
+3. The `DASHBOARD_SECTIONS` const tuple needed a `quick-actions` entry added since it was previously just inline HTML outside any section system.
+4. PiP API check via `document.pictureInPictureEnabled` must be done in an `$effect` (client-side only), not at module top level.
+5. Speed dropdown uses a `.speed-overlay` fixed backdrop pattern (same as the gear config dropdown) to handle click-away dismissal without complex event delegation.
+
+---
+
 ## session: Inline terminal + wildcard search on files page — 2026-03-22
 
 **Purpose:** Added collapsible inline xterm.js terminal and wildcard file search to the files page.

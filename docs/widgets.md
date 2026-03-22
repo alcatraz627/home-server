@@ -174,10 +174,12 @@ Full web-based terminal emulator accessible from any device on the tailnet.
 
 - **xterm.js** terminal with 256-color support
 - **node-pty** backend — spawns a real shell (zsh/bash)
-- **Session persistence** — sessions survive page refreshes and reconnects
+- **Tab management** — multiple tabs, tab renaming (double-click), middle-click close
+- **Session persistence** — sessions survive page navigation via sessionStorage
 - **Resize handling** — terminal resizes with the browser window via ResizeObserver
-- **Multiple sessions** — "New Session" creates a fresh shell, "Reconnect" resumes the previous one
-- **Dark theme** — colors matched to the app's dark UI
+- **Font size controls** — adjustable terminal font size
+- **Mobile support** — Ctrl mode button for touch devices
+- **Theme-aware** — colors adapt to the active app theme
 
 ### Implementation
 
