@@ -436,3 +436,15 @@ See [docs/claude-keeper.md](docs/claude-keeper.md) for full planning document.
 - [ ] **DNS Lookup Tool** — interactive dig/nslookup with visual record display (A, AAAA, MX, CNAME, TXT). Compare across DNS providers (Google, Cloudflare, ISP)
 - [ ] **Port Scanner** — scan a target IP for open ports with service detection. Uses `nc` or `nmap` if installed. Visual port map
 - [ ] **System Benchmarks** — run CPU (sysbench), disk (dd), memory, and network benchmarks. Store results, compare over time. Good for detecting degradation
+
+### T22 — Security / Network Tools (Hackerman Mode)
+- [ ] **WiFi Scanner** — scan nearby WiFi networks showing SSID, BSSID, channel, signal strength (dBm), encryption type, vendor. Uses `airport -s` on macOS, `nmcli dev wifi list` on Linux. Sortable table with signal strength bars. Highlight open networks in red. Auto-refresh toggle. Option to deauth-detect (monitor for sudden signal drops)
+- [ ] **Packet Sniffer** — capture and display live network packets in a scrollable log. Uses `tcpdump` with configurable interface, filter expression (e.g. `port 80`, `host 192.168.1.1`), and packet count limit. Show: timestamp, src→dst, protocol, size, payload preview (hex + ASCII). Start/stop capture button. Export as `.pcap`. Requires sudo — show permission prompt
+- [ ] **Network Toolkit** — collection of networking tools in one page:
+  - **Traceroute** — visual hop-by-hop path to any host with latency per hop (uses `traceroute` / `mtr`)
+  - **Ping Sweep** — scan a subnet (e.g. 192.168.1.0/24) for live hosts with response times
+  - **ARP Table** — show all known MAC↔IP mappings from `arp -a`, with vendor lookup
+  - **Whois Lookup** — query domain/IP ownership info
+  - **Bandwidth Monitor** — real-time bytes/sec per interface using `nettop` (macOS) or `/proc/net/dev` (Linux)
+  - **SSL Certificate Inspector** — enter any domain, show full cert chain, expiry, issuer, SANs
+  - **HTTP Header Inspector** — enter a URL, show all request/response headers with timing breakdown
