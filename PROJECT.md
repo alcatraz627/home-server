@@ -339,11 +339,44 @@ See [docs/claude-keeper.md](docs/claude-keeper.md) for full planning document.
 - [ ] **Extended device data** — backend: use `tailscale status --json` to get full device details (Tailscale version, created date, last seen, key expiry, is exit node, is relay, advertised routes, tags, user/login name). Frontend: show all fields in the expanded detail row. Add a "last seen" relative time and key expiry warning badge
 
 ### T13 — Keeper: Agent Integration (Architecture)
-- [ ] **Simplified status flow** — replace current 6-status flow with: `draft` → `ready` → `running` → `halted` → `done`. User creates in draft, marks as ready. Agent picks up ready items
-- [ ] **Agent execution** — when status becomes `ready`, server spawns a Claude Code subprocess (`npx claude-code --print` or equivalent). Store PID, stream stdout/stderr to a log file. Show live log output in the expanded card view
-- [ ] **Back-and-forth chat** — add a message input at the bottom of the expanded running/halted card. User messages are appended to the agent's stdin. Agent responses stream back to the log. This allows iterative guidance
-- [ ] **Status transitions** — agent can write `[STATUS:halted]` or `[STATUS:done]` to signal status changes. User can click "Resume" (spawns new agent with existing context/log as input) or "Mark Done" (greys out, hidden behind "Show completed" toggle)
-- [ ] **Log persistence** — store agent logs in `~/.home-server/keeper-logs/{requestId}.log`
+
+**Implementation Plan (Option A: Claude CLI Subprocess)**
+
+#### Phase 1: Status Flow Simplification
+- [ ] Replace 6-status flow with: `draft` → `ready` → `running` → `halted` → `done`
+- [ ] Update `src/lib/server/keeper.ts` types and `STATUS_FLOW` in the page
+- [ ] "Draft" = user composing, "Ready" = user approved for agent pickup
+
+#### Phase 2: Agent Execution Engine (`src/lib/server/agent-runner.ts`)
+- [ ] New server module with: `startAgent(requestId)`, `stopAgent(requestId)`, `getAgentLog(requestId)`
+- [ ] On "ready" → user clicks "Start Agent": server spawns `claude -p "<task context>" --output-format stream-json` as a child process using `child_process.spawn`
+- [ ] Context file: generate a temporary `.md` file with the request's title, goal, details, and relevant codebase context (similar to AI chat's `getCodebaseContext()`)
+- [ ] Store active agents in a Map: `requestId → { process, logPath, startedAt }`
+- [ ] Pipe stdout/stderr to `~/.home-server/keeper-logs/{requestId}.log` (append mode)
+- [ ] Monitor process exit: on exit, check exit code, mark as `done` (success) or `halted` (error)
+
+#### Phase 3: Live Log Streaming
+- [ ] New API: `GET /api/keeper/{id}/log` — returns the log file content (with `offset` param for polling)
+- [ ] New API: `POST /api/keeper/{id}/message` — appends user message to agent's stdin pipe
+- [ ] Keeper page: expanded card shows log output in a scrollable monospace container
+- [ ] Poll log every 1s while status is `running`, stop when `halted` or `done`
+
+#### Phase 4: Resume & Chat
+- [ ] "Resume" button: spawns a NEW agent with the existing log as context prefix
+- [ ] User messages in the card input are sent via `/api/keeper/{id}/message` to stdin
+- [ ] Agent responses appear in the log stream
+- [ ] "Mark Done" button: kills process if running, sets status to `done`
+
+#### Phase 5: UI Polish
+- [ ] Running tasks show a pulsing status badge with elapsed time
+- [ ] Completed tasks greyed out, hidden behind "Show completed" toggle
+- [ ] Log viewer with ANSI color rendering (use a lightweight ANSI→HTML converter)
+
+**Key decisions:**
+- Use `claude` CLI (not API) so the agent has tool access (file read/write, bash)
+- Context file approach (not stdin piping) for initial prompt — more reliable
+- Log file as persistence layer — survives server restarts, easy to debug
+- Polling-based log view (not WebSocket) — simpler, adequate for 1s refresh
 
 ### T14 — Multi-Computer Support (Plan Required)
 - [ ] **Architecture plan** — design how the app manages multiple machines. Options: (A) Each machine runs its own Home Server instance, one acts as "hub" that proxies API calls to others via Tailscale IPs. (B) Single server with SSH-based remote execution (`ssh user@host command`). (C) Agent-based: lightweight agent on each machine that reports to the hub. Recommend option (A) with a device selector in the navbar that switches the API base URL
@@ -357,6 +390,14 @@ See [docs/claude-keeper.md](docs/claude-keeper.md) for full planning document.
 - [ ] **Star animation** — scale+rotate burst on toggle (already specced in T8)
 - [ ] **Theme transition** — smooth cross-fade when toggling dark/light mode (currently instant via CSS transition on `background`/`color`, extend to all color properties)
 - [ ] **Loading states** — skeleton screens for pages that fetch data (processes, lights, tailscale). Show grey pulsing placeholder shapes matching the eventual layout
+
+### T19 — Media Server (Files Integration)
+- [ ] **Stream large video/audio** — add a `/api/files/stream/{filename}` endpoint that serves files with `Range` header support (HTTP 206 Partial Content) for seeking in browser `<video>` / `<audio>` players
+- [ ] **Media player modal** — in the file browser, clicking a video/audio file opens an in-browser player with seek, volume, playback speed, and fullscreen
+- [ ] **Thumbnail generation** — generate thumbnails for video files using `ffmpeg -i file.mp4 -ss 00:00:05 -vframes 1 thumb.jpg` (if ffmpeg is installed)
+- [ ] **Playlist support** — select multiple media files, create an auto-play queue
+- [ ] **VLC launch** — "Open in VLC" button that generates a `vlc://` protocol link for the file's HTTP stream URL (works if VLC is installed on the client)
+- [ ] **Cast/DLNA** — optional: discover DLNA renderers on the network and cast media to them
 
 ### T16 — Cross-Device Backup Enhancement
 - [ ] Backup diff preview — dry-run rsync (`rsync -avzn`) and show what would transfer before actually running
