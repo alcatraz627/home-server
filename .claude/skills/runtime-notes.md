@@ -2,6 +2,21 @@
 
 Append-only log of skill run insights. Newest entries at top.
 
+## session: Six feature enhancements across files, lights, peripherals, QR, speedtest, benchmarks — 2026-03-22
+
+**Purpose:** Implemented global file search, bulb drag-and-drop reordering, peripherals caching with skeleton loading, QR WiFi auto-fill + share, speedtest visual improvements, and benchmark history clearing.
+
+**Insights:**
+
+1. The WiFi API at `/api/wifi` returns `{ networks, current, error }` — `current.ssid` is the field for the connected network SSID, not `currentConnection`.
+2. The peripherals page had no caching; using `sessionStorage` with a cache key gives instant render on return visits while `onMount` refreshes in background — the `loading` state only shows skeletons when cached data is absent.
+3. The `skeleton-card` class is already defined globally in `app.css` with a shimmer animation — no need to define custom skeleton styles.
+4. For HTML5 drag-and-drop on Svelte 5, regular `ondragstart`/`ondragover`/`ondrop` event handlers work directly since Svelte 5 treats them as native DOM events.
+5. The benchmarks API stores history in `~/.home-server/benchmarks.json` via `writeResults()` — clearing history just calls `writeResults([])`.
+6. `navigator.share` file sharing availability must be checked via `navigator.canShare({ files: [...] })` — not all browsers that support `navigator.share` support file sharing.
+
+---
+
 ## session: Central icon system creation — 2026-03-22
 
 **Purpose:** Created a centralized SVG icon registry and Icon component, then replaced Unicode/HTML entity icons in layout, AiChat, and MediaPlayer.
