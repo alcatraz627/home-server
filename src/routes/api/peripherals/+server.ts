@@ -10,6 +10,8 @@ interface WifiNetwork {
   rssi: number;
   channel: number;
   security: string;
+  noise: number | null;
+  phyMode: string;
 }
 
 interface BluetoothDevice {
@@ -17,6 +19,7 @@ interface BluetoothDevice {
   address: string;
   connected: boolean;
   type: string;
+  batteryLevel: number | null;
 }
 
 function getWifiNetworks(): WifiNetwork[] {
@@ -39,6 +42,8 @@ function getWifiNetworks(): WifiNetwork[] {
           rssi: parseInt(net?.spairport_signal_noise_ratio || net?.spairport_network_signal || '0') || -70,
           channel: parseInt(net?.spairport_network_channel?.split?.(' ')?.[0] || '0') || 0,
           security: net?.spairport_security_mode || 'Open',
+          noise: net?.spairport_network_noise ? parseInt(net.spairport_network_noise) : null,
+          phyMode: net?.spairport_network_phymode || '',
         }));
         // Add current network at the top
         if (current?._name) {
@@ -48,6 +53,8 @@ function getWifiNetworks(): WifiNetwork[] {
             rssi: parseInt(current.spairport_signal_noise_ratio || '-40') || -40,
             channel: parseInt(current.spairport_network_channel?.split?.(' ')?.[0] || '0') || 0,
             security: current.spairport_security_mode || 'WPA2',
+            noise: current.spairport_network_noise ? parseInt(current.spairport_network_noise) : null,
+            phyMode: current.spairport_network_phymode || '',
           });
         }
         return results;
@@ -72,6 +79,8 @@ function getWifiNetworks(): WifiNetwork[] {
                 rssi: parseInt(rest[1]) || 0,
                 channel: parseInt(rest[2]) || 0,
                 security: rest.slice(5).join(' ') || 'Open',
+                noise: null,
+                phyMode: '',
               };
             })
             .filter((n: WifiNetwork) => n.bssid);
@@ -94,6 +103,8 @@ function getWifiNetworks(): WifiNetwork[] {
           rssi: parseInt(parts[6]) || 0,
           channel: parseInt(parts[4]) || 0,
           security: parts.slice(7).join(' ') || 'Open',
+          noise: null,
+          phyMode: '',
         };
       });
     }
@@ -116,21 +127,25 @@ function getBluetoothDevices(): BluetoothDevice[] {
       const recentDevices = btData?.device_not_connected || [];
       for (const dev of connectedDevices) {
         for (const [name, info] of Object.entries(dev) as [string, any][]) {
+          const bl = info?.device_batteryLevel ?? info?.device_batteryLevelMain;
           devices.push({
             name,
             address: info?.device_address || '',
             connected: true,
             type: info?.device_minorType || 'Unknown',
+            batteryLevel: bl != null ? parseInt(String(bl).replace('%', '')) : null,
           });
         }
       }
       for (const dev of recentDevices) {
         for (const [name, info] of Object.entries(dev) as [string, any][]) {
+          const bl = info?.device_batteryLevel ?? info?.device_batteryLevelMain;
           devices.push({
             name,
             address: info?.device_address || '',
             connected: false,
             type: info?.device_minorType || 'Unknown',
+            batteryLevel: bl != null ? parseInt(String(bl).replace('%', '')) : null,
           });
         }
       }
@@ -149,6 +164,8 @@ interface USBDevice {
   vendor: string;
   serial: string;
   speed: string;
+  bus: string;
+  port: string;
 }
 
 function getUSBDevices(): USBDevice[] {
@@ -161,7 +178,7 @@ function getUSBDevices(): USBDevice[] {
       const data = JSON.parse(raw);
       const devices: USBDevice[] = [];
 
-      function walkUSB(items: any[]) {
+      function walkUSB(items: any[], busName = '') {
         for (const item of items) {
           if (item._name) {
             devices.push({
@@ -169,15 +186,17 @@ function getUSBDevices(): USBDevice[] {
               vendor: item.manufacturer || item.vendor_id || '',
               serial: item.serial_num || '',
               speed: item.device_speed || '',
+              bus: busName,
+              port: item.location_id || '',
             });
           }
-          if (item._items) walkUSB(item._items);
+          if (item._items) walkUSB(item._items, busName);
         }
       }
 
       const usbData = data?.SPUSBDataType || [];
       for (const controller of usbData) {
-        if (controller._items) walkUSB(controller._items);
+        if (controller._items) walkUSB(controller._items, controller._name || '');
       }
       return devices;
     }

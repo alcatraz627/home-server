@@ -10,5 +10,5 @@
  */
 export const APP = {
   title: 'Home Server',
-  version: '3.5.1-swift-pine-27',
+  version: '3.6.0-iron-shell-13',
 } as const;

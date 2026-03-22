@@ -5,6 +5,8 @@
   import { stars } from '$lib/stars';
   import { browser } from '$app/environment';
   import Icon from '$lib/components/Icon.svelte';
+  import Button from '$lib/components/Button.svelte';
+  import { goto } from '$app/navigation';
 
   let { data } = $props<{ data: PageData & LayoutData }>();
 
@@ -147,6 +149,34 @@
   </div>
 </div>
 <p class="page-desc">At-a-glance overview of your server's health, running tasks, and quick navigation to all tools.</p>
+
+<!-- Quick Actions -->
+<div class="quick-actions">
+  <Button size="sm" onclick={() => goto('/lights')}>
+    <Icon name="search" size={12} /> Scan Lights
+  </Button>
+  <Button size="sm" onclick={() => goto('/backups')}>
+    <Icon name="save" size={12} /> Run Backup
+  </Button>
+  <Button size="sm" onclick={() => goto('/terminal')}>
+    <Icon name="terminal" size={12} /> New Terminal
+  </Button>
+  <Button
+    size="sm"
+    onclick={async () => {
+      try {
+        const res = await fetch('/?_data=routes%2F_page');
+        if (res.ok) {
+          const fresh = await res.json();
+          if (fresh.dashboard) dashboard = fresh.dashboard;
+          if (fresh.system) system = fresh.system;
+        }
+      } catch {}
+    }}
+  >
+    <Icon name="refresh" size={12} /> Refresh Stats
+  </Button>
+</div>
 
 <!-- System Stats Row -->
 {#if isSectionVisible('system-stats')}
@@ -411,6 +441,7 @@
     position: absolute;
     top: calc(100% + 6px);
     right: 0;
+    left: auto;
     min-width: 200px;
     background: var(--bg-secondary);
     border: 1px solid var(--border);
@@ -470,6 +501,14 @@
     font-size: 0.8rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
+  }
+
+  /* Quick Actions */
+  .quick-actions {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
   }
 
   /* System Stats */

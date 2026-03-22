@@ -11,7 +11,7 @@ function webSocketPlugin(): Plugin {
           const ws = await import('ws');
           console.log('[terminal] Loading terminal module...');
           const terminalModule = await server.ssrLoadModule('/src/lib/server/terminal.ts');
-          const { createSession, getSession, resizeSession } = terminalModule as any;
+          const { createSession, getSession, resizeSession, listSessions } = terminalModule as any;
           console.log('[terminal] Terminal module loaded. createSession:', typeof createSession);
 
           const wss = new ws.WebSocketServer({ noServer: true });
@@ -49,7 +49,7 @@ function webSocketPlugin(): Plugin {
                 return;
               }
 
-              wsConn.send(JSON.stringify({ type: 'session', id: session.id }));
+              wsConn.send(JSON.stringify({ type: 'session', id: session.id, shell: session.label }));
               // Send scrollback buffer for reconnected sessions
               if (session.scrollback) {
                 wsConn.send(JSON.stringify({ type: 'output', data: session.scrollback }));
@@ -60,6 +60,13 @@ function webSocketPlugin(): Plugin {
               const dataHandler = session.onData((data: string) => {
                 if (wsConn.readyState === ws.WebSocket.OPEN) {
                   wsConn.send(JSON.stringify({ type: 'output', data }));
+                }
+              });
+
+              const exitHandler = session.onExit((code: number) => {
+                if (wsConn.readyState === ws.WebSocket.OPEN) {
+                  wsConn.send(JSON.stringify({ type: 'exit', code }));
+                  wsConn.close();
                 }
               });
 
@@ -85,6 +92,7 @@ function webSocketPlugin(): Plugin {
               wsConn.on('close', () => {
                 console.log(`[terminal] Session ${session.id} — WebSocket closed (${msgCount} messages received)`);
                 dataHandler.dispose();
+                exitHandler.dispose();
               });
 
               wsConn.on('error', (err: any) => {

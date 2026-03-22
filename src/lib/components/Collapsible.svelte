@@ -8,7 +8,7 @@
     header,
     children,
   } = $props<{
-    open: boolean;
+    open?: boolean;
     title?: string;
     animated?: boolean;
     header?: any;

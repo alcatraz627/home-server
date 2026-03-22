@@ -52,6 +52,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/keeper', label: 'Keeper', desc: 'Feature tracker', icon: '◈' },
       { href: '/bookmarks', label: 'Bookmarks', desc: 'Link manager', icon: '⊡' },
       { href: '/kanban', label: 'Kanban', desc: 'Project board', icon: '▥' },
+      { href: '/apps', label: 'Apps', desc: 'Launch programs', icon: '⊞' },
       { href: '/qr', label: 'QR Code', desc: 'Generate QR codes', icon: '⊞' },
       { href: '/speedtest', label: 'Speed Test', desc: 'Bandwidth test', icon: '⊛' },
       { href: '/clipboard', label: 'Clipboard', desc: 'Sync clipboard', icon: '⊟' },

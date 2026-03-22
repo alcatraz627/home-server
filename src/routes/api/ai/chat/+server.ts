@@ -99,7 +99,12 @@ export const POST: RequestHandler = async ({ request }) => {
   }
 
   try {
-    const { messages } = await request.json();
+    const { messages, currentPage } = await request.json();
+
+    let systemPrompt = getSystemPrompt();
+    if (currentPage) {
+      systemPrompt += `\n\nThe user is currently viewing: ${currentPage}`;
+    }
 
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -111,7 +116,7 @@ export const POST: RequestHandler = async ({ request }) => {
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 2048,
-        system: getSystemPrompt(),
+        system: systemPrompt,
         messages: messages.slice(-20),
       }),
     });

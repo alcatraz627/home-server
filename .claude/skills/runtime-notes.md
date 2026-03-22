@@ -2,6 +2,48 @@
 
 Append-only log of skill run insights. Newest entries at top.
 
+## session: App launcher page + files page improvements — 2026-03-22
+
+**Purpose:** Created the /apps page for launching macOS applications and improved the /files page with toolbar restructuring, view toggle, and path validation.
+
+**Insights:**
+
+1. Unicode escapes like `\u{1F4C1}` work in JS strings but NOT in Svelte template text — Svelte/prettier treats them as template literals and fails parsing. Use a helper function to return emoji from JS instead.
+2. The global checkbox CSS in `app.css` already handles styling (appearance: none, custom checkmark). The scoped `.row-checkbox` was overriding width/height and setting `accent-color` which is irrelevant when appearance is none — removing it lets the global style work correctly.
+3. `navigateTo` was setting `currentPath` before validating the path existed, which could leave the UI in an inconsistent state. Now it fetches first, then sets state only on success.
+4. The `browser` guard from `$app/environment` is needed when reading `localStorage` in Svelte 5 state initializers to avoid SSR errors.
+
+---
+
+## session: Lights, navbar, and dashboard fixes (D1/D3/D4) — 2026-03-22
+
+**Purpose:** Fixed drag-slider conflict on lights page, upgraded brightness control, added collapsible scenes, enhanced navbar system monitor stats, and added dashboard quick actions.
+
+**Insights:**
+
+1. The bulb card had `draggable="true"` on the entire card div, which hijacked all drag events from sliders/inputs inside. Moving `draggable` to only the drag handle and `.bulb-top` header area fixes the conflict cleanly.
+2. The Collapsible component requires `open` as a prop (it's not optional despite having a default) — other files in the codebase (network page) also have this issue as pre-existing errors.
+3. The layout server only exposed 1-minute load average; `os.loadavg()` returns [1m, 5m, 15m] so all three can be forwarded for the uptime tooltip.
+4. `iostat` on macOS requires a 2-sample run (`-c 2 -w 1`) to get meaningful throughput data — the first sample is cumulative since boot, the second is the actual per-second rate.
+5. The `netSpeedColor` function returned green for 0 bytes/sec — needed a special case for `=== 0` to show `var(--text-faint)` instead.
+6. The dashboard config dropdown already had `right: 0` but was missing `left: auto` which can cause position issues in some layout contexts.
+
+---
+
+## session: Terminal page overhaul — 2026-03-22
+
+**Purpose:** Overhauled the terminal page with 7 feature changes: no auto-start, exit detection, close-kills-session, header padding fix, paste error fix, session summary bar, and bottom status bar.
+
+**Insights:**
+
+1. The terminal WS handler lives in `vite.config.ts` as a Vite plugin (not in hooks.server.ts), so any PTY exit/session message changes must go there.
+2. `node-pty`'s `term.onExit` provides `{ exitCode, signal }` — exposed it through `TerminalSession.onExit` callback for the WS layer to send `{ type: 'exit', code }` messages.
+3. The terminal page uses `margin: -24px` to go full-bleed, so the page header needs its own explicit padding (24px desktop, 12px mobile) rather than relying on layout padding.
+4. The `[Session restored]` paste detection issue was caused by writing to the terminal on `ws.onopen` even for brand-new sessions — fixed by only writing when `sessionParam` was actually set (restoring).
+5. Badge component uses `children` snippet (Svelte 5 pattern) so content is passed as slot children, not a prop.
+
+---
+
 ## session: Migrate remaining 9 pages to shared component library — 2026-03-22
 
 **Purpose:** Replaced inline buttons, badges, tabs, search inputs, and loading skeletons with shared Button/Badge/Tabs/SearchInput/Loading components across all remaining pages.

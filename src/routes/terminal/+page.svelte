@@ -1,6 +1,9 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { browser } from '$app/environment';
+  import { toast } from '$lib/toast';
+  import EmptyState from '$lib/components/EmptyState.svelte';
+  import Badge from '$lib/components/Badge.svelte';
 
   interface Tab {
     id: number;
@@ -10,6 +13,17 @@
     fitAddon: any;
     connected: boolean;
     label: string;
+    shellType: string;
+    cols: number;
+    rows: number;
+    exited: boolean;
+  }
+
+  interface ServerSession {
+    id: string;
+    label: string;
+    pid: number;
+    uptime: number;
   }
 
   const SESSION_STORAGE_KEY = 'terminal_sessions';
@@ -23,11 +37,15 @@
   let FitAddon: any;
   let resizeObserver: ResizeObserver | null = null;
   let ctrlMode = $state(false);
+  let serverSessions = $state<ServerSession[]>([]);
+  let sessionPollTimer: ReturnType<typeof setInterval> | null = null;
 
   /** Persist session IDs to sessionStorage so tabs survive navigation */
   function saveSessionIds() {
     if (!browser) return;
-    const data = tabs.filter((t) => t.sessionId).map((t) => ({ tabId: t.id, sessionId: t.sessionId, label: t.label }));
+    const data = tabs
+      .filter((t) => t.sessionId && !t.exited)
+      .map((t) => ({ tabId: t.id, sessionId: t.sessionId, label: t.label }));
     sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(data));
   }
 
@@ -43,6 +61,24 @@
     }
   }
 
+  async function fetchServerSessions() {
+    try {
+      const res = await fetch('/api/terminal');
+      if (res.ok) {
+        const data = await res.json();
+        serverSessions = data.sessions || [];
+      }
+    } catch {
+      // ignore fetch errors
+    }
+  }
+
+  function formatUptime(seconds: number): string {
+    if (seconds < 60) return `${seconds}s`;
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+    return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
+  }
+
   onMount(async () => {
     if (!browser) return;
 
@@ -55,21 +91,25 @@
       const tab = tabs[activeTab];
       if (tab?.fitAddon) {
         tab.fitAddon.fit();
+        tab.cols = tab.terminal?.cols || tab.cols;
+        tab.rows = tab.terminal?.rows || tab.rows;
         if (tab.ws?.readyState === WebSocket.OPEN && tab.terminal) {
           tab.ws.send(JSON.stringify({ type: 'resize', cols: tab.terminal.cols, rows: tab.terminal.rows }));
         }
       }
     });
 
-    // Restore previous sessions or create a new one
+    // Restore previous sessions — do NOT auto-create a new one
     const saved = loadSessionIds();
     if (saved.length > 0) {
       for (const s of saved) {
         addTab(s.sessionId, s.label);
       }
-    } else {
-      addTab();
     }
+
+    // Poll server sessions
+    fetchServerSessions();
+    sessionPollTimer = setInterval(fetchServerSessions, 5000);
   });
 
   function getColsFromContainer(el: HTMLDivElement): number {
@@ -114,6 +154,15 @@
   }
 
   function addTab(existingSessionId?: string, label?: string) {
+    // If restoring and already have a tab for this session, switch to it
+    if (existingSessionId) {
+      const existingIdx = tabs.findIndex((t) => t.sessionId === existingSessionId);
+      if (existingIdx >= 0) {
+        switchTab(existingIdx);
+        return;
+      }
+    }
+
     const id = nextId++;
     const { terminal, fitAddon } = createTerminal();
     const tab: Tab = {
@@ -124,6 +173,10 @@
       fitAddon,
       connected: false,
       label: label || `Shell ${id}`,
+      shellType: '',
+      cols: 80,
+      rows: 24,
+      exited: false,
     };
     tabs = [...tabs, tab];
     activeTab = tabs.length - 1;
@@ -139,6 +192,8 @@
         terminal.resize(cols, terminal.rows);
 
         fitAddon.fit();
+        tab.cols = terminal.cols;
+        tab.rows = terminal.rows;
         resizeObserver?.observe(el);
         connectTab(tab);
 
@@ -155,6 +210,7 @@
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
     const cols = tab.terminal?.cols || 80;
     const rows = tab.terminal?.rows || 24;
+    const isRestoring = !!tab.sessionId;
     const sessionParam = tab.sessionId ? `&session=${tab.sessionId}` : '';
     const url = `${protocol}//${location.host}/ws/terminal?cols=${cols}&rows=${rows}${sessionParam}`;
 
@@ -162,10 +218,11 @@
 
     ws.onopen = () => {
       tab.connected = true;
+      tab.exited = false;
       tabs = [...tabs]; // trigger reactivity
       if (tabs[activeTab]?.id === tab.id) tab.terminal?.focus();
-      // Show reconnection message if restoring a saved session
-      if (tab.sessionId && sessionParam) {
+      // Only show restore message when actually restoring a saved session
+      if (isRestoring && sessionParam) {
         tab.terminal?.write('\r\n\x1b[2m[Session restored — press Enter to continue]\x1b[0m\r\n');
       }
     };
@@ -173,10 +230,21 @@
     ws.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data);
-        if (msg.type === 'output') tab.terminal?.write(msg.data);
-        else if (msg.type === 'session') {
+        if (msg.type === 'output') {
+          tab.terminal?.write(msg.data);
+        } else if (msg.type === 'session') {
           tab.sessionId = msg.id;
+          if (msg.shell) tab.shellType = msg.shell;
           saveSessionIds();
+          fetchServerSessions();
+        } else if (msg.type === 'exit') {
+          tab.exited = true;
+          const tabLabel = tab.label;
+          toast.info(`Shell exited: ${tabLabel} (code ${msg.code ?? '?'})`);
+          const idx = tabs.findIndex((t) => t.id === tab.id);
+          if (idx >= 0) {
+            removeTab(idx, true);
+          }
         }
       } catch {}
     };
@@ -184,10 +252,12 @@
     ws.onclose = () => {
       tab.connected = false;
       tabs = [...tabs];
+      // Don't show disconnected message or auto-reconnect if the shell exited
+      if (tab.exited) return;
       tab.terminal?.write('\r\n\x1b[33m[Disconnected — click Reconnect]\x1b[0m\r\n');
       // Auto-reconnect after 3s
       setTimeout(() => {
-        if (!tab.connected && tabs.some((t) => t.id === tab.id)) {
+        if (!tab.connected && !tab.exited && tabs.some((t) => t.id === tab.id)) {
           connectTab(tab);
         }
       }, 3000);
@@ -201,7 +271,8 @@
     tab.ws = ws;
   }
 
-  function closeTab(idx: number) {
+  /** Remove a tab from the UI without killing the server session */
+  function removeTab(idx: number, skipKill = false) {
     const tab = tabs[idx];
     tab.ws?.close();
     tab.terminal?.dispose();
@@ -209,6 +280,27 @@
     tabs = tabs.filter((_, i) => i !== idx);
     if (activeTab >= tabs.length) activeTab = Math.max(0, tabs.length - 1);
     saveSessionIds();
+  }
+
+  /** Close a tab AND destroy the server-side session */
+  async function closeTab(idx: number) {
+    const tab = tabs[idx];
+    const tabLabel = tab.label;
+    const sessionId = tab.sessionId;
+
+    removeTab(idx);
+
+    // Kill server-side session
+    if (sessionId) {
+      try {
+        await fetch(`/api/terminal/${sessionId}`, { method: 'DELETE' });
+      } catch {
+        // ignore
+      }
+    }
+
+    toast.info(`Closed: ${tabLabel}`);
+    fetchServerSessions();
   }
 
   // Tab renaming
@@ -257,13 +349,22 @@
     tabs[activeTab]?.terminal?.clear();
   }
 
+  /** Attach to a server session that may not have a client tab yet */
+  function attachToSession(session: ServerSession) {
+    const existingIdx = tabs.findIndex((t) => t.sessionId === session.id);
+    if (existingIdx >= 0) {
+      switchTab(existingIdx);
+      return;
+    }
+    addTab(session.id, session.label);
+  }
+
   // Mobile extra keys helpers
   function sendKey(key: string) {
     const tab = tabs[activeTab];
     if (!tab?.ws || tab.ws.readyState !== WebSocket.OPEN) return;
 
     if (ctrlMode && key.length === 1) {
-      // Send ctrl+key: ctrl+a = \x01, ctrl+b = \x02, etc.
       const code = key.toLowerCase().charCodeAt(0) - 96;
       if (code > 0 && code < 27) {
         tab.ws.send(JSON.stringify({ type: 'input', data: String.fromCharCode(code) }));
@@ -285,12 +386,20 @@
     ctrlMode = !ctrlMode;
   }
 
+  // Derived status bar info
+  let currentTab = $derived(tabs[activeTab] ?? null);
+  let shortSessionId = $derived(currentTab?.sessionId ? currentTab.sessionId.slice(0, 6) : '--');
+  let connectionStatus = $derived(
+    currentTab ? (currentTab.connected ? 'connected' : currentTab.exited ? 'exited' : 'disconnected') : 'none',
+  );
+
   onDestroy(() => {
     for (const tab of tabs) {
       tab.ws?.close();
       tab.terminal?.dispose();
     }
     resizeObserver?.disconnect();
+    if (sessionPollTimer) clearInterval(sessionPollTimer);
   });
 </script>
 
@@ -300,8 +409,32 @@
 </svelte:head>
 
 <div class="terminal-page">
-  <h2 class="page-title">Terminal</h2>
-  <p class="page-desc">Interactive shell sessions with tabbed terminals, font controls, and persistent sessions.</p>
+  <div class="page-header">
+    <h2 class="page-title">Terminal</h2>
+    <p class="page-desc">Interactive shell sessions with tabbed terminals, font controls, and persistent sessions.</p>
+  </div>
+
+  <!-- Session summary bar -->
+  {#if serverSessions.length > 0}
+    <div class="session-bar">
+      <span class="session-bar-label">Running:</span>
+      {#each serverSessions as session}
+        <!-- svelte-ignore a11y_click_events_have_key_events -->
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <button
+          class="session-badge"
+          class:active={currentTab?.sessionId === session.id}
+          onclick={() => attachToSession(session)}
+          title="PID {session.pid} — {formatUptime(session.uptime)}"
+        >
+          <Badge variant={currentTab?.sessionId === session.id ? 'accent' : 'default'} size="sm" dot pulse>
+            {session.label}:{session.id.slice(0, 4)}
+          </Badge>
+        </button>
+      {/each}
+    </div>
+  {/if}
+
   <div class="terminal-header">
     <div class="tab-bar">
       <!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -334,7 +467,7 @@
             onclick={(e) => {
               e.stopPropagation();
               closeTab(i);
-            }}>×</button
+            }}>x</button
           >
         </div>
       {/each}
@@ -349,11 +482,14 @@
   </div>
 
   {#if tabs.length === 0}
-    <div class="empty-state">
-      <div class="empty-icon">▶</div>
-      <p>No terminal sessions</p>
-      <p class="empty-hint">Open a new shell to get started</p>
-      <button class="empty-btn" onclick={() => addTab()}>New Terminal</button>
+    <div class="empty-wrapper">
+      <EmptyState
+        icon=">"
+        title="No terminal sessions"
+        hint="Open a new shell to get started"
+        actionLabel="New Terminal"
+        onaction={() => addTab()}
+      />
     </div>
   {:else}
     <div class="terminal-panels">
@@ -377,6 +513,22 @@
     <button class="mk" onclick={() => sendEscape('\x1b[B')}>↓</button>
     <button class="mk" onclick={() => sendEscape('\x1b[C')}>→</button>
   </div>
+
+  <!-- Bottom status bar -->
+  {#if currentTab}
+    <div class="status-bar">
+      <span class="status-item">
+        <span class="status-dot" class:connected={currentTab.connected} class:exited={currentTab.exited}></span>
+        {connectionStatus}
+      </span>
+      <span class="status-sep">|</span>
+      <span class="status-item">session: {shortSessionId}</span>
+      <span class="status-sep">|</span>
+      <span class="status-item">{currentTab.shellType || 'shell'}</span>
+      <span class="status-sep">|</span>
+      <span class="status-item">{currentTab.cols} x {currentTab.rows}</span>
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -385,6 +537,69 @@
     flex-direction: column;
     height: calc(100vh - 73px);
     margin: -24px;
+  }
+
+  .page-header {
+    padding: 24px 24px 12px;
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 640px) {
+    .page-header {
+      padding: 12px 12px 8px;
+    }
+  }
+
+  .page-title {
+    margin: 0;
+  }
+
+  .page-desc {
+    margin: 4px 0 0;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+  }
+
+  /* Session summary bar */
+  .session-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 24px;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 640px) {
+    .session-bar {
+      padding: 6px 12px;
+    }
+  }
+
+  .session-bar-label {
+    font-size: 0.65rem;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+  }
+
+  .session-badge {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    transition: transform 0.1s;
+  }
+
+  .session-badge:hover {
+    transform: scale(1.05);
+  }
+
+  .session-badge.active {
+    transform: scale(1.05);
   }
 
   .terminal-header {
@@ -537,47 +752,51 @@
     outline: none;
   }
 
-  .empty-state {
+  .empty-wrapper {
     flex: 1;
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    color: var(--text-muted);
     background: var(--bg-inset);
   }
 
-  .empty-icon {
-    font-size: 2.5rem;
-    opacity: 0.3;
-  }
-
-  .empty-state p {
-    font-size: 0.9rem;
-  }
-
-  .empty-hint {
-    font-size: 0.75rem !important;
+  /* Bottom status bar */
+  .status-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 3px 12px;
+    background: #1a1e26;
+    border-top: 1px solid var(--border);
+    font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.6rem;
     color: var(--text-faint);
+    flex-shrink: 0;
+    user-select: none;
   }
 
-  .empty-btn {
-    margin-top: 8px;
-    padding: 8px 20px;
-    font-size: 0.85rem;
-    border-radius: 8px;
-    border: 1px solid var(--accent);
-    background: var(--accent-bg);
-    color: var(--accent);
-    cursor: pointer;
-    font-family: inherit;
-    transition: all 0.15s;
+  .status-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
   }
 
-  .empty-btn:hover {
-    background: var(--accent);
-    color: var(--bg-primary);
+  .status-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--danger);
+  }
+  .status-dot.connected {
+    background: var(--success);
+  }
+  .status-dot.exited {
+    background: var(--text-faint);
+  }
+
+  .status-sep {
+    color: var(--border);
+    font-size: 0.55rem;
   }
 
   /* Mobile extra keys bar — only on touch devices */

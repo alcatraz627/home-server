@@ -3,6 +3,26 @@
   import { toast } from '$lib/toast';
   import Button from '$lib/components/Button.svelte';
   import Tabs from '$lib/components/Tabs.svelte';
+  import Collapsible from '$lib/components/Collapsible.svelte';
+
+  // ---- Suggestion chips per tab ----
+  const SUGGESTIONS: Record<TabId, string[]> = {
+    traceroute: ['google.com', '1.1.1.1', 'cloudflare.com'],
+    ping: ['192.168.1.0/24', '10.0.0.0/24', '172.16.0.0/24'],
+    arp: [],
+    whois: ['google.com', 'github.com', 'cloudflare.com'],
+    bandwidth: [],
+    ssl: ['google.com', 'github.com', 'amazon.com'],
+    http: ['https://httpbin.org/get', 'https://api.github.com', 'https://example.com'],
+  };
+
+  function fillSuggestion(value: string) {
+    if (activeTab === 'traceroute') trTarget = value;
+    else if (activeTab === 'ping') pingSubnet = value;
+    else if (activeTab === 'whois') whoisTarget = value;
+    else if (activeTab === 'ssl') sslDomain = value;
+    else if (activeTab === 'http') httpUrl = value;
+  }
 
   // ---- Types ----
   interface TracerouteHop {
@@ -360,7 +380,7 @@
         <input
           type="text"
           bind:value={trTarget}
-          placeholder="Hostname or IP (e.g. google.com)"
+          placeholder="e.g. google.com or 8.8.8.8"
           onkeydown={(e) => e.key === 'Enter' && runTraceroute()}
           class="input-field"
         />
@@ -368,6 +388,20 @@
           {trLoading ? 'Tracing...' : 'Trace'}
         </Button>
       </div>
+      <p class="helper-text">Enter a hostname or IP address to trace the network path.</p>
+      <div class="suggestion-row">
+        <span class="suggestion-label">Try:</span>
+        {#each SUGGESTIONS.traceroute as s}
+          <button class="suggestion-chip" onclick={() => fillSuggestion(s)}>{s}</button>
+        {/each}
+      </div>
+      <Collapsible title="How it works">
+        <p class="doc-text">
+          Traceroute maps the network path from your server to a destination by sending packets with increasing TTL
+          values. Each hop in the output represents a router along the path, showing its hostname, IP, and round-trip
+          time. Useful for diagnosing latency issues, routing problems, or finding where packets are being dropped.
+        </p>
+      </Collapsible>
 
       {#if trHops.length > 0}
         <div class="trace-visual">
@@ -402,7 +436,7 @@
         <input
           type="text"
           bind:value={pingSubnet}
-          placeholder="192.168.1.0/24"
+          placeholder="e.g. 192.168.1.0/24"
           onkeydown={(e) => e.key === 'Enter' && runPingSweep()}
           class="input-field"
         />
@@ -410,6 +444,20 @@
           {pingLoading ? 'Scanning...' : 'Sweep'}
         </Button>
       </div>
+      <p class="helper-text">Enter a subnet in CIDR notation to discover active hosts.</p>
+      <div class="suggestion-row">
+        <span class="suggestion-label">Try:</span>
+        {#each SUGGESTIONS.ping as s}
+          <button class="suggestion-chip" onclick={() => fillSuggestion(s)}>{s}</button>
+        {/each}
+      </div>
+      <Collapsible title="How it works">
+        <p class="doc-text">
+          Ping sweep sends ICMP echo requests to every IP in the specified subnet to discover which hosts are alive.
+          Green cells indicate responsive hosts along with their response time. This is commonly used for network
+          inventory, finding available IPs, or verifying device connectivity.
+        </p>
+      </Collapsible>
       <p class="hint">Only /24 subnets are supported. Scan may take 30-60 seconds.</p>
 
       {#if pingLoading}
@@ -482,7 +530,7 @@
         <input
           type="text"
           bind:value={whoisTarget}
-          placeholder="Domain or IP (e.g. example.com)"
+          placeholder="e.g. example.com or 8.8.8.8"
           onkeydown={(e) => e.key === 'Enter' && runWhois()}
           class="input-field"
         />
@@ -490,6 +538,20 @@
           {whoisLoading ? 'Looking up...' : 'Lookup'}
         </Button>
       </div>
+      <p class="helper-text">Enter a domain name or IP address to look up registration info.</p>
+      <div class="suggestion-row">
+        <span class="suggestion-label">Try:</span>
+        {#each SUGGESTIONS.whois as s}
+          <button class="suggestion-chip" onclick={() => fillSuggestion(s)}>{s}</button>
+        {/each}
+      </div>
+      <Collapsible title="How it works">
+        <p class="doc-text">
+          Whois queries public registration databases to retrieve ownership and contact information for a domain or IP
+          address. The output includes registrar details, creation/expiration dates, and nameservers. Commonly used for
+          investigating domain ownership or checking domain availability.
+        </p>
+      </Collapsible>
 
       {#if whoisResult}
         <div class="whois-output">
@@ -564,7 +626,7 @@
         <input
           type="text"
           bind:value={sslDomain}
-          placeholder="Domain (e.g. github.com)"
+          placeholder="e.g. github.com"
           onkeydown={(e) => e.key === 'Enter' && inspectSSL()}
           class="input-field"
         />
@@ -572,6 +634,20 @@
           {sslLoading ? 'Inspecting...' : 'Inspect'}
         </Button>
       </div>
+      <p class="helper-text">Enter a domain name (without https://) to inspect its SSL certificate.</p>
+      <div class="suggestion-row">
+        <span class="suggestion-label">Try:</span>
+        {#each SUGGESTIONS.ssl as s}
+          <button class="suggestion-chip" onclick={() => fillSuggestion(s)}>{s}</button>
+        {/each}
+      </div>
+      <Collapsible title="How it works">
+        <p class="doc-text">
+          SSL Inspector connects to a domain on port 443 and retrieves its TLS certificate details. The output shows the
+          certificate subject, issuer, validity dates, and Subject Alternative Names. Use it to verify certificate
+          expiration, check issuer chains, or audit the security of HTTPS endpoints.
+        </p>
+      </Collapsible>
 
       {#if sslError}
         <p class="error-msg">{sslError}</p>
@@ -648,7 +724,7 @@
         <input
           type="text"
           bind:value={httpUrl}
-          placeholder="URL (e.g. https://example.com)"
+          placeholder="e.g. https://httpbin.org/get"
           onkeydown={(e) => e.key === 'Enter' && inspectHTTP()}
           class="input-field"
         />
@@ -656,6 +732,20 @@
           {httpLoading ? 'Fetching...' : 'Inspect'}
         </Button>
       </div>
+      <p class="helper-text">Enter a full URL (including https://) to inspect response headers.</p>
+      <div class="suggestion-row">
+        <span class="suggestion-label">Try:</span>
+        {#each SUGGESTIONS.http as s}
+          <button class="suggestion-chip" onclick={() => fillSuggestion(s)}>{s}</button>
+        {/each}
+      </div>
+      <Collapsible title="How it works">
+        <p class="doc-text">
+          HTTP Header Inspector sends a GET request to the target URL and displays the response status code, headers,
+          and timing information. Response headers reveal server software, caching policies, security headers, and
+          content types. Great for debugging API responses or auditing security headers like CSP and HSTS.
+        </p>
+      </Collapsible>
 
       {#if httpError}
         <p class="error-msg">{httpError}</p>
@@ -735,6 +825,50 @@
   .hint {
     font-size: 0.75rem;
     color: var(--text-muted);
+  }
+
+  .helper-text {
+    font-size: 0.72rem;
+    color: var(--text-faint);
+    margin: -4px 0 0;
+  }
+
+  .suggestion-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .suggestion-label {
+    font-size: 0.7rem;
+    color: var(--text-faint);
+    flex-shrink: 0;
+  }
+
+  .suggestion-chip {
+    font-size: 0.7rem;
+    padding: 2px 10px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-family: 'JetBrains Mono', monospace;
+    transition: all 0.15s;
+  }
+
+  .suggestion-chip:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-bg);
+  }
+
+  .doc-text {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    line-height: 1.6;
+    margin: 0;
   }
 
   .empty {

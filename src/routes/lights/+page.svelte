@@ -5,6 +5,7 @@
   import { toast } from '$lib/toast';
   import Button from '$lib/components/Button.svelte';
   import Loading from '$lib/components/Loading.svelte';
+  import Collapsible from '$lib/components/Collapsible.svelte';
 
   import { browser } from '$app/environment';
 
@@ -659,14 +660,14 @@
         class:off={!bulb.state}
         class:selected={selectedBulbs.has(bulb.mac)}
         class:drag-over={dragOverMac === bulb.mac}
-        draggable="true"
-        ondragstart={() => handleDragStart(bulb.mac)}
         ondragover={(e) => handleDragOver(e, bulb.mac)}
         ondrop={() => handleDrop(bulb.mac)}
         ondragend={handleDragEnd}
       >
         <!-- Drag handle -->
-        <div class="drag-handle" title="Drag to reorder">&#x2261;</div>
+        <div class="drag-handle" title="Drag to reorder" draggable="true" ondragstart={() => handleDragStart(bulb.mac)}>
+          &#x2261;
+        </div>
         <!-- Color swatch header -->
         <div
           class="bulb-swatch"
@@ -679,7 +680,7 @@
             : 'var(--border)'}; opacity: {bulb.state ? (bulb.brightness / 100) * 0.7 + 0.3 : 0.2}"
         ></div>
 
-        <div class="bulb-top">
+        <div class="bulb-top" draggable="true" ondragstart={() => handleDragStart(bulb.mac)}>
           <div class="bulb-info">
             {#if bulbs.length > 1}
               <input
@@ -773,16 +774,11 @@
 
         {#if bulb.state}
           <div class="bulb-controls">
-            <!-- Brightness section -->
+            <!-- Brightness slider — prominent full-width -->
             <div class="card-section brightness-section">
-              <div class="brightness-arc-lg">
-                <div
-                  class="arc-track"
-                  style="background: conic-gradient(from 200deg, {bulb.color
-                    ? colorHex(bulb)
-                    : 'var(--accent)'} {bulb.brightness * 2.8}deg, var(--border-subtle) 0deg)"
-                ></div>
-                <span class="arc-value-lg">{bulb.brightness}%</span>
+              <div class="brightness-header">
+                <span class="brightness-label">Brightness</span>
+                <span class="brightness-value">{bulb.brightness}%</span>
               </div>
               <input
                 type="range"
@@ -790,7 +786,7 @@
                 max="100"
                 value={bulb.brightness}
                 oninput={(e) => handleBrightness(bulb, e)}
-                class="brightness-slider"
+                class="brightness-slider-lg"
               />
             </div>
 
@@ -834,24 +830,32 @@
               </div>
             </div>
 
-            <div class="scenes-section">
-              {#each Object.entries(WIZ_SCENES) as [category, scenes]}
-                <div class="scene-category">
-                  <span class="scene-category-label">{category}</span>
-                  <div class="scene-presets">
-                    {#each Object.entries(scenes) as [id, name]}
-                      <button class:active={bulb.sceneId === parseInt(id)} onclick={() => setScene(bulb, parseInt(id))}>
-                        {#if SCENE_COLORS[parseInt(id)]}
-                          <span class="scene-dot" style="--scene-color: {SCENE_COLORS[parseInt(id)]}" aria-hidden="true"
-                          ></span>
-                        {/if}
-                        {name}
-                      </button>
-                    {/each}
+            <Collapsible title="Scenes" open={false}>
+              <div class="scenes-section">
+                {#each Object.entries(WIZ_SCENES) as [category, scenes]}
+                  <div class="scene-category">
+                    <span class="scene-category-label">{category}</span>
+                    <div class="scene-presets">
+                      {#each Object.entries(scenes) as [id, name]}
+                        <button
+                          class:active={bulb.sceneId === parseInt(id)}
+                          onclick={() => setScene(bulb, parseInt(id))}
+                        >
+                          {#if SCENE_COLORS[parseInt(id)]}
+                            <span
+                              class="scene-dot"
+                              style="--scene-color: {SCENE_COLORS[parseInt(id)]}"
+                              aria-hidden="true"
+                            ></span>
+                          {/if}
+                          {name}
+                        </button>
+                      {/each}
+                    </div>
                   </div>
-                </div>
-              {/each}
-            </div>
+                {/each}
+              </div>
+            </Collapsible>
           </div>
         {/if}
       </div>
@@ -1253,38 +1257,64 @@
   .brightness-section {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 8px;
+    gap: 6px;
     padding: 4px 0;
   }
-  .brightness-arc-lg {
-    width: 72px;
-    height: 72px;
-    border-radius: 50%;
-    position: relative;
-    flex-shrink: 0;
-  }
-  .brightness-arc-lg .arc-track {
-    width: 100%;
-    height: 100%;
-    border-radius: 50%;
-  }
-  .arc-value-lg {
-    position: absolute;
-    inset: 8px;
-    background: var(--bg-secondary);
-    border-radius: 50%;
+  .brightness-header {
     display: flex;
+    justify-content: space-between;
     align-items: center;
-    justify-content: center;
+  }
+  .brightness-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+  .brightness-value {
     font-size: 0.8rem;
     font-family: 'JetBrains Mono', monospace;
     color: var(--text-primary);
     font-weight: 700;
   }
-  .brightness-slider {
+  .brightness-slider-lg {
     width: 100%;
+    height: 8px;
     accent-color: var(--accent);
+    cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
+    background: var(--border-subtle);
+    border-radius: 4px;
+    outline: none;
+  }
+  .brightness-slider-lg::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid var(--bg-secondary);
+    cursor: pointer;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  }
+  .brightness-slider-lg::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid var(--bg-secondary);
+    cursor: pointer;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  }
+  .brightness-slider-lg::-webkit-slider-runnable-track {
+    height: 8px;
+    border-radius: 4px;
+    background: var(--border-subtle);
+  }
+  .brightness-slider-lg::-moz-range-track {
+    height: 8px;
+    border-radius: 4px;
+    background: var(--border-subtle);
   }
 
   .bulb-controls {
@@ -1411,8 +1441,6 @@
   }
 
   .scenes-section {
-    padding-top: 10px;
-    border-top: 1px solid var(--border-subtle);
     display: flex;
     flex-direction: column;
     gap: 8px;

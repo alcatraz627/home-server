@@ -9,6 +9,7 @@
   import SearchInput from '$lib/components/SearchInput.svelte';
   import { toast } from '$lib/toast';
   import { stars } from '$lib/stars';
+  import { browser } from '$app/environment';
 
   // --- Media file detection ---
   const MEDIA_VIDEO_EXTS = ['.mp4', '.webm', '.mkv', '.avi', '.mov'];
@@ -100,6 +101,15 @@
   let uploading = $state(false);
   let uploadProgress = $state(0);
   let uploadQueue = $state<{ name: string; progress: number; done: boolean }[]>([]);
+
+  // --- View mode (list/grid) ---
+  type ViewMode = 'list' | 'grid';
+  let viewMode = $state<ViewMode>(browser ? (localStorage.getItem('hs:file-view') as ViewMode) || 'list' : 'list');
+
+  function setViewMode(mode: ViewMode) {
+    viewMode = mode;
+    if (browser) localStorage.setItem('hs:file-view', mode);
+  }
 
   // --- Starred files (via shared stars store) ---
   function toggleStar(filename: string) {
@@ -410,10 +420,17 @@
     if (e.key === 'Escape') cancelEditingPath();
   }
 
-  // Navigate into directory
+  // Navigate into directory (validates path first)
   async function navigateTo(path: string) {
-    currentPath = path;
-    await refreshFiles();
+    try {
+      const params = path ? `?path=${encodeURIComponent(path)}` : '';
+      const res = await fetch(`/api/files${params}`);
+      if (!res.ok) throw new Error('Directory not found');
+      currentPath = path;
+      files = await res.json();
+    } catch {
+      toast.error('Invalid path — directory not found', { key: 'path-nav' });
+    }
   }
 
   // Upload
@@ -573,22 +590,89 @@
       toast.error(e.message || 'Failed to delete directory', { key: 'delete-file' });
     }
   }
+
+  function fileTypeIcon(file: FileInfo): string {
+    if (file.isDirectory) return '\u{1F4C1}';
+    const mime = file.mime;
+    if (mime.startsWith('image/')) return '\u{1F5BC}';
+    if (mime.startsWith('video/')) return '\u{1F3AC}';
+    if (mime.startsWith('audio/')) return '\u{1F3B5}';
+    if (mime === 'application/pdf') return '\u{1F4C4}';
+    if (mime.startsWith('text/')) return '\u{1F4DD}';
+    if (mime.includes('zip') || mime.includes('tar') || mime.includes('compress')) return '\u{1F4E6}';
+    if (mime.includes('json') || mime.includes('xml') || mime.includes('javascript')) return '\u{1F4CB}';
+    return '\u{1F4C4}';
+  }
 </script>
 
 <svelte:head>
   <title>Files | Home Server</title>
 </svelte:head>
 
+<!-- Page header toolbar -->
 <div class="page-header">
   <h2 class="page-title">Files</h2>
   <div class="page-actions">
-    <Button size="sm" onclick={() => (showNewDir = !showNewDir)}>New Folder</Button>
+    <Button size="sm" onclick={refreshFiles}>Refresh</Button>
+    <label class="upload-btn-label">
+      <Button size="sm" variant="accent">Upload</Button>
+      <input type="file" multiple onchange={handleFileInput} class="upload-hidden-input" />
+    </label>
     <span class="file-count">{filtered.length} of {files.length} items</span>
   </div>
 </div>
 <p class="page-desc">Browse, upload, and manage files on your server. Star files for quick dashboard access.</p>
 
-<!-- Editable path bar -->
+<!-- Upload zone -->
+<div
+  class="drop-zone"
+  class:active={dragOver}
+  class:uploading
+  ondragover={(e) => {
+    e.preventDefault();
+    dragOver = true;
+  }}
+  ondragleave={() => (dragOver = false)}
+  ondrop={handleDrop}
+  role="region"
+  aria-label="File upload area"
+>
+  {#if uploading}
+    <div class="upload-progress-section">
+      <div class="progress-bar">
+        <div class="progress-fill" style="width: {uploadProgress}%"></div>
+      </div>
+      <p class="progress-text">
+        {uploadQueue.filter((q) => q.done).length} / {uploadQueue.length} files — {uploadProgress}%
+      </p>
+      {#if uploadQueue.length <= 5}
+        {#each uploadQueue as q}
+          <div class="upload-item" class:done={q.done}>
+            <span class="upload-item-name">{q.name}</span>
+            <span class="upload-item-progress">{q.done ? '\u2713' : `${q.progress}%`}</span>
+          </div>
+        {/each}
+      {/if}
+    </div>
+  {:else}
+    <div class="upload-content">
+      <span class="upload-icon">\u2191</span>
+      <p class="upload-main">
+        Drop files or folders here, or
+        <label class="file-label">browse files<input type="file" multiple onchange={handleFileInput} /></label>
+        or
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <label class="file-label">upload folder<input type="file" onchange={handleFolderInput} webkitdirectory /></label
+        >
+      </p>
+      <p class="upload-hint">
+        Supports single files, multiple files, and entire folders with directory structure preserved
+      </p>
+    </div>
+  {/if}
+</div>
+
+<!-- Editable path bar (below upload) -->
 <nav class="path-bar">
   {#if editingPath}
     <input
@@ -627,74 +711,7 @@
   {/if}
 </nav>
 
-<!-- New folder input -->
-{#if showNewDir}
-  <div class="new-dir-bar">
-    <input
-      type="text"
-      class="new-dir-input"
-      bind:value={newDirName}
-      placeholder="Folder name"
-      onkeydown={(e) => {
-        if (e.key === 'Enter') createDir();
-        if (e.key === 'Escape') showNewDir = false;
-      }}
-    />
-    <Button size="sm" onclick={createDir} disabled={!newDirName.trim()}>Create</Button>
-    <Button size="sm" onclick={() => (showNewDir = false)}>Cancel</Button>
-  </div>
-{/if}
-
-<!-- Upload zone -->
-<div
-  class="drop-zone"
-  class:active={dragOver}
-  class:uploading
-  ondragover={(e) => {
-    e.preventDefault();
-    dragOver = true;
-  }}
-  ondragleave={() => (dragOver = false)}
-  ondrop={handleDrop}
-  role="region"
-  aria-label="File upload area"
->
-  {#if uploading}
-    <div class="upload-progress-section">
-      <div class="progress-bar">
-        <div class="progress-fill" style="width: {uploadProgress}%"></div>
-      </div>
-      <p class="progress-text">
-        {uploadQueue.filter((q) => q.done).length} / {uploadQueue.length} files — {uploadProgress}%
-      </p>
-      {#if uploadQueue.length <= 5}
-        {#each uploadQueue as q}
-          <div class="upload-item" class:done={q.done}>
-            <span class="upload-item-name">{q.name}</span>
-            <span class="upload-item-progress">{q.done ? '✓' : `${q.progress}%`}</span>
-          </div>
-        {/each}
-      {/if}
-    </div>
-  {:else}
-    <div class="upload-content">
-      <span class="upload-icon">↑</span>
-      <p class="upload-main">
-        Drop files or folders here, or
-        <label class="file-label">browse files<input type="file" multiple onchange={handleFileInput} /></label>
-        or
-        <!-- svelte-ignore a11y_no_static_element_interactions -->
-        <label class="file-label">upload folder<input type="file" onchange={handleFolderInput} webkitdirectory /></label
-        >
-      </p>
-      <p class="upload-hint">
-        Supports single files, multiple files, and entire folders with directory structure preserved
-      </p>
-    </div>
-  {/if}
-</div>
-
-<!-- Search and filter bar -->
+<!-- Search, filter, and view toggle bar -->
 <div class="file-controls">
   <div class="search-wrap">
     <SearchInput
@@ -747,6 +764,36 @@
       {/each}
     </select>
   {/if}
+  <div class="view-toggle">
+    <button class="view-btn" class:active={viewMode === 'list'} onclick={() => setViewMode('list')} title="List view"
+      >&#9776;</button
+    >
+    <button class="view-btn" class:active={viewMode === 'grid'} onclick={() => setViewMode('grid')} title="Grid view"
+      >&#9638;</button
+    >
+  </div>
+</div>
+
+<!-- Secondary bar: New Folder -->
+<div class="secondary-bar">
+  {#if showNewDir}
+    <div class="new-dir-bar">
+      <input
+        type="text"
+        class="new-dir-input"
+        bind:value={newDirName}
+        placeholder="Folder name"
+        onkeydown={(e) => {
+          if (e.key === 'Enter') createDir();
+          if (e.key === 'Escape') showNewDir = false;
+        }}
+      />
+      <Button size="sm" onclick={createDir} disabled={!newDirName.trim()}>Create</Button>
+      <Button size="sm" onclick={() => (showNewDir = false)}>Cancel</Button>
+    </div>
+  {:else}
+    <Button size="sm" onclick={() => (showNewDir = !showNewDir)}>New Folder</Button>
+  {/if}
 </div>
 
 <!-- Bulk action bar -->
@@ -769,13 +816,67 @@
   <p class="empty">No files yet. Upload something to get started.</p>
 {:else if filtered.length === 0}
   <p class="empty">No files match your search.</p>
+{:else if viewMode === 'grid'}
+  <!-- Grid view -->
+  <div class="file-grid">
+    {#each filtered as file}
+      <div
+        class="grid-card"
+        class:selected={selectedFiles.has(file.name)}
+        class:starred={stars.isStarred('file', file.name)}
+      >
+        <div class="grid-card-top">
+          {#if !file.isDirectory}
+            <input type="checkbox" checked={selectedFiles.has(file.name)} onchange={() => toggleSelect(file.name)} />
+          {/if}
+          <button
+            class="star-btn"
+            class:starred={stars.isStarred('file', file.name)}
+            title={stars.isStarred('file', file.name) ? 'Unstar' : 'Star'}
+            onclick={() => toggleStar(file.name)}>{stars.isStarred('file', file.name) ? '\u2605' : '\u2606'}</button
+          >
+        </div>
+        <button
+          class="grid-card-body"
+          onclick={() => {
+            if (file.isDirectory) {
+              navigateTo(currentPath ? `${currentPath}/${file.name}` : file.name);
+            } else if (isMediaFile(file)) {
+              openMediaPlayer(file);
+            } else if (isPreviewable(file)) {
+              openPreview(file);
+            }
+          }}
+        >
+          <span class="grid-icon">{fileTypeIcon(file)}</span>
+          <span class="grid-name" title={file.name}>{file.name}</span>
+          {#if !file.isDirectory}
+            <span class="grid-size">{formatSize(file.size)}</span>
+          {/if}
+        </button>
+        <div class="grid-card-actions">
+          <Button size="xs" onclick={() => startRename(file)}>mv</Button>
+          {#if !file.isDirectory}
+            <a href={downloadUrl(file.name)} class="btn btn-sm" title="Download">dl</a>
+          {/if}
+          <Button
+            size="xs"
+            variant="danger"
+            confirm
+            confirmText="sure?"
+            onclick={() => (file.isDirectory ? deleteDir(file.name) : deleteFile(file.name))}>rm</Button
+          >
+        </div>
+      </div>
+    {/each}
+  </div>
 {:else}
+  <!-- List view -->
   <div class="file-list">
     <div class="file-header">
       <span class="col-check">
         <input
           type="checkbox"
-          class="row-checkbox"
           title="Select all"
           checked={selectedFiles.size > 0 &&
             filtered.filter((f) => !f.isDirectory).every((f) => selectedFiles.has(f.name))}
@@ -797,12 +898,7 @@
       >
         <span class="col-check">
           {#if !file.isDirectory}
-            <input
-              type="checkbox"
-              class="row-checkbox"
-              checked={selectedFiles.has(file.name)}
-              onchange={() => toggleSelect(file.name)}
-            />
+            <input type="checkbox" checked={selectedFiles.has(file.name)} onchange={() => toggleSelect(file.name)} />
           {/if}
         </span>
         <span class="col-star">
@@ -810,7 +906,7 @@
             class="star-btn"
             class:starred={stars.isStarred('file', file.name)}
             title={stars.isStarred('file', file.name) ? 'Unstar' : 'Star'}
-            onclick={() => toggleStar(file.name)}>{stars.isStarred('file', file.name) ? '★' : '☆'}</button
+            onclick={() => toggleStar(file.name)}>{stars.isStarred('file', file.name) ? '\u2605' : '\u2606'}</button
           >
         </span>
         <span class="col-name" title={file.name}>
@@ -827,7 +923,8 @@
               class="name-btn dir-btn"
               onclick={() => navigateTo(currentPath ? `${currentPath}/${file.name}` : file.name)}
             >
-              📁 {file.name}
+              {fileTypeIcon(file)}
+              {file.name}
             </button>
           {:else}
             <span class="name-with-play">
@@ -838,7 +935,7 @@
                   onclick={(e) => {
                     e.stopPropagation();
                     openMediaPlayer(file);
-                  }}>&#9654;</button
+                  }}>▶</button
                 >
                 <span class="media-icon">{getMediaIcon(file)}</span>
               {/if}
@@ -991,6 +1088,31 @@
   .file-count {
     font-size: 0.75rem;
     color: var(--text-muted);
+  }
+
+  .upload-btn-label {
+    position: relative;
+    cursor: pointer;
+  }
+
+  .upload-hidden-input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+  }
+
+  .page-desc {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    margin-bottom: 16px;
+  }
+
+  /* Secondary bar (New Folder) */
+  .secondary-bar {
+    margin-bottom: 12px;
   }
 
   /* Editable path bar */
@@ -1787,18 +1909,124 @@
     max-width: 100%;
   }
 
+  /* View toggle */
+  .view-toggle {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .view-btn {
+    padding: 6px 10px;
+    font-size: 0.85rem;
+    border: none;
+    background: var(--btn-bg);
+    color: var(--text-muted);
+    cursor: pointer;
+    font-family: inherit;
+    line-height: 1;
+  }
+
+  .view-btn.active {
+    background: var(--accent-bg);
+    color: var(--accent);
+  }
+
+  .view-btn:hover:not(.active) {
+    color: var(--text-primary);
+  }
+
+  /* Grid view */
+  .file-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 10px;
+  }
+
+  .grid-card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-secondary);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition:
+      border-color 0.15s,
+      background 0.15s;
+  }
+
+  .grid-card:hover {
+    border-color: var(--accent);
+  }
+
+  .grid-card.selected {
+    background: var(--accent-bg);
+    border-color: var(--accent);
+  }
+
+  .grid-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 8px 0;
+    min-height: 24px;
+  }
+
+  .grid-card-body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 12px 10px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    color: var(--text-primary);
+    flex: 1;
+  }
+
+  .grid-card-body:hover {
+    background: var(--bg-inset);
+  }
+
+  .grid-icon {
+    font-size: 2rem;
+    line-height: 1;
+  }
+
+  .grid-name {
+    font-size: 0.78rem;
+    text-align: center;
+    line-height: 1.3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    word-break: break-word;
+    max-width: 100%;
+  }
+
+  .grid-size {
+    font-size: 0.68rem;
+    color: var(--text-muted);
+  }
+
+  .grid-card-actions {
+    display: flex;
+    gap: 4px;
+    justify-content: center;
+    padding: 6px 8px;
+    border-top: 1px solid var(--border-subtle);
+  }
+
   /* Checkbox column */
   .col-check {
     display: flex;
     align-items: center;
     justify-content: center;
-  }
-
-  .row-checkbox {
-    width: 14px;
-    height: 14px;
-    cursor: pointer;
-    accent-color: var(--accent);
   }
 
   /* Star column */

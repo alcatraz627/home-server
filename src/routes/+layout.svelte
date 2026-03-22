@@ -129,6 +129,7 @@
   }
 
   function netSpeedColor(bytesPerSec: number): string {
+    if (bytesPerSec === 0) return 'var(--text-faint)';
     const mb = bytesPerSec / 1048576;
     if (mb > 10) return 'var(--danger)';
     if (mb >= 1) return 'var(--warning)';
@@ -330,7 +331,13 @@
       {/if}
 
       {#if isStatVisible('uptime')}
-        <span class="stat" title="System uptime">{data.system.uptime}h up</span>
+        <Tooltip
+          text="Boot: {new Date(data.system.bootTime).toLocaleString()}, Load: {data.system.loadAvg}/{data.system
+            .loadAvg5}/{data.system.loadAvg15}"
+          position="bottom"
+        >
+          <span class="stat">{data.system.uptime}h up</span>
+        </Tooltip>
       {/if}
 
       {#if isStatVisible('swap')}
@@ -371,7 +378,12 @@
       {/if}
 
       {#if isStatVisible('diskIO')}
-        <span class="stat" title="Disk I/O (not available)"> DISK I/O n/a </span>
+        <span class="stat" title="Disk I/O throughput">
+          DISK {formatNetBytes(data.system.diskIO.readBytesPerSec)}/s R
+          {#if data.system.diskIO.writeBytesPerSec > 0}
+            {formatNetBytes(data.system.diskIO.writeBytesPerSec)}/s W
+          {/if}
+        </span>
       {/if}
 
       <!-- Stats settings gear -->
@@ -644,7 +656,7 @@
 {/if}
 
 <Toast />
-<AiChat />
+<AiChat currentPage={$page.url.pathname} />
 <SettingsPanel bind:open={settingsOpen} />
 
 <style>

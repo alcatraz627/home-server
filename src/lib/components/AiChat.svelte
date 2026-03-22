@@ -3,6 +3,8 @@
   import { browser } from '$app/environment';
   import Icon from '$lib/components/Icon.svelte';
 
+  let { currentPage = '' } = $props<{ currentPage?: string }>();
+
   interface Message {
     role: 'user' | 'assistant';
     content: string;
@@ -169,6 +171,7 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: activeConvo!.messages.map((m) => ({ role: m.role, content: m.content })),
+          currentPage,
         }),
       });
       const data = await res.json();

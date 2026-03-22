@@ -6,6 +6,7 @@
   import Badge from '$lib/components/Badge.svelte';
   import Tabs from '$lib/components/Tabs.svelte';
   import Loading from '$lib/components/Loading.svelte';
+  import SearchInput from '$lib/components/SearchInput.svelte';
 
   interface WifiNetwork {
     ssid: string;
@@ -13,6 +14,8 @@
     rssi: number;
     channel: number;
     security: string;
+    noise: number | null;
+    phyMode: string;
   }
 
   interface BluetoothDevice {
@@ -20,6 +23,7 @@
     address: string;
     connected: boolean;
     type: string;
+    batteryLevel: number | null;
   }
 
   interface USBDevice {
@@ -27,6 +31,8 @@
     vendor: string;
     serial: string;
     speed: string;
+    bus: string;
+    port: string;
   }
 
   interface AudioDevice {
@@ -112,6 +118,56 @@
     { id: 'network', label: 'Network', count: networkInterfaces.length },
     { id: 'system', label: 'System Info' },
   ]);
+  let searchQuery = $state('');
+
+  interface SearchResult {
+    tab: TabKey;
+    tabLabel: string;
+    name: string;
+    detail: string;
+  }
+
+  const searchResults = $derived.by(() => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return [];
+    const results: SearchResult[] = [];
+    for (const net of wifi) {
+      if (net.ssid.toLowerCase().includes(q) || net.bssid.toLowerCase().includes(q)) {
+        results.push({ tab: 'wifi', tabLabel: 'WiFi', name: net.ssid, detail: `${net.bssid} | Ch ${net.channel}` });
+      }
+    }
+    for (const dev of bluetooth) {
+      if (dev.name.toLowerCase().includes(q) || dev.address.toLowerCase().includes(q)) {
+        results.push({ tab: 'bluetooth', tabLabel: 'Bluetooth', name: dev.name, detail: dev.address });
+      }
+    }
+    for (const dev of usb) {
+      if (dev.name.toLowerCase().includes(q) || dev.vendor.toLowerCase().includes(q)) {
+        results.push({ tab: 'usb', tabLabel: 'USB', name: dev.name, detail: dev.vendor || dev.speed });
+      }
+    }
+    for (const dev of audio) {
+      if (dev.name.toLowerCase().includes(q)) {
+        results.push({ tab: 'audio', tabLabel: 'Audio', name: dev.name, detail: dev.type });
+      }
+    }
+    for (const disp of displays) {
+      if (disp.name.toLowerCase().includes(q) || disp.gpu.toLowerCase().includes(q)) {
+        results.push({ tab: 'displays', tabLabel: 'Display', name: disp.name, detail: disp.resolution });
+      }
+    }
+    for (const iface of networkInterfaces) {
+      if (
+        iface.port.toLowerCase().includes(q) ||
+        iface.device.toLowerCase().includes(q) ||
+        iface.ip?.toLowerCase().includes(q)
+      ) {
+        results.push({ tab: 'network', tabLabel: 'Network', name: iface.port, detail: iface.ip || iface.device });
+      }
+    }
+    return results;
+  });
+
   let wifiSort = $state<'rssi' | 'ssid' | 'channel'>('rssi');
   let btToggling = $state<string | null>(null);
 
@@ -203,276 +259,319 @@
   Scan and inspect connected peripherals including WiFi adapters, Bluetooth devices, and USB hardware.
 </p>
 
-<Tabs tabs={tabItems} bind:active={activeTab} />
+<div class="search-bar">
+  <SearchInput bind:value={searchQuery} placeholder="Search all peripherals..." size="sm" />
+</div>
 
-{#if activeTab === 'wifi'}
-  <!-- Current connection -->
-  {#if currentWifi}
-    <div class="current-connection card">
-      <span class="current-label">Connected to</span>
-      <span class="current-ssid">{currentWifi.ssid}</span>
-      <span class="current-signal" style="color: {signalColor(currentWifi.rssi)}">
-        {currentWifi.rssi} dBm
-      </span>
-    </div>
-  {/if}
-
-  <!-- Sort -->
-  <div class="sort-row">
-    <span class="sort-label">Sort:</span>
-    <button class="sort-btn" class:active={wifiSort === 'rssi'} onclick={() => (wifiSort = 'rssi')}>Signal</button>
-    <button class="sort-btn" class:active={wifiSort === 'ssid'} onclick={() => (wifiSort = 'ssid')}>Name</button>
-    <button class="sort-btn" class:active={wifiSort === 'channel'} onclick={() => (wifiSort = 'channel')}
-      >Channel</button
-    >
-  </div>
-
-  {#if loading && wifi.length === 0}
-    <Loading count={4} height="52px" />
-  {:else if sortedWifi.length === 0}
-    <div class="empty">No WiFi networks found</div>
-  {:else}
-    <div class="network-list">
-      {#each sortedWifi as net, i}
-        <div
-          class="network-row card-stagger"
-          style="animation-delay: {i * 30}ms"
-          class:open-network={isOpenNetwork(net.security)}
-        >
-          <div class="net-signal">
-            <div class="signal-bars">
-              {#each [1, 2, 3, 4, 5] as bar}
-                <span
-                  class="bar"
-                  class:active={bar <= signalBars(net.rssi)}
-                  style="background: {bar <= signalBars(net.rssi) ? signalColor(net.rssi) : 'var(--border)'}"
-                ></span>
-              {/each}
-            </div>
-          </div>
-          <div class="net-info">
-            <span class="net-ssid">{net.ssid}</span>
-            <span class="net-meta">{net.bssid} | Ch {net.channel} | {net.rssi} dBm</span>
-          </div>
-          <Badge variant={isOpenNetwork(net.security) ? 'danger' : 'success'}>
-            {isOpenNetwork(net.security) ? 'Open' : net.security}
-          </Badge>
-        </div>
-      {/each}
-    </div>
-  {/if}
-{:else if activeTab === 'bluetooth'}
-  {#if loading && bluetooth.length === 0}
-    <Loading count={3} height="52px" />
-  {:else if bluetooth.length === 0}
-    <div class="empty">No Bluetooth devices found</div>
-  {:else}
-    <div class="bt-list">
-      {#each bluetooth as dev, i}
-        <div class="bt-row card-stagger" style="animation-delay: {i * 30}ms">
-          <span class="bt-status">
-            <span class="dot" class:connected={dev.connected}></span>
-          </span>
-          <div class="bt-info">
-            <span class="bt-name">{dev.name}</span>
-            <span class="bt-meta">{dev.address} | {dev.type}</span>
-          </div>
-          <Badge variant={dev.connected ? 'success' : 'default'}>{dev.connected ? 'Connected' : 'Paired'}</Badge>
-          <Button
-            variant={dev.connected ? 'danger' : 'accent'}
-            size="sm"
-            onclick={() => toggleBtConnection(dev)}
-            disabled={btToggling === dev.address}
-            loading={btToggling === dev.address}
+{#if searchQuery.trim()}
+  <div class="search-results">
+    {#if searchResults.length === 0}
+      <div class="empty">No results for "{searchQuery}"</div>
+    {:else}
+      <div class="search-result-list">
+        {#each searchResults as result, i}
+          <button
+            class="search-result-row card-stagger"
+            style="animation-delay: {i * 20}ms"
+            onclick={() => {
+              activeTab = result.tab;
+              searchQuery = '';
+            }}
           >
-            {dev.connected ? 'Disconnect' : 'Connect'}
-          </Button>
-        </div>
-      {/each}
-    </div>
-  {/if}
-{:else if activeTab === 'usb'}
-  {#if loading && usb.length === 0}
-    <Loading count={3} height="52px" />
-  {:else if usb.length === 0}
-    <div class="empty">No USB devices found</div>
-  {:else}
-    <div class="device-list">
-      {#each usb as dev, i}
-        <div class="device-row card-stagger" style="animation-delay: {i * 30}ms">
-          <div class="device-icon">&#x1F50C;</div>
-          <div class="device-info">
-            <span class="device-name">{dev.name}</span>
-            <span class="device-meta">
-              {#if dev.vendor}Vendor: {dev.vendor}{/if}
-              {#if dev.serial}
-                | Serial: {dev.serial}{/if}
-            </span>
-          </div>
-          {#if dev.speed}
-            <span class="device-badge">{dev.speed}</span>
-          {/if}
-        </div>
-      {/each}
-    </div>
-  {/if}
-{:else if activeTab === 'audio'}
-  {#if loading && audio.length === 0}
-    <Loading count={3} height="52px" />
-  {:else if audio.length === 0}
-    <div class="empty">No audio devices found</div>
-  {:else}
-    <div class="device-list">
-      {#each audio as dev, i}
-        <div class="device-row card-stagger" style="animation-delay: {i * 30}ms">
-          <div class="device-icon">{dev.type === 'input' ? '🎤' : '🔊'}</div>
-          <div class="device-info">
-            <span class="device-name">{dev.name}</span>
-            <span class="device-meta">
-              {dev.type === 'input' ? 'Input' : 'Output'}
-              {#if dev.sampleRate}
-                | {dev.sampleRate}{/if}
-            </span>
-          </div>
-          <span class="device-badge" class:input-badge={dev.type === 'input'}>
-            {dev.type === 'input' ? 'IN' : 'OUT'}
-          </span>
-        </div>
-      {/each}
-    </div>
-  {/if}
-{:else if activeTab === 'battery'}
-  {#if loading && !battery}
-    <Loading count={1} height="140px" />
-  {:else if !battery}
-    <div class="empty">No battery detected (desktop Mac or unavailable)</div>
-  {:else}
-    <div class="battery-card card">
-      <div class="battery-header">
-        <div class="battery-visual">
-          <div class="battery-shell">
-            <div
-              class="battery-fill"
-              style="width: {battery.percentage}%; background: {battery.percentage > 20
-                ? 'var(--success)'
-                : 'var(--danger)'}"
-            ></div>
-          </div>
-          <div class="battery-nub"></div>
-        </div>
-        <span class="battery-pct">{battery.percentage}%</span>
-        <span class="battery-status" class:charging={battery.charging}>
-          {battery.charging ? 'Charging' : 'On Battery'}
+            <Badge variant="default">{result.tabLabel}</Badge>
+            <span class="search-result-name">{result.name}</span>
+            <span class="search-result-detail">{result.detail}</span>
+          </button>
+        {/each}
+      </div>
+    {/if}
+  </div>
+{:else}
+  <Tabs tabs={tabItems} bind:active={activeTab} />
+
+  {#if activeTab === 'wifi'}
+    <!-- Current connection -->
+    {#if currentWifi}
+      <div class="current-connection card">
+        <span class="current-label">Connected to</span>
+        <span class="current-ssid">{currentWifi.ssid}</span>
+        <span class="current-signal" style="color: {signalColor(currentWifi.rssi)}">
+          {currentWifi.rssi} dBm
         </span>
       </div>
-      <div class="battery-details">
-        <div class="battery-detail">
-          <span class="battery-label">Time Remaining</span>
-          <span class="battery-value">{battery.timeRemaining}</span>
+    {/if}
+
+    <!-- Sort -->
+    <div class="sort-row">
+      <span class="sort-label">Sort:</span>
+      <button class="sort-btn" class:active={wifiSort === 'rssi'} onclick={() => (wifiSort = 'rssi')}>Signal</button>
+      <button class="sort-btn" class:active={wifiSort === 'ssid'} onclick={() => (wifiSort = 'ssid')}>Name</button>
+      <button class="sort-btn" class:active={wifiSort === 'channel'} onclick={() => (wifiSort = 'channel')}
+        >Channel</button
+      >
+    </div>
+
+    {#if loading && wifi.length === 0}
+      <Loading count={4} height="52px" />
+    {:else if sortedWifi.length === 0}
+      <div class="empty">No WiFi networks found</div>
+    {:else}
+      <div class="network-list">
+        {#each sortedWifi as net, i}
+          <div
+            class="network-row card-stagger"
+            style="animation-delay: {i * 30}ms"
+            class:open-network={isOpenNetwork(net.security)}
+          >
+            <div class="net-signal">
+              <div class="signal-bars">
+                {#each [1, 2, 3, 4, 5] as bar}
+                  <span
+                    class="bar"
+                    class:active={bar <= signalBars(net.rssi)}
+                    style="background: {bar <= signalBars(net.rssi) ? signalColor(net.rssi) : 'var(--border)'}"
+                  ></span>
+                {/each}
+              </div>
+            </div>
+            <div class="net-info">
+              <span class="net-ssid">{net.ssid}</span>
+              <span class="net-meta">
+                {net.bssid} | Ch {net.channel} | {net.rssi} dBm{#if net.noise != null}
+                  | Noise: {net.noise} dBm{/if}{#if net.phyMode}
+                  | {net.phyMode}{/if}
+              </span>
+            </div>
+            <Badge variant={isOpenNetwork(net.security) ? 'danger' : 'success'}>
+              {isOpenNetwork(net.security) ? 'Open' : net.security}
+            </Badge>
+          </div>
+        {/each}
+      </div>
+    {/if}
+  {:else if activeTab === 'bluetooth'}
+    {#if loading && bluetooth.length === 0}
+      <Loading count={3} height="52px" />
+    {:else if bluetooth.length === 0}
+      <div class="empty">No Bluetooth devices found</div>
+    {:else}
+      <div class="bt-list">
+        {#each bluetooth as dev, i}
+          <div class="bt-row card-stagger" style="animation-delay: {i * 30}ms">
+            <span class="bt-status">
+              <span class="dot" class:connected={dev.connected}></span>
+            </span>
+            <div class="bt-info">
+              <span class="bt-name">{dev.name}</span>
+              <span class="bt-meta"
+                >{dev.address} | {dev.type}{#if dev.batteryLevel != null}
+                  | Battery: {dev.batteryLevel}%{/if}</span
+              >
+            </div>
+            {#if dev.batteryLevel != null}
+              <span class="bt-battery" class:low={dev.batteryLevel <= 20}>{dev.batteryLevel}%</span>
+            {/if}
+            <Badge variant={dev.connected ? 'success' : 'default'}>{dev.connected ? 'Connected' : 'Paired'}</Badge>
+            <Button
+              variant={dev.connected ? 'danger' : 'accent'}
+              size="sm"
+              onclick={() => toggleBtConnection(dev)}
+              disabled={btToggling === dev.address}
+              loading={btToggling === dev.address}
+            >
+              {dev.connected ? 'Disconnect' : 'Connect'}
+            </Button>
+          </div>
+        {/each}
+      </div>
+    {/if}
+  {:else if activeTab === 'usb'}
+    {#if loading && usb.length === 0}
+      <Loading count={3} height="52px" />
+    {:else if usb.length === 0}
+      <div class="empty">No USB devices found</div>
+    {:else}
+      <div class="device-list">
+        {#each usb as dev, i}
+          <div class="device-row card-stagger" style="animation-delay: {i * 30}ms">
+            <div class="device-icon">&#x1F50C;</div>
+            <div class="device-info">
+              <span class="device-name">{dev.name}</span>
+              <span class="device-meta">
+                {#if dev.vendor}Vendor: {dev.vendor}{/if}
+                {#if dev.serial}
+                  | Serial: {dev.serial}{/if}
+                {#if dev.bus}
+                  | Bus: {dev.bus}{/if}
+                {#if dev.port}
+                  | Port: {dev.port}{/if}
+              </span>
+            </div>
+            {#if dev.speed}
+              <span class="device-badge">{dev.speed}</span>
+            {/if}
+          </div>
+        {/each}
+      </div>
+    {/if}
+  {:else if activeTab === 'audio'}
+    {#if loading && audio.length === 0}
+      <Loading count={3} height="52px" />
+    {:else if audio.length === 0}
+      <div class="empty">No audio devices found</div>
+    {:else}
+      <div class="device-list">
+        {#each audio as dev, i}
+          <div class="device-row card-stagger" style="animation-delay: {i * 30}ms">
+            <div class="device-icon">{dev.type === 'input' ? '🎤' : '🔊'}</div>
+            <div class="device-info">
+              <span class="device-name">{dev.name}</span>
+              <span class="device-meta">
+                {dev.type === 'input' ? 'Input' : 'Output'}
+                {#if dev.sampleRate}
+                  | {dev.sampleRate}{/if}
+              </span>
+            </div>
+            <span class="device-badge" class:input-badge={dev.type === 'input'}>
+              {dev.type === 'input' ? 'IN' : 'OUT'}
+            </span>
+          </div>
+        {/each}
+      </div>
+    {/if}
+  {:else if activeTab === 'battery'}
+    {#if loading && !battery}
+      <Loading count={1} height="140px" />
+    {:else if !battery}
+      <div class="empty">No battery detected (desktop Mac or unavailable)</div>
+    {:else}
+      <div class="battery-card card">
+        <div class="battery-header">
+          <div class="battery-visual">
+            <div class="battery-shell">
+              <div
+                class="battery-fill"
+                style="width: {battery.percentage}%; background: {battery.percentage > 20
+                  ? 'var(--success)'
+                  : 'var(--danger)'}"
+              ></div>
+            </div>
+            <div class="battery-nub"></div>
+          </div>
+          <span class="battery-pct">{battery.percentage}%</span>
+          <span class="battery-status" class:charging={battery.charging}>
+            {battery.charging ? 'Charging' : 'On Battery'}
+          </span>
         </div>
-        {#if battery.cycleCount !== null}
+        <div class="battery-details">
           <div class="battery-detail">
-            <span class="battery-label">Cycle Count</span>
-            <span class="battery-value">{battery.cycleCount}</span>
+            <span class="battery-label">Time Remaining</span>
+            <span class="battery-value">{battery.timeRemaining}</span>
           </div>
-        {/if}
-        <div class="battery-detail">
-          <span class="battery-label">Power Source</span>
-          <span class="battery-value">{battery.charging ? 'AC Power' : 'Battery'}</span>
-        </div>
-      </div>
-    </div>
-  {/if}
-{:else if activeTab === 'displays'}
-  {#if loading && displays.length === 0}
-    <Loading count={2} height="52px" />
-  {:else if displays.length === 0}
-    <div class="empty">No displays detected</div>
-  {:else}
-    <div class="device-list">
-      {#each displays as disp, i}
-        <div class="device-row card-stagger" style="animation-delay: {i * 30}ms">
-          <div class="device-icon">&#x1F5B5;</div>
-          <div class="device-info">
-            <span class="device-name">
-              {disp.name}
-              {#if disp.builtIn}
-                <span class="built-in-tag">Built-in</span>
-              {/if}
-            </span>
-            <span class="device-meta">
-              {disp.resolution}
-              {#if disp.refreshRate}
-                | {disp.refreshRate}{/if}
-              | GPU: {disp.gpu}
-            </span>
-          </div>
-          {#if disp.refreshRate}
-            <span class="device-badge">{disp.refreshRate}</span>
+          {#if battery.cycleCount !== null}
+            <div class="battery-detail">
+              <span class="battery-label">Cycle Count</span>
+              <span class="battery-value">{battery.cycleCount}</span>
+            </div>
           {/if}
-        </div>
-      {/each}
-    </div>
-  {/if}
-{:else if activeTab === 'network'}
-  {#if loading && networkInterfaces.length === 0}
-    <Loading count={3} height="52px" />
-  {:else if networkInterfaces.length === 0}
-    <div class="empty">No network interfaces found</div>
-  {:else}
-    <div class="device-list">
-      {#each networkInterfaces as iface, i}
-        <div class="device-row card-stagger" style="animation-delay: {i * 30}ms">
-          <div class="device-icon">&#x1F310;</div>
-          <div class="device-info">
-            <span class="device-name">{iface.port}</span>
-            <span class="device-meta">
-              {iface.device} | MAC: {iface.mac}
-              {#if iface.ip}
-                | IP: {iface.ip}{/if}
-            </span>
+          <div class="battery-detail">
+            <span class="battery-label">Power Source</span>
+            <span class="battery-value">{battery.charging ? 'AC Power' : 'Battery'}</span>
           </div>
-          <Badge variant={iface.status === 'active' ? 'success' : 'default'}>
-            {iface.status}
-          </Badge>
-        </div>
-      {/each}
-    </div>
-  {/if}
-{:else if activeTab === 'system'}
-  {#if loading && !systemInfo}
-    <Loading count={1} height="200px" />
-  {:else if !systemInfo}
-    <div class="empty">System info unavailable</div>
-  {:else}
-    <div class="system-card card">
-      <div class="system-details">
-        <div class="system-detail">
-          <span class="system-label">Model</span>
-          <span class="system-value">{systemInfo.model}</span>
-        </div>
-        <div class="system-detail">
-          <span class="system-label">CPU</span>
-          <span class="system-value">{systemInfo.cpuBrand}</span>
-        </div>
-        <div class="system-detail">
-          <span class="system-label">Cores / Threads</span>
-          <span class="system-value">{systemInfo.cpuCores} cores / {systemInfo.cpuThreads} threads</span>
-        </div>
-        <div class="system-detail">
-          <span class="system-label">Memory</span>
-          <span class="system-value">{systemInfo.ram}</span>
-        </div>
-        <div class="system-detail">
-          <span class="system-label">macOS Version</span>
-          <span class="system-value">{systemInfo.macosVersion}</span>
-        </div>
-        <div class="system-detail">
-          <span class="system-label">Serial Number</span>
-          <span class="system-value">{systemInfo.serial}</span>
         </div>
       </div>
-    </div>
+    {/if}
+  {:else if activeTab === 'displays'}
+    {#if loading && displays.length === 0}
+      <Loading count={2} height="52px" />
+    {:else if displays.length === 0}
+      <div class="empty">No displays detected</div>
+    {:else}
+      <div class="device-list">
+        {#each displays as disp, i}
+          <div class="device-row card-stagger" style="animation-delay: {i * 30}ms">
+            <div class="device-icon">&#x1F5B5;</div>
+            <div class="device-info">
+              <span class="device-name">
+                {disp.name}
+                {#if disp.builtIn}
+                  <span class="built-in-tag">Built-in</span>
+                {/if}
+              </span>
+              <span class="device-meta">
+                {disp.resolution}
+                {#if disp.refreshRate}
+                  | {disp.refreshRate}{/if}
+                | GPU: {disp.gpu}
+              </span>
+            </div>
+            {#if disp.refreshRate}
+              <span class="device-badge">{disp.refreshRate}</span>
+            {/if}
+          </div>
+        {/each}
+      </div>
+    {/if}
+  {:else if activeTab === 'network'}
+    {#if loading && networkInterfaces.length === 0}
+      <Loading count={3} height="52px" />
+    {:else if networkInterfaces.length === 0}
+      <div class="empty">No network interfaces found</div>
+    {:else}
+      <div class="device-list">
+        {#each networkInterfaces as iface, i}
+          <div class="device-row card-stagger" style="animation-delay: {i * 30}ms">
+            <div class="device-icon">&#x1F310;</div>
+            <div class="device-info">
+              <span class="device-name">{iface.port}</span>
+              <span class="device-meta">
+                {iface.device} | MAC: {iface.mac}
+                {#if iface.ip}
+                  | IP: {iface.ip}{/if}
+              </span>
+            </div>
+            <Badge variant={iface.status === 'active' ? 'success' : 'default'}>
+              {iface.status}
+            </Badge>
+          </div>
+        {/each}
+      </div>
+    {/if}
+  {:else if activeTab === 'system'}
+    {#if loading && !systemInfo}
+      <Loading count={1} height="200px" />
+    {:else if !systemInfo}
+      <div class="empty">System info unavailable</div>
+    {:else}
+      <div class="system-card card">
+        <div class="system-details">
+          <div class="system-detail">
+            <span class="system-label">Model</span>
+            <span class="system-value">{systemInfo.model}</span>
+          </div>
+          <div class="system-detail">
+            <span class="system-label">CPU</span>
+            <span class="system-value">{systemInfo.cpuBrand}</span>
+          </div>
+          <div class="system-detail">
+            <span class="system-label">Cores / Threads</span>
+            <span class="system-value">{systemInfo.cpuCores} cores / {systemInfo.cpuThreads} threads</span>
+          </div>
+          <div class="system-detail">
+            <span class="system-label">Memory</span>
+            <span class="system-value">{systemInfo.ram}</span>
+          </div>
+          <div class="system-detail">
+            <span class="system-label">macOS Version</span>
+            <span class="system-value">{systemInfo.macosVersion}</span>
+          </div>
+          <div class="system-detail">
+            <span class="system-label">Serial Number</span>
+            <span class="system-value">{systemInfo.serial}</span>
+          </div>
+        </div>
+      </div>
+    {/if}
   {/if}
 {/if}
 
@@ -805,6 +904,69 @@
     font-family: 'JetBrains Mono', monospace;
     text-align: right;
     word-break: break-word;
+  }
+
+  /* Search */
+  .search-bar {
+    margin-bottom: 12px;
+  }
+
+  .search-results {
+    margin-bottom: 16px;
+  }
+
+  .search-result-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .search-result-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border-subtle);
+    background: var(--bg-secondary);
+    cursor: pointer;
+    font-family: inherit;
+    text-align: left;
+    width: 100%;
+    transition: background 0.15s;
+  }
+
+  .search-result-row:hover {
+    background: var(--bg-hover);
+  }
+
+  .search-result-name {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  .search-result-detail {
+    font-size: 0.72rem;
+    color: var(--text-faint);
+    font-family: 'JetBrains Mono', monospace;
+    margin-left: auto;
+  }
+
+  /* Bluetooth battery */
+  .bt-battery {
+    font-size: 0.72rem;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: var(--accent-bg);
+    color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+    white-space: nowrap;
+  }
+
+  .bt-battery.low {
+    background: var(--danger-bg, rgba(255, 80, 80, 0.1));
+    color: var(--danger);
   }
 
   @media (max-width: 640px) {
