@@ -10,5 +10,5 @@
  */
 export const APP = {
   title: 'Home Server',
-  version: '3.10.0-swift-beacon-33',
+  version: '3.10.1-calm-route-19',
 } as const;

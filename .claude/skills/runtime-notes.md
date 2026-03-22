@@ -2,6 +2,19 @@
 
 Append-only log of skill run insights. Newest entries at top.
 
+## session: Remote access doc + Tailscale DNS troubleshooting — 2026-03-22
+
+**Purpose:** Diagnosed why the home server wasn't accessible on mobile data (bare hostname DNS resolution failure), wrote `docs/remote-access.md`.
+
+**Insights:**
+
+1. Bare hostnames (`aakarshs-macbook-pro`) resolve via mDNS/Bonjour or local router DNS only — they fail on mobile data or any network outside the home LAN.
+2. Tailscale MagicDNS hostname for this machine is `aakarshs-macbook-pro.tail905820.ts.net` — works from any network as long as Tailscale is connected.
+3. The `tailscale` CLI isn't on PATH on this Mac — must use full path: `/Applications/Tailscale.app/Contents/MacOS/Tailscale`.
+4. WebAuthn `rpId` requires a domain (not an IP), so the MagicDNS hostname is the correct access URL if biometric auth is ever implemented.
+
+---
+
 ## session: T18 homelab features — services, notifications, docker — 2026-03-22
 
 **Purpose:** Built three new homelab pages (Service Health Dashboard, Notification Center, Docker Management) with full API + server module + UI integration.
