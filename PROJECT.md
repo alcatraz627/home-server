@@ -752,3 +752,11 @@ User feedback + audit findings from the v3.0.0 sprint. Organized by area.
 - [ ] **Another docs refinement pass** — audit all docs, fix stale references, improve clarity, add links between related docs
 - [ ] **Improve README.md** — add actual screenshots (or instructions for generating them), link to specific doc sections for common concerns, add troubleshooting section
 - [ ] **Cross-reference links** — in README features table, add links to the relevant `docs/pages/` file for each feature
+
+### D10 — AI Chat + Dashboard + Terminal (additional)
+
+- [ ] **AI chat page context** — pass `$page.url.pathname` from layout to AiChat as a prop. Include it in the `/api/ai/chat` request body. Update the API to inject the current page name into the Claude system prompt (e.g., "The user is currently viewing the Files page")
+- [ ] **Dashboard drag-and-drop layout** — replace the show/hide toggle with a full layout system. Store `{ section: string, order: number, visible: boolean, width: 'full' | 'half' }[]` in localStorage. Render sections sorted by `order`. Add drag-and-drop reordering (HTML5 drag API). Show a grid toggle: 1-column or 2-column layout
+- [ ] **Terminal: don't auto-start** — on mount, only restore saved sessions. If no saved sessions exist, show the empty state with "New Terminal" button. Do NOT auto-create a shell tab
+- [ ] **Terminal: session summary bar** — add a summary row at the top showing all running shell processes (from server session map). Display: session ID (short), label, PID, uptime, status (connected/disconnected). Click to switch to that tab
+- [ ] **Terminal: bottom status bar** — add a fixed-bottom bar in the terminal page showing: current session ID, shell type (bash/zsh), cols x rows, connection status (connected/reconnecting), PTY PID. Style as a thin monospace bar like a VS Code status bar
