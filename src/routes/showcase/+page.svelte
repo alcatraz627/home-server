@@ -1,6 +1,18 @@
 <script lang="ts">
   import DataTable from '$lib/components/DataTable.svelte';
+  import Button from '$lib/components/Button.svelte';
+  import Badge from '$lib/components/Badge.svelte';
+  import Tabs from '$lib/components/Tabs.svelte';
+  import SearchInput from '$lib/components/SearchInput.svelte';
+  import Loading from '$lib/components/Loading.svelte';
+  import Collapsible from '$lib/components/Collapsible.svelte';
   import { toast } from '$lib/toast';
+
+  // Component library demo state
+  let demoTab = $state('buttons');
+  let demoSearch = $state('');
+  let demoCollapse1 = $state(false);
+  let demoCollapse2 = $state(true);
 
   // Interactive terminal state
   let termHistory = $state<{ cmd: string; output: string }[]>([
@@ -60,6 +72,82 @@
 
 <h2 class="page-title">UI Showcase</h2>
 <p class="page-desc">Design system reference — colors, type, components, and interactions.</p>
+
+<!-- ════════════════════════════ 0. COMPONENT LIBRARY ══════════════════════ -->
+<section class="section">
+  <h3 class="section-heading">Component Library</h3>
+
+  <h4 class="sub-heading">Buttons</h4>
+  <div class="component-row">
+    <Button>Default</Button>
+    <Button variant="primary">Primary</Button>
+    <Button variant="danger">Danger</Button>
+    <Button variant="ghost">Ghost</Button>
+    <Button variant="accent">Accent</Button>
+    <Button variant="primary" icon="save">With Icon</Button>
+    <Button variant="ghost" iconOnly icon="settings" />
+    <Button loading>Loading</Button>
+    <Button variant="danger" size="sm" confirm>Delete</Button>
+  </div>
+
+  <h4 class="sub-heading">Button Sizes</h4>
+  <div class="component-row">
+    <Button size="xs">Extra Small</Button>
+    <Button size="sm">Small</Button>
+    <Button size="md">Medium</Button>
+    <Button size="lg">Large</Button>
+  </div>
+
+  <h4 class="sub-heading">Badges</h4>
+  <div class="component-row">
+    <Badge variant="success">Online</Badge>
+    <Badge variant="danger">Failed</Badge>
+    <Badge variant="warning">Pending</Badge>
+    <Badge variant="info">Processing</Badge>
+    <Badge>Default</Badge>
+    <Badge variant="purple">Agent</Badge>
+    <Badge variant="success" dot>With Dot</Badge>
+    <Badge variant="warning" dot pulse>Pulsing</Badge>
+  </div>
+
+  <h4 class="sub-heading">Tabs</h4>
+  <Tabs
+    tabs={[
+      { id: 'buttons', label: 'Buttons', count: 5 },
+      { id: 'badges', label: 'Badges', count: 7 },
+      { id: 'inputs', label: 'Inputs' },
+    ]}
+    bind:active={demoTab}
+  />
+  <p class="page-desc">Active tab: <code>{demoTab}</code></p>
+
+  <h4 class="sub-heading">Search Input</h4>
+  <div style="max-width: 400px;">
+    <SearchInput bind:value={demoSearch} placeholder="Try searching..." clearable />
+  </div>
+  {#if demoSearch}
+    <p class="page-desc">Searching for: <code>{demoSearch}</code></p>
+  {/if}
+
+  <h4 class="sub-heading">Loading States</h4>
+  <div class="component-row" style="gap: 24px;">
+    <div style="width: 200px;">
+      <Loading variant="skeleton" count={2} height="32px" />
+    </div>
+    <Loading variant="spinner" text="Loading..." />
+    <Loading variant="dots" />
+  </div>
+
+  <h4 class="sub-heading">Collapsible</h4>
+  <div style="max-width: 500px;">
+    <Collapsible title="Click to expand" bind:open={demoCollapse1}>
+      <p class="page-desc">This content is hidden until the header is clicked. Supports smooth animation.</p>
+    </Collapsible>
+    <Collapsible title="Another section (starts open)" bind:open={demoCollapse2}>
+      <p class="page-desc">Collapsible sections reduce visual clutter while keeping content accessible.</p>
+    </Collapsible>
+  </div>
+</section>
 
 <!-- ════════════════════════════ 1. COLOR PALETTE ══════════════════════════ -->
 <section class="section">
@@ -327,6 +415,14 @@
   /* ── Section chrome ─────────────────────────────────────────────────────── */
   .section {
     margin-bottom: 48px;
+  }
+
+  .component-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 12px;
   }
 
   .section-heading {
