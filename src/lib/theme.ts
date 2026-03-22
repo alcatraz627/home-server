@@ -11,7 +11,17 @@ export type Theme =
   | 'nord'
   | 'github-dark'
   | 'catppuccin'
-  | 'tokyo-night';
+  | 'tokyo-night'
+  | 'one-dark'
+  | 'gruvbox-dark'
+  | 'gruvbox-light'
+  | 'everforest'
+  | 'rose-pine'
+  | 'ayu-dark'
+  | 'ayu-light'
+  | 'material-dark'
+  | 'kanagawa'
+  | 'cyberpunk';
 
 export interface ThemeDef {
   id: Theme;
@@ -30,7 +40,40 @@ export const THEMES: ThemeDef[] = [
   { id: 'github-dark', label: 'GitHub Dark', dark: true },
   { id: 'catppuccin', label: 'Catppuccin', dark: true },
   { id: 'tokyo-night', label: 'Tokyo Night', dark: true },
+  { id: 'one-dark', label: 'One Dark', dark: true },
+  { id: 'gruvbox-dark', label: 'Gruvbox Dark', dark: true },
+  { id: 'gruvbox-light', label: 'Gruvbox Light', dark: false },
+  { id: 'everforest', label: 'Everforest', dark: true },
+  { id: 'rose-pine', label: 'Rosé Pine', dark: true },
+  { id: 'ayu-dark', label: 'Ayu Dark', dark: true },
+  { id: 'ayu-light', label: 'Ayu Light', dark: false },
+  { id: 'material-dark', label: 'Material Dark', dark: true },
+  { id: 'kanagawa', label: 'Kanagawa', dark: true },
+  { id: 'cyberpunk', label: 'Cyberpunk', dark: true },
 ];
+
+export const THEME_SWATCHES: Record<Theme, { bg: string; accent: string; text: string }> = {
+  dark: { bg: '#0f1117', accent: '#58a6ff', text: '#e1e4e8' },
+  light: { bg: '#ffffff', accent: '#0969da', text: '#1f2328' },
+  monokai: { bg: '#272822', accent: '#a6e22e', text: '#f8f8f2' },
+  dracula: { bg: '#282a36', accent: '#50fa7b', text: '#f8f8f2' },
+  'solarized-dark': { bg: '#002b36', accent: '#268bd2', text: '#eee8d5' },
+  'solarized-light': { bg: '#fdf6e3', accent: '#268bd2', text: '#073642' },
+  nord: { bg: '#2e3440', accent: '#88c0d0', text: '#eceff4' },
+  'github-dark': { bg: '#22272e', accent: '#539bf5', text: '#adbac7' },
+  catppuccin: { bg: '#1e1e2e', accent: '#89b4fa', text: '#cdd6f4' },
+  'tokyo-night': { bg: '#1a1b2e', accent: '#7aa2f7', text: '#a9b1d6' },
+  'one-dark': { bg: '#282c34', accent: '#61afef', text: '#abb2bf' },
+  'gruvbox-dark': { bg: '#282828', accent: '#83a598', text: '#ebdbb2' },
+  'gruvbox-light': { bg: '#fbf1c7', accent: '#076678', text: '#3c3836' },
+  everforest: { bg: '#2d353b', accent: '#a7c080', text: '#d3c6aa' },
+  'rose-pine': { bg: '#191724', accent: '#c4a7e7', text: '#e0def4' },
+  'ayu-dark': { bg: '#0b0e14', accent: '#e6b450', text: '#bfbdb6' },
+  'ayu-light': { bg: '#fafafa', accent: '#ff9940', text: '#575f66' },
+  'material-dark': { bg: '#212121', accent: '#82aaff', text: '#eeffff' },
+  kanagawa: { bg: '#1f1f28', accent: '#7e9cd8', text: '#dcd7ba' },
+  cyberpunk: { bg: '#0a0a0f', accent: '#ff2a6d', text: '#e0e0ff' },
+};
 
 const VALID_THEMES = new Set(THEMES.map((t) => t.id));
 

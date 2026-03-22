@@ -4,12 +4,16 @@
   import { APP } from '$lib/constants/app';
   import { navigating, page } from '$app/stores';
   import { onMount } from 'svelte';
-  import { theme, THEMES, setTheme, initTheme } from '$lib/theme';
+  import { theme, THEMES, THEME_SWATCHES, setTheme, initTheme } from '$lib/theme';
+  import type { Theme } from '$lib/theme';
+  import { goto } from '$app/navigation';
   import Toast from '$lib/components/Toast.svelte';
   import AiChat from '$lib/components/AiChat.svelte';
   import SettingsPanel from '$lib/components/SettingsPanel.svelte';
   import { browser } from '$app/environment';
   import { targetDevice, remoteDevices, setTarget, addDevice, removeDevice, getApiBase } from '$lib/device-context';
+  import { NAV_GROUPS } from '$lib/constants/nav';
+  import type { NavItem } from '$lib/constants/nav';
 
   let { data, children } = $props<{ data: LayoutData; children: any }>();
   let sidebarOpen = $state(false);
@@ -18,28 +22,109 @@
   type CpuMode = 'percent' | 'load';
   type RefreshInterval = 2 | 5 | 10 | 30 | 0;
 
+  type StatKey = 'mem' | 'cpu' | 'uptime' | 'swap' | 'procs' | 'net';
+  const ALL_STATS: { key: StatKey; label: string }[] = [
+    { key: 'mem', label: 'Memory' },
+    { key: 'cpu', label: 'CPU' },
+    { key: 'uptime', label: 'Uptime' },
+    { key: 'swap', label: 'Swap' },
+    { key: 'procs', label: 'Processes' },
+    { key: 'net', label: 'Network' },
+  ];
+  const DEFAULT_VISIBLE_STATS: StatKey[] = ['mem', 'cpu', 'uptime'];
+
   const STATS_KEY = 'hs:stats-config';
 
   function loadStatsConfig() {
-    if (!browser) return { cpuMode: 'load' as CpuMode, refreshInterval: 5 as RefreshInterval };
+    if (!browser)
+      return {
+        cpuMode: 'load' as CpuMode,
+        refreshInterval: 5 as RefreshInterval,
+        visibleStats: DEFAULT_VISIBLE_STATS,
+      };
     try {
       const raw = localStorage.getItem(STATS_KEY);
-      if (raw) return JSON.parse(raw) as { cpuMode: CpuMode; refreshInterval: RefreshInterval };
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        return {
+          cpuMode: (parsed.cpuMode ?? 'load') as CpuMode,
+          refreshInterval: (parsed.refreshInterval ?? 5) as RefreshInterval,
+          visibleStats: (parsed.visibleStats ?? DEFAULT_VISIBLE_STATS) as StatKey[],
+        };
+      }
     } catch {}
-    return { cpuMode: 'load' as CpuMode, refreshInterval: 5 as RefreshInterval };
+    return {
+      cpuMode: 'load' as CpuMode,
+      refreshInterval: 5 as RefreshInterval,
+      visibleStats: DEFAULT_VISIBLE_STATS,
+    };
   }
 
   function saveStatsConfig() {
     if (!browser) return;
     localStorage.setItem(
       STATS_KEY,
-      JSON.stringify({ cpuMode: statsConfig.cpuMode, refreshInterval: statsConfig.refreshInterval }),
+      JSON.stringify({
+        cpuMode: statsConfig.cpuMode,
+        refreshInterval: statsConfig.refreshInterval,
+        visibleStats: statsConfig.visibleStats,
+      }),
     );
   }
 
   let statsConfig = $state(loadStatsConfig());
   let statsDropdownOpen = $state(false);
   let settingsOpen = $state(false);
+  const currentSwatch = $derived(THEME_SWATCHES[$theme]);
+  const currentThemeLabel = $derived(THEMES.find((t) => t.id === $theme)?.label ?? $theme);
+
+  // Manage Devices modal
+  let manageDevicesOpen = $state(false);
+  let newDeviceHostname = $state('');
+  let newDeviceIp = $state('');
+  let newDevicePort = $state('5173');
+  let newDeviceLabel = $state('');
+
+  function isStatVisible(key: StatKey): boolean {
+    return statsConfig.visibleStats.includes(key);
+  }
+
+  function toggleStatVisibility(key: StatKey) {
+    if (statsConfig.visibleStats.includes(key)) {
+      statsConfig.visibleStats = statsConfig.visibleStats.filter((k) => k !== key);
+    } else {
+      statsConfig.visibleStats = [...statsConfig.visibleStats, key];
+    }
+    saveStatsConfig();
+  }
+
+  function formatNetBytes(b: number): string {
+    if (b < 1024) return `${b}B`;
+    if (b < 1048576) return `${(b / 1024).toFixed(0)}K`;
+    if (b < 1073741824) return `${(b / 1048576).toFixed(1)}M`;
+    return `${(b / 1073741824).toFixed(1)}G`;
+  }
+
+  function handleAddDevice() {
+    if (!newDeviceIp.trim()) return;
+    addDevice({
+      hostname: newDeviceHostname.trim() || newDeviceIp.trim(),
+      ip: newDeviceIp.trim(),
+      port: parseInt(newDevicePort, 10) || 5173,
+      label: newDeviceLabel.trim(),
+    });
+    newDeviceHostname = '';
+    newDeviceIp = '';
+    newDevicePort = '5173';
+    newDeviceLabel = '';
+  }
+
+  function helpUrl(): string {
+    const path = $page.url.pathname;
+    if (path === '/') return '/docs#dashboard';
+    const slug = path.replace(/^\//, '').replace(/\//g, '-');
+    return `/docs#${slug}`;
+  }
 
   // PWA install prompt
   let installPromptEvent = $state<any>(null);
@@ -69,34 +154,57 @@
     saveStatsConfig();
   }
 
-  // ── Nav ───────────────────────────────────────────────────────────────────────
-  const nav = [
-    { href: '/', label: 'Dashboard', desc: 'System overview', icon: '◆' },
-    { href: '/files', label: 'Files', desc: 'Transfer & manage', icon: '◫' },
-    { href: '/lights', label: 'Lights', desc: 'Smart home', icon: '◉' },
-    { href: '/processes', label: 'Processes', desc: 'System monitor', icon: '▦' },
-    { href: '/tailscale', label: 'Tailscale', desc: 'VPN network', icon: '⬡' },
-    { href: '/backups', label: 'Backups', desc: 'Data protection', icon: '⟲' },
-    { href: '/tasks', label: 'Tasks', desc: 'Automation', icon: '⚙' },
-    { href: '/keeper', label: 'Keeper', desc: 'Feature tracker', icon: '◈' },
-    { href: '/terminal', label: 'Terminal', desc: 'Shell access', icon: '▶' },
-    { href: '/peripherals', label: 'Peripherals', desc: 'WiFi & Bluetooth', icon: '⊙' },
-    { href: '/qr', label: 'QR Code', desc: 'Generate QR codes', icon: '⊞' },
-    { href: '/bookmarks', label: 'Bookmarks', desc: 'Link manager', icon: '⊡' },
-    { href: '/kanban', label: 'Kanban', desc: 'Project board', icon: '▥' },
-    { href: '/wol', label: 'Wake-on-LAN', desc: 'Wake devices', icon: '⊕' },
-    { href: '/dns', label: 'DNS Lookup', desc: 'Domain resolver', icon: '⊘' },
-    { href: '/ports', label: 'Port Scanner', desc: 'Scan ports', icon: '⊗' },
-    { href: '/speedtest', label: 'Speed Test', desc: 'Bandwidth test', icon: '⊛' },
-    { href: '/clipboard', label: 'Clipboard', desc: 'Sync clipboard', icon: '⊟' },
-    { href: '/screenshots', label: 'Screenshots', desc: 'Screen gallery', icon: '⊠' },
-    { href: '/benchmarks', label: 'Benchmarks', desc: 'System bench', icon: '⊜' },
-    { href: '/wifi', label: 'WiFi Scanner', desc: 'Network scan', icon: '⊚' },
-    { href: '/packets', label: 'Packets', desc: 'Packet sniffer', icon: '⊝' },
-    { href: '/network', label: 'Network Tools', desc: 'Net toolkit', icon: '⊙' },
-    { href: '/docs', label: 'Docs', desc: 'Documentation', icon: '◧' },
-    { href: '/showcase', label: 'Showcase', desc: 'Design system', icon: '◎' },
-  ];
+  // ── Nav Groups ──────────────────────────────────────────────────────────────
+  const NAV_GROUPS_KEY = 'hs:nav-groups';
+  const NAV_PINNED_KEY = 'hs:nav-pinned';
+
+  function loadExpandedGroups(): Record<string, boolean> {
+    if (!browser) return {};
+    try {
+      const raw = localStorage.getItem(NAV_GROUPS_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch {}
+    // Default: all groups expanded
+    const defaults: Record<string, boolean> = {};
+    for (const g of NAV_GROUPS) defaults[g.id] = true;
+    return defaults;
+  }
+
+  function loadPinnedItems(): string[] {
+    if (!browser) return [];
+    try {
+      const raw = localStorage.getItem(NAV_PINNED_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch {}
+    return [];
+  }
+
+  let expandedGroups = $state<Record<string, boolean>>(loadExpandedGroups());
+  let pinnedHrefs = $state<string[]>(loadPinnedItems());
+
+  function toggleGroup(id: string) {
+    expandedGroups[id] = !expandedGroups[id];
+    if (browser) localStorage.setItem(NAV_GROUPS_KEY, JSON.stringify(expandedGroups));
+  }
+
+  function togglePin(href: string) {
+    if (pinnedHrefs.includes(href)) {
+      pinnedHrefs = pinnedHrefs.filter((h) => h !== href);
+    } else {
+      pinnedHrefs = [...pinnedHrefs, href];
+    }
+    if (browser) localStorage.setItem(NAV_PINNED_KEY, JSON.stringify(pinnedHrefs));
+  }
+
+  function isPinned(href: string): boolean {
+    return pinnedHrefs.includes(href);
+  }
+
+  // Build a flat lookup for pinned items
+  let allNavItems = $derived(NAV_GROUPS.flatMap((g) => g.items));
+  let pinnedItems = $derived(
+    pinnedHrefs.map((h) => allNavItems.find((i) => i.href === h)).filter(Boolean) as NavItem[],
+  );
 
   function isActive(href: string): boolean {
     const path = $page.url.pathname;
@@ -135,23 +243,55 @@
     <h1>Home Server</h1>
 
     <div class="system-stats">
-      <span
-        class="stat"
-        title="Memory usage"
-        style="color: {data.system.memUsedPercent >= 90
-          ? 'var(--danger)'
-          : data.system.memUsedPercent >= 70
-            ? 'var(--warning)'
-            : 'var(--success)'}"
-      >
-        MEM {data.system.memUsedPercent}%
-      </span>
+      {#if isStatVisible('mem')}
+        <span
+          class="stat"
+          title="Memory usage"
+          style="color: {data.system.memUsedPercent >= 90
+            ? 'var(--danger)'
+            : data.system.memUsedPercent >= 70
+              ? 'var(--warning)'
+              : 'var(--success)'}"
+        >
+          MEM {data.system.memUsedPercent}%
+        </span>
+      {/if}
 
-      <span class="stat" title="CPU load" style="color: {cpuColor()}">
-        {cpuLabel()}
-      </span>
+      {#if isStatVisible('cpu')}
+        <span class="stat" title="CPU load" style="color: {cpuColor()}">
+          {cpuLabel()}
+        </span>
+      {/if}
 
-      <span class="stat" title="System uptime">{data.system.uptime}h up</span>
+      {#if isStatVisible('uptime')}
+        <span class="stat" title="System uptime">{data.system.uptime}h up</span>
+      {/if}
+
+      {#if isStatVisible('swap')}
+        <span
+          class="stat"
+          title="Swap usage"
+          style="color: {data.system.swapPercent >= 80
+            ? 'var(--danger)'
+            : data.system.swapPercent >= 50
+              ? 'var(--warning)'
+              : 'var(--text-muted)'}"
+        >
+          SWAP {data.system.swapPercent}%
+        </span>
+      {/if}
+
+      {#if isStatVisible('procs')}
+        <span class="stat" title="Process count">
+          PROCS {data.system.processCount}
+        </span>
+      {/if}
+
+      {#if isStatVisible('net')}
+        <span class="stat" title="Network throughput (cumulative)">
+          NET {formatNetBytes(data.system.networkBytes.bytesIn)}↓ {formatNetBytes(data.system.networkBytes.bytesOut)}↑
+        </span>
+      {/if}
 
       <!-- Stats settings gear -->
       <div class="stats-gear-wrap">
@@ -184,6 +324,16 @@
                 {/each}
               </div>
             </div>
+            <div class="dropdown-section">
+              <span class="dropdown-label">Visible stats</span>
+              <div class="dropdown-options">
+                {#each ALL_STATS as s}
+                  <button class:selected={isStatVisible(s.key)} onclick={() => toggleStatVisibility(s.key)}
+                    >{s.label}</button
+                  >
+                {/each}
+              </div>
+            </div>
           </div>
           <!-- click-away overlay -->
           <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -192,25 +342,42 @@
       </div>
     </div>
 
-    <!-- Theme selector -->
-    <div class="theme-selector">
-      <select
-        value={$theme}
-        onchange={(e) => setTheme((e.currentTarget as HTMLSelectElement).value as any)}
-        aria-label="Select theme"
-      >
-        {#each THEMES as t}
-          <option value={t.id}>{t.label}</option>
-        {/each}
-      </select>
+    <!-- Theme indicator -->
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div
+      class="theme-indicator"
+      onclick={() => (settingsOpen = true)}
+      title="Theme: {currentThemeLabel} — click to open settings"
+      role="button"
+      tabindex="0"
+    >
+      <span class="theme-label">{currentThemeLabel}</span>
+      <span class="theme-dots">
+        <span class="theme-dot" style="background: {currentSwatch.bg}"></span>
+        <span class="theme-dot" style="background: {currentSwatch.accent}"></span>
+        <span class="theme-dot" style="background: {currentSwatch.text}"></span>
+      </span>
     </div>
+
+    <!-- Help button -->
+    <button class="icon-btn" aria-label="Help" onclick={() => goto(helpUrl())} title="Help">(?)</button>
 
     <button class="icon-btn" aria-label="Settings" onclick={() => (settingsOpen = true)} title="Settings">⚙</button>
 
     <div class="device-selector">
       <select
         value={$targetDevice}
-        onchange={(e) => setTarget((e.currentTarget as HTMLSelectElement).value)}
+        onchange={(e) => {
+          const v = (e.currentTarget as HTMLSelectElement).value;
+          if (v === '__manage__') {
+            manageDevicesOpen = true;
+            // Reset the select back to current value
+            (e.currentTarget as HTMLSelectElement).value = $targetDevice;
+          } else {
+            setTarget(v);
+          }
+        }}
         aria-label="Target device"
         class="device-select"
       >
@@ -218,6 +385,7 @@
         {#each $remoteDevices as d}
           <option value={d.ip}>{d.label || d.hostname} ({d.ip})</option>
         {/each}
+        <option value="__manage__">Manage Devices...</option>
       </select>
     </div>
   </header>
@@ -226,14 +394,75 @@
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <nav class:open={sidebarOpen}>
-      {#each nav as item}
-        <a href={item.href} class:active={isActive(item.href)} onclick={() => (sidebarOpen = false)}>
-          <span class="nav-icon">{item.icon}</span>
-          <span class="nav-text">
-            <span class="nav-label">{item.label}</span>
-            <span class="nav-desc">{item.desc}</span>
-          </span>
-        </a>
+      {#if pinnedItems.length > 0}
+        <div class="nav-group">
+          <button class="nav-group-header" onclick={() => {}}>
+            <span class="nav-group-label">Pinned</span>
+          </button>
+          <div class="nav-group-items" style="max-height: none;">
+            {#each pinnedItems as item (item.href)}
+              <a
+                href={item.href}
+                class="nav-link"
+                class:active={isActive(item.href)}
+                onclick={() => (sidebarOpen = false)}
+              >
+                <span class="nav-icon">{item.icon}</span>
+                <span class="nav-text">
+                  <span class="nav-label">{item.label}</span>
+                  <span class="nav-desc">{item.desc}</span>
+                </span>
+                <button
+                  class="pin-btn pinned"
+                  onclick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    togglePin(item.href);
+                  }}
+                  aria-label="Unpin {item.label}"
+                  title="Unpin">&#9733;</button
+                >
+              </a>
+            {/each}
+          </div>
+        </div>
+      {/if}
+
+      {#each NAV_GROUPS as group (group.id)}
+        {@const isExpanded = expandedGroups[group.id] !== false}
+        <div class="nav-group">
+          <button class="nav-group-header" onclick={() => toggleGroup(group.id)}>
+            <span class="nav-group-chevron" class:expanded={isExpanded}>&#9656;</span>
+            <span class="nav-group-label">{group.label}</span>
+          </button>
+          <div class="nav-group-items" class:collapsed={!isExpanded}>
+            {#each group.items as item (item.href)}
+              <a
+                href={item.href}
+                class="nav-link"
+                class:active={isActive(item.href)}
+                onclick={() => (sidebarOpen = false)}
+              >
+                <span class="nav-icon">{item.icon}</span>
+                <span class="nav-text">
+                  <span class="nav-label">{item.label}</span>
+                  <span class="nav-desc">{item.desc}</span>
+                </span>
+                <button
+                  class="pin-btn"
+                  class:pinned={isPinned(item.href)}
+                  onclick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    togglePin(item.href);
+                  }}
+                  aria-label={isPinned(item.href) ? `Unpin ${item.label}` : `Pin ${item.label}`}
+                  title={isPinned(item.href) ? 'Unpin' : 'Pin'}>{isPinned(item.href) ? '\u2605' : '\u2606'}</button
+                >
+              </a>
+            {/each}
+          </div>
+        </div>
       {/each}
       <span class="version-tag">{APP.version}</span>
     </nav>
@@ -267,6 +496,48 @@
         localStorage.setItem('hs:install-dismissed', '1');
       }}>✕</button
     >
+  </div>
+{/if}
+
+{#if manageDevicesOpen}
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="modal-overlay" onclick={() => (manageDevicesOpen = false)} role="presentation">
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <div class="modal-panel" onclick={(e) => e.stopPropagation()} role="dialog" aria-label="Manage Devices">
+      <div class="modal-header">
+        <h3>Manage Devices</h3>
+        <button class="icon-btn" onclick={() => (manageDevicesOpen = false)}>✕</button>
+      </div>
+
+      <div class="modal-body">
+        {#if $remoteDevices.length > 0}
+          <div class="device-list-manage">
+            {#each $remoteDevices as d}
+              <div class="device-item">
+                <div class="device-item-info">
+                  <span class="device-item-label">{d.label || d.hostname}</span>
+                  <span class="device-item-addr">{d.ip}:{d.port}</span>
+                </div>
+                <button class="btn-sm btn-danger" onclick={() => removeDevice(d.ip)}>Remove</button>
+              </div>
+            {/each}
+          </div>
+        {:else}
+          <p class="device-empty">No remote devices configured.</p>
+        {/if}
+
+        <div class="device-add-form">
+          <span class="dropdown-label">Add Device</span>
+          <div class="device-add-fields">
+            <input type="text" bind:value={newDeviceLabel} placeholder="Label (optional)" class="device-input" />
+            <input type="text" bind:value={newDeviceHostname} placeholder="Hostname" class="device-input" />
+            <input type="text" bind:value={newDeviceIp} placeholder="IP address" class="device-input" required />
+            <input type="text" bind:value={newDevicePort} placeholder="Port" class="device-input device-port-input" />
+          </div>
+          <button class="btn-add-device" onclick={handleAddDevice} disabled={!newDeviceIp.trim()}>Add</button>
+        </div>
+      </div>
+    </div>
   </div>
 {/if}
 
@@ -441,34 +712,44 @@
     color: var(--accent);
   }
 
-  /* ── Theme selector ──────────────────────────────────────────────────────────── */
-  .theme-selector select {
-    font-size: 0.78rem;
-    padding: 4px 8px;
+  /* ── Theme indicator ────────────────────────────────────────────────────────── */
+  .theme-indicator {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 8px;
     border-radius: 6px;
     border: 1px solid var(--border);
     background: var(--btn-bg);
-    color: var(--text-secondary);
     cursor: pointer;
     transition:
       border-color 0.15s,
-      color 0.15s;
-    appearance: none;
-    -webkit-appearance: none;
-    padding-right: 22px;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%239ca3af'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 7px center;
+      background 0.15s;
   }
 
-  .theme-selector select:hover {
+  .theme-indicator:hover {
     border-color: var(--accent);
-    color: var(--text-primary);
+    background: var(--bg-hover);
   }
 
-  .theme-selector select:focus {
-    outline: none;
-    border-color: var(--accent);
+  .theme-label {
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .theme-dots {
+    display: flex;
+    gap: 3px;
+    align-items: center;
+  }
+
+  .theme-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
   }
 
   /* ── Mobile menu toggle ──────────────────────────────────────────────────────── */
@@ -512,6 +793,7 @@
       background 0.18s ease,
       color 0.18s ease,
       transform 0.18s ease;
+    position: relative;
   }
 
   nav a:hover {
@@ -527,6 +809,95 @@
     box-shadow:
       inset 0 0 0 0 transparent,
       inset 2px 0 12px rgba(88, 166, 255, 0.06);
+  }
+
+  /* ── Nav groups ──────────────────────────────────────────────────────────────── */
+  .nav-group {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .nav-group-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 16px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-faint);
+    transition: color 0.15s;
+  }
+
+  .nav-group-header:hover {
+    color: var(--text-muted);
+  }
+
+  .nav-group-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  .nav-group-chevron {
+    font-size: 0.6rem;
+    transition: transform 0.2s ease;
+    display: inline-block;
+  }
+
+  .nav-group-chevron.expanded {
+    transform: rotate(90deg);
+  }
+
+  .nav-group-items {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    max-height: 600px;
+    overflow: hidden;
+    transition: max-height 0.25s ease;
+  }
+
+  .nav-group-items.collapsed {
+    max-height: 0;
+  }
+
+  /* ── Pin button ──────────────────────────────────────────────────────────────── */
+  .pin-btn {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.7rem;
+    color: var(--text-faint);
+    opacity: 0;
+    transition:
+      opacity 0.15s,
+      color 0.15s;
+    padding: 2px 4px;
+    line-height: 1;
+  }
+
+  nav a:hover .pin-btn {
+    opacity: 0.6;
+  }
+
+  nav a:hover .pin-btn:hover {
+    opacity: 1;
+    color: var(--accent);
+  }
+
+  .pin-btn.pinned {
+    opacity: 0.7;
+    color: var(--accent);
+  }
+
+  nav a:hover .pin-btn.pinned {
+    opacity: 1;
   }
 
   /* ── Nav item content ────────────────────────────────────────────────────────── */
@@ -627,7 +998,7 @@
       display: none;
     }
 
-    .theme-selector {
+    .theme-indicator {
       display: none;
     }
 
@@ -700,6 +1071,152 @@
     cursor: pointer;
     font-size: 1rem;
     padding: 2px 6px;
+  }
+
+  /* ── Manage Devices modal ────────────────────────────────────────────────── */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .modal-panel {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+    width: 420px;
+    max-width: 90vw;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .modal-header h3 {
+    font-size: 0.95rem;
+    margin: 0;
+  }
+
+  .modal-body {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .device-list-manage {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .device-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
+    background: var(--bg-hover);
+    border-radius: 6px;
+  }
+
+  .device-item-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .device-item-label {
+    font-size: 0.82rem;
+    color: var(--text-primary);
+    font-weight: 500;
+  }
+
+  .device-item-addr {
+    font-size: 0.68rem;
+    color: var(--text-faint);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .device-empty {
+    font-size: 0.78rem;
+    color: var(--text-faint);
+    text-align: center;
+    padding: 12px;
+  }
+
+  .device-add-form {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .device-add-fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+
+  .device-input {
+    font-size: 0.78rem;
+    padding: 6px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--input-bg);
+    color: var(--text-primary);
+  }
+
+  .device-port-input {
+    max-width: 80px;
+  }
+
+  .btn-add-device {
+    font-size: 0.78rem;
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--accent);
+    background: var(--accent-bg);
+    color: var(--accent);
+    cursor: pointer;
+    font-weight: 500;
+    transition:
+      background 0.15s,
+      color 0.15s;
+  }
+
+  .btn-add-device:hover:not(:disabled) {
+    background: var(--accent);
+    color: white;
+  }
+
+  .btn-add-device:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  :global(.btn-sm) {
+    font-size: 0.72rem;
+    padding: 4px 10px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: var(--btn-bg);
+    color: var(--text-secondary);
+    cursor: pointer;
+  }
+
+  :global(.btn-danger) {
+    border-color: var(--danger);
+    color: var(--danger);
   }
 
   /* Touch target minimum sizing for interactive elements */

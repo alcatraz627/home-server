@@ -534,3 +534,71 @@ See [docs/claude-keeper.md](docs/claude-keeper.md) for full planning document.
 - [x] Pages to document (in order): Dashboard, Files, Lights, Processes, Tailscale, Backups, Tasks, Keeper, Terminal, Docs, Showcase
 - [x] **Planned features doc** — `docs/roadmap.md` summarizing T1-T26 with status indicators
 - [x] Auto-include new docs in the `/docs` page viewer
+
+---
+
+## v3.1 — Refinements & Gaps
+
+User feedback + audit findings from the v3.0.0 sprint. Organized by area.
+
+### F1 — Bug Fixes (Critical)
+
+- [ ] **Peripherals WiFi scan returns no items** — the `airport -s` parser is likely failing on current macOS output format. Debug the column parsing in `/api/peripherals/+server.ts`. Bluetooth lists devices but has no connect/disconnect actions — add `blueutil` (macOS) or `bluetoothctl` (Linux) integration for toggle
+- [ ] **Speed test keeps erroring out** — debug `/api/speedtest/+server.ts`. Likely the download/upload blob generation or timing logic is failing. Add proper try/catch with descriptive error messages
+- [ ] **Toast deduplication not applied everywhere** — many actions (e.g. deleting a task, running a backup) fire multiple toasts. Ensure all repeated-action toasts use the `key` parameter for dedup. Audit every `toast.success()`/`toast.error()` call across all pages
+- [ ] **API error toasts missing** — files page `deleteSelected()`, `createDir()`, `refreshFiles()` have bare `fetch()` with no try/catch. Lights page catch blocks don't call `toast.error()`. Wrap ALL fetch calls in ALL pages with try/catch + `toast.error(message)`
+
+### F2 — Terminal Fixes
+
+- [ ] **Sessions killed on navigation** — navigating away and returning starts a new shell instead of reconnecting to the existing one. The server-side session map exists but the client doesn't reattach by session ID on remount. Fix: store `sessionId` in component state or sessionStorage, pass it as query param on reconnect
+- [ ] **Launch shell in project directory** — set the PTY spawn `cwd` option to the project root (or the server's working directory) instead of defaulting to `$HOME`
+- [ ] **Mobile horizontal overflow** — terminal container has a small horizontal scroll on mobile. Fix: set `max-width: 100vw` or `overflow-x: hidden` on the terminal wrapper, and ensure xterm.js `cols` fits the viewport width
+- [ ] **Mobile extra keys bar** — add a row of frequently-needed terminal keys below the terminal (like Termux). Keys: `TAB`, `CTRL`, `ESC`, `|`, `/`, `-`, `~`, arrow keys (←↑→↓). Each key button sends the corresponding escape sequence to the PTY via the WebSocket. Style as a thin fixed bar at the bottom of the terminal page on touch devices (`@media (pointer: coarse)`)
+
+### F3 — Navbar Overhaul
+
+- [ ] **Remove theme `<select>` dropdown** — the SettingsPanel gear icon makes the native select redundant. Replace it with a compact theme indicator: show the current theme name as a small label + 3-4 color dots (bg, accent, text, border) sampled from the active theme. Clicking it opens the SettingsPanel. Define a `THEME_SWATCHES` map in `theme.ts` mapping each theme ID to its 4 representative colors
+- [ ] **Add more system stats** — the CPU display only shows load avg or percent. Add: disk I/O (reads/writes per sec), network throughput (bytes in/out), swap usage, process count, open file descriptor count, TCP connection count. Show as expandable stat chips in the `.system-stats` row. Pull data from the existing `/api/system` endpoint (extend it if needed). Let user toggle which stats are visible via the stats gear dropdown
+- [ ] **Device selector UX** — add a "Manage Devices" option at the bottom of the device `<select>`. When selected, open a small modal/panel where users can add remote devices (hostname, Tailscale IP, port) and remove existing ones. Store in localStorage via `device-context.ts`. Show a brief explanation: "Add other Home Server instances on your Tailscale network"
+- [ ] **Help button** — add a `(?)` icon button in the header (near the settings gear). On click: navigate to `/docs#{current-page-slug}` if a doc section exists for the current route, otherwise navigate to `/docs`. Derive the page slug from `$page.url.pathname`
+
+### F4 — Sidebar Restructure
+
+- [ ] **Group nav items by category** — move the `nav` array from `+layout.svelte` to a new constants file `src/lib/constants/nav.ts`. Define groups with labels:
+  - **Core**: Dashboard, Files, Processes, Terminal
+  - **Smart Home**: Lights, Peripherals
+  - **Network**: Tailscale, WiFi Scanner, Packets, Network Tools, Wake-on-LAN
+  - **Tools**: Tasks, Backups, Keeper, Bookmarks, Kanban, QR Code, DNS, Ports, Speed Test, Clipboard, Screenshots, Benchmarks
+  - **Info**: Docs, Showcase
+    Each item keeps its existing `{ href, label, desc, icon }` shape. Each group has `{ id, label, items }`.
+- [ ] **Collapsible groups** — render groups with a clickable header that expands/contracts the items below. Store expanded state in localStorage under `hs:nav-groups`. Default: all expanded. Use CSS `max-height` transition for smooth animation
+- [ ] **Star/pin sidebar links** — add a small star button on each nav link (visible on hover). Starred links float to the top of the sidebar in a "Pinned" section above the groups. Store in localStorage under `hs:nav-pinned` as an array of hrefs. Use the existing `.star-btn` CSS class
+
+### F5 — Documentation System
+
+- [ ] **Write per-page docs** — create `docs/pages/{slug}.md` for EVERY page in the app (all 25 routes + navbar). Each doc should cover: feature overview, how to use it, data flow (page → API → server module), caveats/known issues, keyboard shortcuts (if any). Files to create: `dashboard.md`, `files.md`, `lights.md`, `processes.md`, `tailscale.md`, `backups.md`, `tasks.md`, `keeper.md`, `terminal.md`, `peripherals.md`, `qr.md`, `bookmarks.md`, `kanban.md`, `wol.md`, `dns.md`, `ports.md`, `speedtest.md`, `clipboard.md`, `screenshots.md`, `benchmarks.md`, `wifi.md`, `packets.md`, `network.md`, `docs.md`, `showcase.md`, `navbar.md`
+- [ ] **Category groups in /docs page** — update the docs page to group documents by type: "Page Guides", "Architecture", "API Reference", "Setup", etc. Add collapsible sections per category. Auto-categorize by path: `docs/pages/*.md` → "Page Guides", root `docs/*.md` → by filename heuristic
+- [ ] **Contextual help button** — the `(?)` button from F3 above should open the matching doc. The docs page should support hash-based navigation (`/docs#files`) to auto-expand and scroll to the relevant section
+
+### F6 — Audit Gaps (from code review)
+
+- [ ] **Wire universal stars store** — `$lib/stars.ts` exists but is imported by 0 pages. Files page uses own `hs:starred-files`, processes uses `hs:starred-pids`. Migrate both to the shared store. Add star buttons to: bulb cards, backup cards, task cards, tailscale device rows. Starred items sort to top
+- [ ] **Skeleton loading screens** — CSS classes `.skeleton`, `.skeleton-text`, `.skeleton-card` are defined but used on 0 pages. Add skeleton placeholders to: processes (while fetching process list), lights (while discovering bulbs), tailscale (while loading devices), dashboard (while loading stats). Match the eventual layout shape
+- [ ] **Card stagger animation** — `.card-stagger` only used on 2 pages. Apply `card-stagger` with `animation-delay: {i * 40}ms` to card grids on: dashboard widgets, lights bulb grid, files list, bookmarks, kanban columns
+- [ ] **Multi-device API proxying** — `getApiBase()` function exists but no page uses it. Create a `fetchApi()` wrapper in `$lib/api.ts` that automatically prefixes the base URL from `targetDevice` store. Replace raw `fetch('/api/...')` calls with `fetchApi('/api/...')` across all pages
+- [ ] **Process table sort + toggle** — make column headers clickable to sort asc/desc. Add a toggle button for CPU/MEM columns to switch between percentage and absolute values (MB for memory, CPU time)
+- [ ] **Disk extended info** — populate the `fstype` field in `getSystemDiskUsage()`. Return device name and inode count. Show in dashboard disk cards and tasks page disk section
+- [ ] **AI chat code highlighting** — add a lightweight syntax highlighter (Prism.js or highlight.js) for code blocks in Claude responses. Detect ``` fenced blocks and apply language-specific highlighting
+- [ ] **Dashboard enrichment** — add: terminal preview (last output line from active session, clickable), starred files quick-access list, starred bulbs with toggle, disk usage trend mini-charts (SVG sparklines from last 10 data points)
+
+### F7 — User Feedback (v3.0.1)
+
+- [ ] **Page descriptions + helper tips** — add a brief description/helper text at the top of EVERY page explaining what it does and how to use it. Use a consistent `.page-desc` styling
+- [ ] **Tab bar border-radius fix** — elements like tab bars with bottom borders look weird with border-radius. Use `border-radius: 0` on tab containers with connected bottom borders
+- [ ] **More peripherals** — add: USB devices (`system_profiler SPUSBDataType`), audio devices (`SPAudioDataType`), displays (`SPDisplaysDataType`), storage (`SPStorageDataType`), battery (`pmset -g batt`)
+- [ ] **Keeper status explanation** — show in Keeper UI whether `claude` CLI is installed, what the agent can do, how to use it
+- [ ] **Tasks cron lifecycle** — when deleting a scheduled task, unregister from `node-cron`. Add warning dialog. Show active cron count in tasks header
+- [ ] **Process monitor: swap + I/O** — add swap usage + disk I/O to system monitor charts. Extend `/api/system`
+- [ ] **Smart lights: save bulb name + room** — fix sessionStorage cache. Allow saving both bulb name AND room name per bulb separately
+- [ ] **File browser path bar** — editable breadcrumb path bar above file list. Clickable segments. Typeable path. Error on invalid
+- [ ] **10 more themes** — One Dark, Gruvbox Dark, Gruvbox Light, Everforest, Rosé Pine, Ayu Dark, Ayu Light, Material Dark, Kanagawa, Cyberpunk. Ensure header/body/mono fonts are independently configurable in SettingsPanel

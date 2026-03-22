@@ -144,9 +144,14 @@
 
   async function rediscover() {
     discovering = true;
-    const res = await fetch('/api/lights');
-    const fresh: WizBulb[] = await res.json();
-    mergeBulbs(fresh);
+    try {
+      const res = await fetch('/api/lights');
+      if (!res.ok) throw new Error('Failed to discover lights');
+      const fresh: WizBulb[] = await res.json();
+      mergeBulbs(fresh);
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to discover lights');
+    }
     discovering = false;
   }
 
@@ -174,11 +179,16 @@
   }
 
   async function setBulb(ip: string, params: Record<string, any>) {
-    await fetch(`/api/lights/${encodeURIComponent(ip)}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(params),
-    });
+    try {
+      const res = await fetch(`/api/lights/${encodeURIComponent(ip)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params),
+      });
+      if (!res.ok) throw new Error('Failed to set bulb');
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to control light', { key: 'light-control' });
+    }
   }
 
   function toggleBulb(bulb: WizBulb) {
@@ -255,9 +265,14 @@
   }
 
   async function refreshStates() {
-    const res = await fetch('/api/lights');
-    const fresh: WizBulb[] = await res.json();
-    mergeBulbs(fresh);
+    try {
+      const res = await fetch('/api/lights');
+      if (!res.ok) throw new Error('Failed to refresh lights');
+      const fresh: WizBulb[] = await res.json();
+      mergeBulbs(fresh);
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to refresh lights', { key: 'light-control' });
+    }
   }
 
   // Group control
@@ -319,34 +334,85 @@
     return bulbs.filter((b) => rooms[b.mac] === roomFilter);
   });
 
-  // Quick presets
-  const QUICK_PRESETS = [
-    { label: 'All Off', action: () => groupAction({ state: false }), icon: '⏻' },
-    {
-      label: 'Movie Mode',
-      action: () => {
-        groupAction({ dimming: 15 });
-        groupAction({ temp: 2700 });
-      },
-      icon: '🎬',
-    },
-    {
-      label: 'Work Mode',
-      action: () => {
-        groupAction({ dimming: 80 });
-        groupAction({ temp: 5000 });
-      },
-      icon: '💼',
-    },
-    {
-      label: 'All On 100%',
-      action: () => {
-        groupAction({ state: true });
-        groupAction({ dimming: 100 });
-      },
-      icon: '☀',
-    },
+  // Quick presets (built-in)
+  const BUILTIN_PRESETS = [
+    { label: 'All Off', icon: '⏻', dimming: 0, temp: 0, state: false },
+    { label: 'Movie Mode', icon: '🎬', dimming: 15, temp: 2700, state: true },
+    { label: 'Work Mode', icon: '💼', dimming: 80, temp: 5000, state: true },
+    { label: 'All On', icon: '☀', dimming: 100, temp: 4000, state: true },
+    { label: 'Night Light', icon: '🌙', dimming: 5, temp: 2200, state: true },
+    { label: 'Reading', icon: '📖', dimming: 60, temp: 4500, state: true },
   ];
+
+  // Custom presets (localStorage)
+  interface CustomPreset {
+    label: string;
+    icon: string;
+    dimming: number;
+    temp: number;
+    color?: { r: number; g: number; b: number };
+  }
+
+  const PRESETS_KEY = 'hs:light-presets';
+
+  function loadCustomPresets(): CustomPreset[] {
+    try {
+      const raw = localStorage.getItem(PRESETS_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch {}
+    return [];
+  }
+
+  let customPresets = $state<CustomPreset[]>(browser ? loadCustomPresets() : []);
+  let showPresetForm = $state(false);
+  let presetFormName = $state('');
+  let presetFormIcon = $state('🔆');
+  let presetFormDimming = $state(50);
+  let presetFormTemp = $state(4000);
+
+  function saveCustomPresets() {
+    if (browser) localStorage.setItem(PRESETS_KEY, JSON.stringify(customPresets));
+  }
+
+  function addCustomPreset() {
+    if (!presetFormName.trim()) return;
+    customPresets = [
+      ...customPresets,
+      {
+        label: presetFormName.trim(),
+        icon: presetFormIcon,
+        dimming: presetFormDimming,
+        temp: presetFormTemp,
+      },
+    ];
+    saveCustomPresets();
+    showPresetForm = false;
+    presetFormName = '';
+  }
+
+  function deleteCustomPreset(idx: number) {
+    customPresets = customPresets.filter((_, i) => i !== idx);
+    saveCustomPresets();
+  }
+
+  function applyPreset(preset: {
+    dimming: number;
+    temp: number;
+    state?: boolean;
+    color?: { r: number; g: number; b: number };
+  }) {
+    if (preset.state === false) {
+      groupAction({ state: false });
+    } else {
+      groupAction({ state: true });
+      if (preset.dimming) groupAction({ dimming: preset.dimming });
+      if (preset.color) {
+        groupAction(preset.color);
+      } else if (preset.temp) {
+        groupAction({ temp: preset.temp });
+      }
+    }
+  }
 
   // Power estimate (~10W per bulb at full brightness)
   function estimatePower(): string {
@@ -396,21 +462,75 @@
 
 <!-- Quick Presets -->
 {#if bulbs.length > 0}
-  <div class="quick-presets">
-    {#each QUICK_PRESETS as preset}
-      <button
-        class="preset-btn"
-        onclick={() => {
-          selectedBulbs = new Set(bulbs.map((b) => b.mac));
-          preset.action();
-        }}
-        disabled={bulbs.length === 0}
-      >
-        <span class="preset-icon">{preset.icon}</span>
-        {preset.label}
+  <div class="presets-section">
+    <div class="presets-header">
+      <span class="presets-label">Presets</span>
+      <span class="power-est" title="Estimated power consumption">⚡ {estimatePower()}W</span>
+      <button class="btn btn-sm" onclick={() => (showPresetForm = !showPresetForm)}>
+        {showPresetForm ? '✕' : '+ Custom'}
       </button>
-    {/each}
-    <span class="power-est" title="Estimated power consumption">⚡ {estimatePower()}W</span>
+    </div>
+    <div class="quick-presets">
+      {#each BUILTIN_PRESETS as preset}
+        <button
+          class="preset-btn"
+          onclick={(e) => {
+            e.stopPropagation();
+            if (selectedBulbs.size === 0) selectedBulbs = new Set(bulbs.map((b) => b.mac));
+            applyPreset(preset);
+          }}
+        >
+          <span class="preset-icon">{preset.icon}</span>
+          <span class="preset-name">{preset.label}</span>
+        </button>
+      {/each}
+      {#each customPresets as preset, i}
+        <div class="preset-custom-wrap">
+          <button
+            class="preset-btn preset-custom"
+            onclick={(e) => {
+              e.stopPropagation();
+              if (selectedBulbs.size === 0) selectedBulbs = new Set(bulbs.map((b) => b.mac));
+              applyPreset(preset);
+            }}
+          >
+            <span class="preset-icon">{preset.icon}</span>
+            <span class="preset-name">{preset.label}</span>
+          </button>
+          <button
+            class="preset-delete"
+            onclick={(e) => {
+              e.stopPropagation();
+              deleteCustomPreset(i);
+            }}
+            title="Remove">✕</button
+          >
+        </div>
+      {/each}
+    </div>
+    {#if showPresetForm}
+      <div class="preset-form slide-down">
+        <input type="text" bind:value={presetFormName} placeholder="Preset name" class="preset-input" />
+        <input
+          type="text"
+          bind:value={presetFormIcon}
+          placeholder="Icon"
+          class="preset-input preset-icon-input"
+          maxlength="2"
+        />
+        <label class="preset-field">
+          <span>Brightness</span>
+          <input type="range" min="1" max="100" bind:value={presetFormDimming} />
+          <span class="preset-val">{presetFormDimming}%</span>
+        </label>
+        <label class="preset-field">
+          <span>Temperature</span>
+          <input type="range" min="2200" max="6500" step="100" bind:value={presetFormTemp} />
+          <span class="preset-val">{presetFormTemp}K</span>
+        </label>
+        <button class="btn" onclick={addCustomPreset} disabled={!presetFormName.trim()}>Save Preset</button>
+      </div>
+    {/if}
   </div>
 {/if}
 
@@ -445,10 +565,10 @@
 {/if}
 
 {#if initialLoad}
-  <div class="loading-state">
-    <div class="spinner"></div>
-    <p>Scanning for Wiz bulbs on the network...</p>
-    <p class="hint">This takes about 3 seconds</p>
+  <div class="bulb-grid">
+    {#each Array(4) as _, i}
+      <div class="skeleton-card card-stagger" style="animation-delay: {i * 40}ms; height: 200px;"></div>
+    {/each}
   </div>
 {:else if bulbs.length === 0}
   <div class="empty">
@@ -460,14 +580,7 @@
     {#each filteredBulbs as bulb}
       <!-- svelte-ignore a11y_click_events_have_key_events -->
       <!-- svelte-ignore a11y_no_static_element_interactions -->
-      <div
-        class="bulb-card"
-        class:off={!bulb.state}
-        class:selected={selectedBulbs.has(bulb.mac)}
-        onclick={() => {
-          if (bulbs.length > 1) toggleSelect(bulb.mac);
-        }}
-      >
+      <div class="bulb-card" class:off={!bulb.state} class:selected={selectedBulbs.has(bulb.mac)}>
         <!-- Color swatch header -->
         <div
           class="bulb-swatch"
@@ -689,40 +802,142 @@
     font-size: 0.75rem;
   }
 
-  /* Quick presets */
+  /* Presets section */
+  .presets-section {
+    margin-bottom: 16px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+  }
+
+  .presets-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .presets-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-faint);
+  }
+
   .quick-presets {
     display: flex;
-    gap: 8px;
+    gap: 6px;
     align-items: center;
-    margin-bottom: 12px;
     flex-wrap: wrap;
   }
+
   .preset-btn {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 8px 16px;
-    font-size: 0.8rem;
-    border-radius: 8px;
+    gap: 5px;
+    padding: 6px 12px;
+    font-size: 0.75rem;
+    border-radius: 20px;
     border: 1px solid var(--border);
-    background: var(--bg-secondary);
+    background: var(--btn-bg);
     color: var(--text-secondary);
     cursor: pointer;
     font-family: inherit;
     transition: all 0.15s;
+    position: relative;
   }
+
   .preset-btn:hover:not(:disabled) {
     border-color: var(--accent);
     color: var(--text-primary);
+    background: var(--accent-bg);
   }
+
+  .preset-custom {
+    border-style: dashed;
+  }
+
+  .preset-custom-wrap {
+    display: flex;
+    align-items: center;
+    position: relative;
+  }
+
+  .preset-name {
+    white-space: nowrap;
+  }
+
+  .preset-delete {
+    background: none;
+    border: none;
+    color: var(--text-faint);
+    font-size: 0.65rem;
+    cursor: pointer;
+    padding: 0 2px;
+    margin-left: 2px;
+  }
+
+  .preset-delete:hover {
+    color: var(--danger);
+  }
+
   .preset-icon {
-    font-size: 1rem;
+    font-size: 0.9rem;
   }
+
   .power-est {
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     color: var(--warning);
     font-family: 'JetBrains Mono', monospace;
     margin-left: auto;
+  }
+
+  /* Preset form */
+  .preset-form {
+    margin-top: 10px;
+    padding: 10px;
+    border-top: 1px solid var(--border-subtle);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .preset-input {
+    padding: 5px 10px;
+    font-size: 0.78rem;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--input-bg);
+    color: var(--text-primary);
+    font-family: inherit;
+    width: 140px;
+  }
+
+  .preset-icon-input {
+    width: 44px;
+    text-align: center;
+  }
+
+  .preset-field {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+  }
+
+  .preset-field input[type='range'] {
+    width: 80px;
+    accent-color: var(--accent);
+  }
+
+  .preset-val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    min-width: 36px;
   }
 
   .group-controls {

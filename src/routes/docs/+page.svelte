@@ -1,27 +1,79 @@
 <script lang="ts">
   import { renderMarkdown } from '$lib/markdown';
+  import { browser } from '$app/environment';
+  import { page } from '$app/stores';
+  import { onMount } from 'svelte';
   import type { PageData } from './$types';
-  import type { DocFile } from './+page.server';
+  import type { DocFile, DocCategory } from './+page.server';
 
   let { data } = $props<{ data: PageData }>();
 
   let search = $state('');
   let expanded = $state<Record<string, boolean>>({});
+  let categoryExpanded = $state<Record<string, boolean>>({});
 
-  function toggle(filePath: string) {
+  // Initialize all categories as expanded
+  onMount(() => {
+    for (const cat of data.categories) {
+      if (!(cat.id in categoryExpanded)) {
+        categoryExpanded[cat.id] = true;
+      }
+    }
+
+    // Handle hash-based navigation
+    handleHash();
+    window.addEventListener('hashchange', handleHash);
+    return () => window.removeEventListener('hashchange', handleHash);
+  });
+
+  function handleHash() {
+    if (!browser) return;
+    const hash = window.location.hash.slice(1);
+    if (!hash) return;
+
+    // Find the file matching the hash (e.g., #files -> files.md)
+    for (const cat of data.categories) {
+      for (const file of cat.files) {
+        const slug = file.name.replace('.md', '');
+        if (slug === hash) {
+          categoryExpanded[cat.id] = true;
+          expanded[file.path] = true;
+          // Scroll to the file after a tick
+          setTimeout(() => {
+            const el = document.getElementById(`doc-${slug}`);
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }, 100);
+          return;
+        }
+      }
+    }
+  }
+
+  function toggleFile(filePath: string) {
     expanded[filePath] = !expanded[filePath];
   }
 
-  let filtered = $derived(
-    search.trim() === ''
-      ? data.files
-      : data.files.filter(
+  function toggleCategory(catId: string) {
+    categoryExpanded[catId] = !categoryExpanded[catId];
+  }
+
+  function slugFromFile(file: DocFile): string {
+    return file.name.replace('.md', '');
+  }
+
+  let filteredCategories = $derived.by(() => {
+    if (search.trim() === '') return data.categories;
+    const q = search.toLowerCase();
+    return data.categories
+      .map((cat: DocCategory) => ({
+        ...cat,
+        files: cat.files.filter(
           (f: DocFile) =>
-            f.name.toLowerCase().includes(search.toLowerCase()) ||
-            f.path.toLowerCase().includes(search.toLowerCase()) ||
-            f.content.toLowerCase().includes(search.toLowerCase()),
+            f.name.toLowerCase().includes(q) || f.path.toLowerCase().includes(q) || f.content.toLowerCase().includes(q),
         ),
-  );
+      }))
+      .filter((cat: DocCategory) => cat.files.length > 0);
+  });
 </script>
 
 <div class="docs-page">
@@ -30,32 +82,45 @@
     <input
       class="search-input"
       type="text"
-      placeholder="Search files…"
+      placeholder="Search files..."
       bind:value={search}
       aria-label="Search documentation files"
     />
   </div>
 
-  {#if filtered.length === 0}
+  {#if filteredCategories.length === 0}
     <p class="empty">No files match your search.</p>
   {:else}
-    <ul class="file-list">
-      {#each filtered as file (file.path)}
-        {@const isOpen = !!expanded[file.path]}
-        <li class="file-item" class:open={isOpen}>
-          <button class="file-header" onclick={() => toggle(file.path)} aria-expanded={isOpen}>
-            <span class="file-icon">{isOpen ? '▾' : '▸'}</span>
-            <span class="file-name">{file.name}</span>
-            <span class="file-path">{file.path}</span>
-          </button>
-          {#if isOpen}
-            <div class="rendered-doc">
-              {@html `<div class="md-content">${renderMarkdown(file.content)}</div>`}
-            </div>
-          {/if}
-        </li>
-      {/each}
-    </ul>
+    {#each filteredCategories as cat (cat.id)}
+      {@const isCatOpen = categoryExpanded[cat.id] !== false}
+      <div class="category-section" id="cat-{cat.id}">
+        <button class="category-header" onclick={() => toggleCategory(cat.id)} aria-expanded={isCatOpen}>
+          <span class="category-chevron" class:expanded={isCatOpen}>&#9656;</span>
+          <span class="category-label">{cat.label}</span>
+          <span class="category-count">{cat.files.length}</span>
+        </button>
+
+        {#if isCatOpen}
+          <ul class="file-list">
+            {#each cat.files as file (file.path)}
+              {@const isOpen = !!expanded[file.path]}
+              <li class="file-item" class:open={isOpen} id="doc-{slugFromFile(file)}">
+                <button class="file-header" onclick={() => toggleFile(file.path)} aria-expanded={isOpen}>
+                  <span class="file-icon">{isOpen ? '\u25BE' : '\u25B8'}</span>
+                  <span class="file-name">{file.name}</span>
+                  <span class="file-path">{file.path}</span>
+                </button>
+                {#if isOpen}
+                  <div class="rendered-doc">
+                    {@html `<div class="md-content">${renderMarkdown(file.content)}</div>`}
+                  </div>
+                {/if}
+              </li>
+            {/each}
+          </ul>
+        {/if}
+      </div>
+    {/each}
   {/if}
 </div>
 
@@ -106,6 +171,59 @@
     padding: 24px 0;
   }
 
+  /* ── Category sections ────────────────────────────────────────────────────── */
+  .category-section {
+    margin-bottom: 16px;
+  }
+
+  .category-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 10px 12px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-primary);
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.15s;
+  }
+
+  .category-header:hover {
+    background: var(--bg-hover);
+  }
+
+  .category-chevron {
+    font-size: 0.75rem;
+    color: var(--accent);
+    transition: transform 0.2s ease;
+    display: inline-block;
+    width: 12px;
+    flex-shrink: 0;
+  }
+
+  .category-chevron.expanded {
+    transform: rotate(90deg);
+  }
+
+  .category-label {
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-secondary);
+  }
+
+  .category-count {
+    font-size: 0.72rem;
+    color: var(--text-faint);
+    font-family: 'JetBrains Mono', monospace;
+    margin-left: auto;
+  }
+
+  /* ── File list ────────────────────────────────────────────────────────────── */
   .file-list {
     list-style: none;
     padding: 0;
@@ -113,6 +231,7 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
+    padding-top: 6px;
   }
 
   .file-item {
@@ -175,7 +294,7 @@
     overflow: auto;
   }
 
-  /* Markdown styling — mirrors .rendered-doc .md-content in files/+page.svelte */
+  /* Markdown styling */
   .rendered-doc :global(.md-content) {
     line-height: 1.7;
     font-size: 0.9rem;

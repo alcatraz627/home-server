@@ -1533,10 +1533,15 @@
   });
 
   async function refresh() {
-    const res = await fetch('/api/tasks');
-    const result = await res.json();
-    statuses = result.statuses;
-    disk = result.disk;
+    try {
+      const res = await fetch('/api/tasks');
+      if (!res.ok) throw new Error('Failed to fetch tasks');
+      const result = await res.json();
+      statuses = result.statuses;
+      disk = result.disk;
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to refresh tasks', { key: 'task-refresh' });
+    }
   }
 
   async function createTask() {
@@ -1570,20 +1575,25 @@
     expandedTask = taskId;
     const taskName = statuses.find((s) => s.config.id === taskId)?.config.name || taskId;
     toast.info(`Running "${taskName}"...`, { key: `task-run-${taskId}` });
-    await fetch('/api/tasks', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ taskId }),
-    });
-    const poll = setInterval(async () => {
-      await refresh();
-      const s = statuses.find((s) => s.config.id === taskId);
-      if (!s?.isRunning) {
-        clearInterval(poll);
-        if (s?.lastRun?.status === 'success') toast.success(`"${taskName}" completed`);
-        else if (s?.lastRun?.status) toast.error(`"${taskName}" ${s.lastRun.status}`);
-      }
-    }, 1000);
+    try {
+      const res = await fetch('/api/tasks', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId }),
+      });
+      if (!res.ok) throw new Error(`Failed to run "${taskName}"`);
+      const poll = setInterval(async () => {
+        await refresh();
+        const s = statuses.find((s) => s.config.id === taskId);
+        if (!s?.isRunning) {
+          clearInterval(poll);
+          if (s?.lastRun?.status === 'success') toast.success(`"${taskName}" completed`);
+          else if (s?.lastRun?.status) toast.error(`"${taskName}" ${s.lastRun.status}`, { key: 'task-run' });
+        }
+      }, 1000);
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to run task', { key: 'task-run' });
+    }
   }
 
   let copied = $state<string | null>(null);

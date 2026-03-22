@@ -55,19 +55,25 @@
     }
   }
 
-  if (typeof window !== 'undefined') {
+  import { onMount } from 'svelte';
+  import { browser } from '$app/environment';
+
+  onMount(() => {
     initDevice();
     fetchEntries();
-    startAutoRefresh();
-  }
+    if (autoRefresh) startAutoRefresh();
+    return () => stopAutoRefresh();
+  });
 
   $effect(() => {
-    if (autoRefresh) {
+    if (!browser) return;
+    // Only react to autoRefresh toggle
+    const shouldRefresh = autoRefresh;
+    if (shouldRefresh) {
       startAutoRefresh();
     } else {
       stopAutoRefresh();
     }
-    return () => stopAutoRefresh();
   });
 
   async function addEntry() {

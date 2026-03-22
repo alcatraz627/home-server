@@ -4,6 +4,35 @@ Append-only log of skill run insights. Newest entries at top.
 
 ---
 
+## session: Audit and fix fetch() error handling across all page files — 2026-03-22
+
+**Purpose:** Added try/catch with toast.error() notifications to every unguarded fetch() call across 7 page files.
+
+**Insights:**
+
+1. backups page already had good error handling on CRUD operations (create, update, delete with try/catch + toast) but was missing it on `refresh()` and `triggerBackup()` initial fetch.
+2. keeper page had solid error handling on agent actions (start/stop/resume/sendMessage) but was missing it on CRUD operations (createRequest, updateStatus, deleteReq, saveEdit, saveResult) and utility fetches (refresh, fetchAgentStatus, fetchLog).
+3. tasks page `runTask` and `runTemplate` had polling intervals inside them -- wrapping the initial fetch in try/catch while keeping the poll setup inside the try block keeps the polling from starting if the initial trigger fails.
+4. For polling functions like `fetchSystemStats` (processes) and `fetchLog` (keeper), using toast key dedup (`{ key: 'system-stats' }`, `{ key: 'keeper-log' }`) prevents toast spam from repeated polling failures.
+5. files page had no error handling at all on any fetch call -- seven functions needed wrapping.
+6. lights page `setBulb` is called from debounced handlers and group actions -- adding error handling there covers all downstream callers (toggleBulb, debouncedSet, groupAction, setTemp, setScene).
+
+---
+
+## session: Terminal fixes — session persistence, cwd, mobile UX — 2026-03-22
+
+**Purpose:** Fixed four terminal issues: session persistence across navigation, PTY cwd, mobile overflow, and mobile extra keys bar.
+
+**Insights:**
+
+1. The server already had `getSession()` and session-param support in the WebSocket handler (vite.config.ts), so session persistence only needed client-side `sessionStorage` to store/restore session IDs.
+2. PTY spawn used `os.homedir()` — changed to `process.cwd()` which resolves to the project root when the dev server is running.
+3. For mobile terminal sizing, calculating cols from container width (`Math.floor(width / 9)`) before xterm opens prevents horizontal overflow better than CSS alone.
+4. Mobile extra keys use `@media (pointer: coarse)` to target touch devices; CTRL key uses a toggle flag that converts the next character key press to a control sequence (`charCode - 96`).
+5. User explicitly instructed not to modify app.ts or +layout.svelte, overriding the normal version-bump workflow from CLAUDE.md.
+
+---
+
 ## session: core-dump with full doc update — 2026-03-22
 
 **Purpose:** Wrote checkpoint and updated all project documentation (PROJECT.md, README.md, api-reference.md, roadmap.md) to reflect v3.0.0 state.

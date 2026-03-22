@@ -6,6 +6,7 @@
   import DataTable from '$lib/components/DataTable.svelte';
   import MediaPlayer from '$lib/components/MediaPlayer.svelte';
   import { toast } from '$lib/toast';
+  import { stars } from '$lib/stars';
 
   // --- Media file detection ---
   const MEDIA_VIDEO_EXTS = ['.mp4', '.webm', '.mkv', '.avi', '.mov'];
@@ -98,29 +99,9 @@
   let uploadProgress = $state(0);
   let uploadQueue = $state<{ name: string; progress: number; done: boolean }[]>([]);
 
-  // --- Starred files ---
-  const LS_STARRED_KEY = 'hs:starred-files';
-  function loadStarred(): Set<string> {
-    try {
-      const raw = localStorage.getItem(LS_STARRED_KEY);
-      return raw ? new Set(JSON.parse(raw)) : new Set();
-    } catch {
-      return new Set();
-    }
-  }
-  let starredFiles = $state<Set<string>>(loadStarred());
-
+  // --- Starred files (via shared stars store) ---
   function toggleStar(filename: string) {
-    const next = new Set(starredFiles);
-    if (next.has(filename)) {
-      next.delete(filename);
-    } else {
-      next.add(filename);
-    }
-    starredFiles = next;
-    try {
-      localStorage.setItem(LS_STARRED_KEY, JSON.stringify([...next]));
-    } catch {}
+    stars.toggle('file', filename);
   }
 
   // --- Bulk selection ---
@@ -154,13 +135,18 @@
   async function deleteSelected() {
     const names = [...selectedFiles];
     if (!names.length) return;
-    for (const name of names) {
-      const params = currentPath ? `?path=${encodeURIComponent(currentPath)}` : '';
-      await fetch(`/api/files/${encodeURIComponent(name)}${params}`, { method: 'DELETE' });
+    try {
+      for (const name of names) {
+        const params = currentPath ? `?path=${encodeURIComponent(currentPath)}` : '';
+        const res = await fetch(`/api/files/${encodeURIComponent(name)}${params}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error(`Failed to delete ${name}`);
+      }
+      toast.success(`Deleted ${names.length} file${names.length > 1 ? 's' : ''}`);
+      selectedFiles = new Set();
+      await refreshFiles();
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to delete files', { key: 'delete-file' });
     }
-    toast.success(`Deleted ${names.length} file${names.length > 1 ? 's' : ''}`);
-    selectedFiles = new Set();
-    await refreshFiles();
   }
 
   function zipDownloadUrl(): string {
@@ -207,8 +193,8 @@
     const dir = sortAsc ? 1 : -1;
     return [...result].sort((a, b) => {
       // Starred files always sort to the top
-      const aStarred = starredFiles.has(a.name) ? 0 : 1;
-      const bStarred = starredFiles.has(b.name) ? 0 : 1;
+      const aStarred = stars.isStarred('file', a.name) ? 0 : 1;
+      const bStarred = stars.isStarred('file', b.name) ? 0 : 1;
       if (aStarred !== bStarred) return aStarred - bStarred;
       if (sortField === 'name') return a.name.localeCompare(b.name) * dir;
       if (sortField === 'size') return (a.size - b.size) * dir;
@@ -311,9 +297,14 @@
 
   async function loadAndRender(file: FileInfo) {
     renderLoading = true;
-    const res = await fetch(previewUrl(file.name));
-    const data = await res.arrayBuffer();
-    renderResult = await renderDocument(data, file.mime, file.name);
+    try {
+      const res = await fetch(previewUrl(file.name));
+      if (!res.ok) throw new Error('Failed to load file for preview');
+      const data = await res.arrayBuffer();
+      renderResult = await renderDocument(data, file.mime, file.name);
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to preview file');
+    }
     renderLoading = false;
   }
 
@@ -334,13 +325,18 @@
       renamingFile = null;
       return;
     }
-    const params = currentPath ? `?path=${encodeURIComponent(currentPath)}` : '';
-    const res = await fetch(`/api/files/${encodeURIComponent(oldName)}${params}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: renameValue }),
-    });
-    if (res.ok) await refreshFiles();
+    try {
+      const params = currentPath ? `?path=${encodeURIComponent(currentPath)}` : '';
+      const res = await fetch(`/api/files/${encodeURIComponent(oldName)}${params}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: renameValue }),
+      });
+      if (!res.ok) throw new Error('Failed to rename file');
+      await refreshFiles();
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to rename file', { key: 'delete-file' });
+    }
     renamingFile = null;
   }
 
@@ -465,20 +461,30 @@
   // Create directory
   async function createDir() {
     if (!newDirName.trim()) return;
-    await fetch('/api/files', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: newDirName.trim(), path: currentPath || undefined }),
-    });
-    newDirName = '';
-    showNewDir = false;
-    await refreshFiles();
+    try {
+      const res = await fetch('/api/files', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newDirName.trim(), path: currentPath || undefined }),
+      });
+      if (!res.ok) throw new Error('Failed to create directory');
+      newDirName = '';
+      showNewDir = false;
+      await refreshFiles();
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to create directory');
+    }
   }
 
   async function refreshFiles() {
-    const params = currentPath ? `?path=${encodeURIComponent(currentPath)}` : '';
-    const res = await fetch(`/api/files${params}`);
-    files = await res.json();
+    try {
+      const params = currentPath ? `?path=${encodeURIComponent(currentPath)}` : '';
+      const res = await fetch(`/api/files${params}`);
+      if (!res.ok) throw new Error('Failed to load files');
+      files = await res.json();
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to refresh files');
+    }
   }
 
   function requestDelete(filename: string) {
@@ -492,17 +498,27 @@
   async function deleteFile(filename: string) {
     confirmingDelete = null;
     if (confirmTimer) clearTimeout(confirmTimer);
-    const params = currentPath ? `?path=${encodeURIComponent(currentPath)}` : '';
-    const res = await fetch(`/api/files/${encodeURIComponent(filename)}${params}`, { method: 'DELETE' });
-    if (res.ok) await refreshFiles();
+    try {
+      const params = currentPath ? `?path=${encodeURIComponent(currentPath)}` : '';
+      const res = await fetch(`/api/files/${encodeURIComponent(filename)}${params}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error(`Failed to delete ${filename}`);
+      await refreshFiles();
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to delete file', { key: 'delete-file' });
+    }
   }
 
   async function deleteDir(name: string) {
     confirmingDelete = null;
     if (confirmTimer) clearTimeout(confirmTimer);
-    const params = currentPath ? `path=${encodeURIComponent(currentPath)}&dir=true` : 'dir=true';
-    const res = await fetch(`/api/files/${encodeURIComponent(name)}?${params}`, { method: 'DELETE' });
-    if (res.ok) await refreshFiles();
+    try {
+      const params = currentPath ? `path=${encodeURIComponent(currentPath)}&dir=true` : 'dir=true';
+      const res = await fetch(`/api/files/${encodeURIComponent(name)}?${params}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error(`Failed to delete directory ${name}`);
+      await refreshFiles();
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to delete directory', { key: 'delete-file' });
+    }
   }
 </script>
 
@@ -651,7 +667,11 @@
       <span class="col-actions"></span>
     </div>
     {#each filtered as file}
-      <div class="file-row" class:selected={selectedFiles.has(file.name)} class:starred={starredFiles.has(file.name)}>
+      <div
+        class="file-row"
+        class:selected={selectedFiles.has(file.name)}
+        class:starred={stars.isStarred('file', file.name)}
+      >
         <span class="col-check">
           {#if !file.isDirectory}
             <input
@@ -665,9 +685,9 @@
         <span class="col-star">
           <button
             class="star-btn"
-            class:starred={starredFiles.has(file.name)}
-            title={starredFiles.has(file.name) ? 'Unstar' : 'Star'}
-            onclick={() => toggleStar(file.name)}>{starredFiles.has(file.name) ? '★' : '☆'}</button
+            class:starred={stars.isStarred('file', file.name)}
+            title={stars.isStarred('file', file.name) ? 'Unstar' : 'Star'}
+            onclick={() => toggleStar(file.name)}>{stars.isStarred('file', file.name) ? '★' : '☆'}</button
           >
         </span>
         <span class="col-name" title={file.name}>

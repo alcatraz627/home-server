@@ -79,7 +79,10 @@
     for (let i = 0; i < sizes.length; i++) {
       progress = ((i + 1) / sizes.length) * 100;
       const data = new Uint8Array(sizes[i] * 1024);
-      crypto.getRandomValues(data);
+      // crypto.getRandomValues has a 65536-byte limit per call — fill in chunks
+      for (let off = 0; off < data.length; off += 65536) {
+        crypto.getRandomValues(data.subarray(off, Math.min(off + 65536, data.length)));
+      }
       const start = performance.now();
       await fetch('/api/speedtest', {
         method: 'POST',

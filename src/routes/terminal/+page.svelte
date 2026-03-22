@@ -12,6 +12,8 @@
     label: string;
   }
 
+  const SESSION_STORAGE_KEY = 'terminal_sessions';
+
   let terminalEls: Record<number, HTMLDivElement> = {};
   let tabs = $state<Tab[]>([]);
   let activeTab = $state(0);
@@ -20,6 +22,26 @@
   let Terminal: any;
   let FitAddon: any;
   let resizeObserver: ResizeObserver | null = null;
+  let ctrlMode = $state(false);
+
+  /** Persist session IDs to sessionStorage so tabs survive navigation */
+  function saveSessionIds() {
+    if (!browser) return;
+    const data = tabs.filter((t) => t.sessionId).map((t) => ({ tabId: t.id, sessionId: t.sessionId, label: t.label }));
+    sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(data));
+  }
+
+  /** Load saved session IDs from sessionStorage */
+  function loadSessionIds(): { tabId: number; sessionId: string; label: string }[] {
+    if (!browser) return [];
+    try {
+      const raw = sessionStorage.getItem(SESSION_STORAGE_KEY);
+      if (!raw) return [];
+      return JSON.parse(raw);
+    } catch {
+      return [];
+    }
+  }
 
   onMount(async () => {
     if (!browser) return;
@@ -28,8 +50,6 @@
     const fitMod = await import('@xterm/addon-fit');
     Terminal = xtermMod.Terminal;
     FitAddon = fitMod.FitAddon;
-
-    addTab();
 
     resizeObserver = new ResizeObserver(() => {
       const tab = tabs[activeTab];
@@ -40,7 +60,25 @@
         }
       }
     });
+
+    // Restore previous sessions or create a new one
+    const saved = loadSessionIds();
+    if (saved.length > 0) {
+      for (const s of saved) {
+        addTab(s.sessionId, s.label);
+      }
+    } else {
+      addTab();
+    }
   });
+
+  function getColsFromContainer(el: HTMLDivElement): number {
+    const width = el.clientWidth;
+    if (width > 0) {
+      return Math.max(40, Math.floor(width / 9));
+    }
+    return 80;
+  }
 
   function createTerminal(): { terminal: any; fitAddon: any } {
     const term = new Terminal({
@@ -75,17 +113,17 @@
     return { terminal: term, fitAddon: fit };
   }
 
-  function addTab() {
+  function addTab(existingSessionId?: string, label?: string) {
     const id = nextId++;
     const { terminal, fitAddon } = createTerminal();
     const tab: Tab = {
       id,
-      sessionId: null,
+      sessionId: existingSessionId || null,
       ws: null,
       terminal,
       fitAddon,
       connected: false,
-      label: `Shell ${id}`,
+      label: label || `Shell ${id}`,
     };
     tabs = [...tabs, tab];
     activeTab = tabs.length - 1;
@@ -95,6 +133,11 @@
       const el = terminalEls[id];
       if (el) {
         terminal.open(el);
+
+        // Calculate cols from container width for mobile
+        const cols = getColsFromContainer(el);
+        terminal.resize(cols, terminal.rows);
+
         fitAddon.fit();
         resizeObserver?.observe(el);
         connectTab(tab);
@@ -127,7 +170,10 @@
       try {
         const msg = JSON.parse(event.data);
         if (msg.type === 'output') tab.terminal?.write(msg.data);
-        else if (msg.type === 'session') tab.sessionId = msg.id;
+        else if (msg.type === 'session') {
+          tab.sessionId = msg.id;
+          saveSessionIds();
+        }
       } catch {}
     };
 
@@ -158,7 +204,7 @@
     if (terminalEls[tab.id]) resizeObserver?.unobserve(terminalEls[tab.id]);
     tabs = tabs.filter((_, i) => i !== idx);
     if (activeTab >= tabs.length) activeTab = Math.max(0, tabs.length - 1);
-    // Allow 0 tabs — show empty placeholder instead of auto-creating
+    saveSessionIds();
   }
 
   // Tab renaming
@@ -174,6 +220,7 @@
     if (renameValue.trim()) {
       tabs[idx].label = renameValue.trim();
       tabs = [...tabs];
+      saveSessionIds();
     }
     renamingTab = null;
   }
@@ -204,6 +251,34 @@
 
   function clearTerminal() {
     tabs[activeTab]?.terminal?.clear();
+  }
+
+  // Mobile extra keys helpers
+  function sendKey(key: string) {
+    const tab = tabs[activeTab];
+    if (!tab?.ws || tab.ws.readyState !== WebSocket.OPEN) return;
+
+    if (ctrlMode && key.length === 1) {
+      // Send ctrl+key: ctrl+a = \x01, ctrl+b = \x02, etc.
+      const code = key.toLowerCase().charCodeAt(0) - 96;
+      if (code > 0 && code < 27) {
+        tab.ws.send(JSON.stringify({ type: 'input', data: String.fromCharCode(code) }));
+      }
+      ctrlMode = false;
+      return;
+    }
+
+    tab.ws.send(JSON.stringify({ type: 'input', data: key }));
+  }
+
+  function sendEscape(seq: string) {
+    const tab = tabs[activeTab];
+    if (!tab?.ws || tab.ws.readyState !== WebSocket.OPEN) return;
+    tab.ws.send(JSON.stringify({ type: 'input', data: seq }));
+  }
+
+  function toggleCtrl() {
+    ctrlMode = !ctrlMode;
   }
 
   onDestroy(() => {
@@ -257,7 +332,7 @@
           >
         </div>
       {/each}
-      <button class="tab tab-add" onclick={addTab}>+</button>
+      <button class="tab tab-add" onclick={() => addTab()}>+</button>
     </div>
     <div class="toolbar">
       <button class="tool-btn" onclick={() => changeFontSize(-1)} title="Decrease font">A-</button>
@@ -272,7 +347,7 @@
       <div class="empty-icon">▶</div>
       <p>No terminal sessions</p>
       <p class="empty-hint">Open a new shell to get started</p>
-      <button class="empty-btn" onclick={addTab}>New Terminal</button>
+      <button class="empty-btn" onclick={() => addTab()}>New Terminal</button>
     </div>
   {:else}
     <div class="terminal-panels">
@@ -281,6 +356,21 @@
       {/each}
     </div>
   {/if}
+
+  <!-- Mobile extra keys bar -->
+  <div class="mobile-keys">
+    <button class="mk" onclick={() => sendKey('\t')}>TAB</button>
+    <button class="mk" class:active={ctrlMode} onclick={toggleCtrl}>CTRL</button>
+    <button class="mk" onclick={() => sendKey('\x1b')}>ESC</button>
+    <button class="mk" onclick={() => sendKey('|')}>|</button>
+    <button class="mk" onclick={() => sendKey('/')}>/</button>
+    <button class="mk" onclick={() => sendKey('-')}>-</button>
+    <button class="mk" onclick={() => sendKey('~')}>~</button>
+    <button class="mk" onclick={() => sendEscape('\x1b[D')}>←</button>
+    <button class="mk" onclick={() => sendEscape('\x1b[A')}>↑</button>
+    <button class="mk" onclick={() => sendEscape('\x1b[B')}>↓</button>
+    <button class="mk" onclick={() => sendEscape('\x1b[C')}>→</button>
+  </div>
 </div>
 
 <style>
@@ -396,6 +486,7 @@
     flex: 1;
     position: relative;
     overflow: hidden;
+    max-width: 100%;
   }
 
   .terminal-container {
@@ -404,6 +495,8 @@
     background: var(--bg-inset);
     padding: 8px;
     display: none;
+    max-width: 100%;
+    overflow-x: hidden;
   }
 
   .terminal-container.visible {
@@ -412,9 +505,13 @@
 
   .terminal-container :global(.xterm) {
     height: 100%;
+    max-width: 100%;
   }
   .terminal-container :global(.xterm-viewport) {
     overflow-y: auto !important;
+  }
+  .terminal-container :global(.xterm-screen) {
+    max-width: 100%;
   }
 
   .tab-label {
@@ -475,5 +572,50 @@
   .empty-btn:hover {
     background: var(--accent);
     color: var(--bg-primary);
+  }
+
+  /* Mobile extra keys bar — only on touch devices */
+  .mobile-keys {
+    display: none;
+  }
+
+  @media (pointer: coarse) {
+    .mobile-keys {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      padding: 6px 8px;
+      background: var(--bg-secondary);
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .mk {
+      flex: 0 0 auto;
+      padding: 6px 10px;
+      font-size: 0.7rem;
+      font-family: 'JetBrains Mono', 'SF Mono', monospace;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: var(--btn-bg, #1c2028);
+      color: var(--text-muted);
+      cursor: pointer;
+      line-height: 1;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    .mk:active {
+      background: var(--accent-bg);
+      border-color: var(--accent);
+      color: var(--text-primary);
+    }
+
+    .mk.active {
+      background: var(--accent);
+      color: var(--bg-primary);
+      border-color: var(--accent);
+    }
   }
 </style>

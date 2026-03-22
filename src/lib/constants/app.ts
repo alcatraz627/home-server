@@ -10,5 +10,5 @@
  */
 export const APP = {
   title: 'Home Server',
-  version: '3.0.0-nova-drift-42',
+  version: '3.1.1-keen-vine-33',
 } as const;

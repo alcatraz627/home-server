@@ -85,13 +85,38 @@ function getCurrentConnection(): CurrentConnection | null {
   const platform = os.platform();
   try {
     if (platform === 'darwin') {
-      // Try the airport command for current info
-      const airportPath = '/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport';
-      const info = execSync(`${airportPath} -I 2>/dev/null`, { timeout: 5000 }).toString();
-      const ssid = info.match(/\s+SSID:\s*(.+)/)?.[1]?.trim() || '';
-      const bssid = info.match(/\s+BSSID:\s*(.+)/)?.[1]?.trim() || '';
-      const channel = info.match(/\s+channel:\s*(.+)/)?.[1]?.trim() || '';
-      const rssi = parseInt(info.match(/\s+agrCtlRSSI:\s*(-?\d+)/)?.[1] || '-100', 10);
+      // Use system_profiler for current connection info (works on all macOS)
+      let ssid = '',
+        bssid = '',
+        channel = '',
+        rssi = -100;
+      try {
+        const spRaw = execSync('system_profiler SPAirPortDataType -json 2>/dev/null', {
+          encoding: 'utf-8',
+          timeout: 10000,
+        });
+        const data = JSON.parse(spRaw);
+        const airportData = data?.SPAirPortDataType?.[0];
+        const iface = airportData?.spairport_airport_interfaces?.[0];
+        const current = iface?.spairport_current_network_information;
+        if (current) {
+          ssid = current._name || '';
+          bssid = current.spairport_network_bssid || '';
+          channel = current.spairport_network_channel?.split?.(' ')?.[0] || '';
+          rssi = parseInt(current.spairport_signal_noise_ratio || '-40') || -40;
+        }
+      } catch {
+        // Fallback: airport -I
+        try {
+          const airportPath =
+            '/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport';
+          const info = execSync(`${airportPath} -I 2>/dev/null`, { timeout: 5000 }).toString();
+          ssid = info.match(/\s+SSID:\s*(.+)/)?.[1]?.trim() || '';
+          bssid = info.match(/\s+BSSID:\s*(.+)/)?.[1]?.trim() || '';
+          channel = info.match(/\s+channel:\s*(.+)/)?.[1]?.trim() || '';
+          rssi = parseInt(info.match(/\s+agrCtlRSSI:\s*(-?\d+)/)?.[1] || '-100', 10);
+        } catch {}
+      }
 
       // Get IP from ifconfig
       let ip = '';
@@ -134,9 +159,30 @@ export const GET: RequestHandler = async () => {
 
   try {
     if (platform === 'darwin') {
-      const airportPath = '/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport';
-      const output = execSync(`${airportPath} -s 2>/dev/null`, { timeout: 10000 }).toString();
-      networks = parseMacOSAirportScan(output);
+      // Try system_profiler first (works on all macOS versions including Sequoia+)
+      try {
+        const spRaw = execSync('system_profiler SPAirPortDataType -json 2>/dev/null', {
+          encoding: 'utf-8',
+          timeout: 15000,
+        });
+        const data = JSON.parse(spRaw);
+        const airportData = data?.SPAirPortDataType?.[0];
+        const iface = airportData?.spairport_airport_interfaces?.[0];
+        const nearbyNetworks = iface?.spairport_airport_other_local_wireless_networks || [];
+        networks = nearbyNetworks.map((net: any) => ({
+          ssid: net?._name || '(Hidden)',
+          bssid: net?.spairport_network_bssid || '',
+          channel: net?.spairport_network_channel?.split?.(' ')?.[0] || '',
+          signal: parseInt(net?.spairport_signal_noise_ratio || net?.spairport_network_signal || '-70') || -70,
+          security: net?.spairport_security_mode || 'NONE',
+          isInsecure: !net?.spairport_security_mode || net?.spairport_security_mode === 'Open',
+        }));
+      } catch {
+        // Fallback: airport binary (older macOS)
+        const airportPath = '/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport';
+        const output = execSync(`${airportPath} -s 2>/dev/null`, { timeout: 10000 }).toString();
+        networks = parseMacOSAirportScan(output);
+      }
     } else {
       const output = execSync('nmcli -t -f SSID,BSSID,CHAN,SIGNAL,SECURITY dev wifi list 2>/dev/null', {
         timeout: 10000,
@@ -144,7 +190,7 @@ export const GET: RequestHandler = async () => {
       networks = parseLinuxNmcli(output);
     }
   } catch (e: any) {
-    error = `WiFi scan failed: ${e.message || 'Unknown error'}. The airport/nmcli command may not be available.`;
+    error = `WiFi scan failed: ${e.message || 'Unknown error'}`;
   }
 
   const current = getCurrentConnection();

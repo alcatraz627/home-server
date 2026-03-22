@@ -3,6 +3,7 @@
   import type { ProcessInfo, ProcessDetail } from '$lib/server/processes';
   import { toast } from '$lib/toast';
   import { onMount } from 'svelte';
+  import { stars } from '$lib/stars';
 
   let { data } = $props<{ data: PageData }>();
 
@@ -28,7 +29,9 @@
         const snap: SystemSnapshot = await res.json();
         monitorHistory = [...monitorHistory.slice(-(MONITOR_MAX - 1)), snap];
       }
-    } catch {}
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to fetch system stats', { key: 'system-stats' });
+    }
   }
 
   onMount(() => {
@@ -70,8 +73,7 @@
   let refreshInterval: ReturnType<typeof setInterval> | null = null;
   let viewMode = $state<'flat' | 'tree'>('flat');
 
-  // Starred processes (persisted to localStorage)
-  let starred = $state<Set<number>>(loadStarred());
+  // Starred processes (via shared stars store)
 
   // Expandable row state
   let expandedPid = $state<number | null>(null);
@@ -158,30 +160,9 @@
   };
   const SIGNALS = Object.keys(SIGNAL_INFO);
 
-  // localStorage helpers
-  function loadStarred(): Set<number> {
-    if (typeof localStorage === 'undefined') return new Set();
-    try {
-      const raw = localStorage.getItem('hs:starred-pids');
-      return raw ? new Set(JSON.parse(raw)) : new Set();
-    } catch {
-      return new Set();
-    }
-  }
-
-  function saveStarred() {
-    if (typeof localStorage === 'undefined') return;
-    localStorage.setItem('hs:starred-pids', JSON.stringify([...starred]));
-  }
-
+  // Starred processes — delegate to shared store
   function toggleStar(pid: number) {
-    if (starred.has(pid)) {
-      starred.delete(pid);
-    } else {
-      starred.add(pid);
-    }
-    starred = new Set(starred); // trigger reactivity
-    saveStarred();
+    stars.toggle('process', pid.toString());
   }
 
   // Filter
@@ -196,9 +177,7 @@
 
   // Sort starred to top, then by original order
   let sortedWithStars = $derived.by(() => {
-    const starredProcs = filtered.filter((p) => starred.has(p.pid));
-    const rest = filtered.filter((p) => !starred.has(p.pid));
-    return [...starredProcs, ...rest];
+    return stars.sortStarred('process', filtered, (p) => p.pid.toString());
   });
 
   // Tree view
@@ -241,9 +220,14 @@
 
   // Refresh
   async function refresh() {
-    const res = await fetch('/api/processes');
-    processes = await res.json();
-    recordHistory();
+    try {
+      const res = await fetch('/api/processes');
+      if (!res.ok) throw new Error('Failed to fetch processes');
+      processes = await res.json();
+      recordHistory();
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to refresh processes', { key: 'process-refresh' });
+    }
   }
 
   function toggleAutoRefresh() {
@@ -277,8 +261,13 @@
 
   async function fetchDetail(pid: number) {
     detailLoading = true;
-    const res = await fetch(`/api/processes/${pid}`);
-    if (res.ok) activeDetail = await res.json();
+    try {
+      const res = await fetch(`/api/processes/${pid}`);
+      if (!res.ok) throw new Error('Failed to fetch process details');
+      activeDetail = await res.json();
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to load process details');
+    }
     detailLoading = false;
   }
 
@@ -505,6 +494,21 @@
     <span class="col-user">User</span>
     <span class="col-actions"></span>
   </div>
+  {#if displayed.length === 0}
+    {#each Array(5) as _, i}
+      <div class="process-row" style="animation-delay: {i * 40}ms">
+        <span class="col-star"><div class="skeleton" style="width: 16px; height: 16px;"></div></span>
+        <span class="col-pid"><div class="skeleton" style="width: 40px; height: 14px;"></div></span>
+        <span class="col-name"><div class="skeleton" style="width: 120px; height: 14px;"></div></span>
+        <span class="col-cpu"><div class="skeleton" style="width: 30px; height: 14px;"></div></span>
+        <span class="col-mem"><div class="skeleton" style="width: 30px; height: 14px;"></div></span>
+        <span class="col-rss"><div class="skeleton" style="width: 50px; height: 14px;"></div></span>
+        <span class="col-state"><div class="skeleton" style="width: 40px; height: 14px;"></div></span>
+        <span class="col-user"><div class="skeleton" style="width: 50px; height: 14px;"></div></span>
+        <span class="col-actions"></span>
+      </div>
+    {/each}
+  {/if}
   {#each displayed as proc}
     {@const node = viewMode === 'tree' && 'depth' in proc ? (proc as TreeNode) : null}
     {@const depth = node?.depth ?? 0}
@@ -512,21 +516,21 @@
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div
       class="process-row"
-      class:starred={starred.has(proc.pid)}
+      class:starred={stars.isStarred('process', proc.pid.toString())}
       class:expanded={expandedPid === proc.pid}
       onclick={() => toggleExpand(proc.pid)}
     >
       <span class="col-star">
         <button
           class="star-btn"
-          class:active={starred.has(proc.pid)}
+          class:active={stars.isStarred('process', proc.pid.toString())}
           onclick={(e) => {
             e.stopPropagation();
             toggleStar(proc.pid);
           }}
           title="Star"
         >
-          {starred.has(proc.pid) ? '★' : '☆'}
+          {stars.isStarred('process', proc.pid.toString()) ? '★' : '☆'}
         </button>
       </span>
       <span class="col-pid">{proc.pid}</span>

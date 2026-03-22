@@ -107,9 +107,14 @@
   }
 
   async function refresh() {
-    const res = await fetch('/api/backups');
-    const result = await res.json();
-    statuses = result.statuses;
+    try {
+      const res = await fetch('/api/backups');
+      if (!res.ok) throw new Error('Failed to fetch backups');
+      const result = await res.json();
+      statuses = result.statuses;
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to refresh backups', { key: 'backup-refresh' });
+    }
   }
 
   function openNewForm() {
@@ -213,26 +218,33 @@
     runningIds = new Set(runningIds);
     const config = statuses.find((s) => s.config.id === configId)?.config;
     toast.info(`Backup "${config?.name || configId}" started`, { key: `backup-${configId}` });
-    await fetch('/api/backups', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ configId }),
-    });
-    // Poll for completion
-    const poll = setInterval(async () => {
-      await refresh();
-      const status = statuses.find((s) => s.config.id === configId);
-      if (status?.lastRun?.status !== 'running') {
-        clearInterval(poll);
-        runningIds.delete(configId);
-        runningIds = new Set(runningIds);
-        if (status?.lastRun?.status === 'success') {
-          toast.success(`Backup "${config?.name || configId}" completed`);
-        } else if (status?.lastRun?.status === 'failed') {
-          toast.error(`Backup "${config?.name || configId}" failed`);
+    try {
+      const res = await fetch('/api/backups', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ configId }),
+      });
+      if (!res.ok) throw new Error(`Failed to trigger backup "${config?.name || configId}"`);
+      // Poll for completion
+      const poll = setInterval(async () => {
+        await refresh();
+        const status = statuses.find((s) => s.config.id === configId);
+        if (status?.lastRun?.status !== 'running') {
+          clearInterval(poll);
+          runningIds.delete(configId);
+          runningIds = new Set(runningIds);
+          if (status?.lastRun?.status === 'success') {
+            toast.success(`Backup "${config?.name || configId}" completed`);
+          } else if (status?.lastRun?.status === 'failed') {
+            toast.error(`Backup "${config?.name || configId}" failed`);
+          }
         }
-      }
-    }, 2000);
+      }, 2000);
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to trigger backup', { key: 'backup-run' });
+      runningIds.delete(configId);
+      runningIds = new Set(runningIds);
+    }
   }
 
   function requestDelete(configId: string) {

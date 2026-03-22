@@ -89,39 +89,59 @@
   });
 
   async function refresh() {
-    const res = await fetch('/api/keeper');
-    const result = await res.json();
-    requests = result.requests;
-    stats = result.stats;
-    runningAgents = result.runningAgents;
+    try {
+      const res = await fetch('/api/keeper');
+      if (!res.ok) throw new Error('Failed to fetch keeper data');
+      const result = await res.json();
+      requests = result.requests;
+      stats = result.stats;
+      runningAgents = result.runningAgents;
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to refresh keeper', { key: 'keeper-refresh' });
+    }
   }
 
   async function createRequest() {
-    await fetch('/api/keeper', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: formTitle, goal: formGoal, scope: formScope, details: formDetails }),
-    });
-    clearForm();
-    await refresh();
+    try {
+      const res = await fetch('/api/keeper', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: formTitle, goal: formGoal, scope: formScope, details: formDetails }),
+      });
+      if (!res.ok) throw new Error('Failed to create request');
+      clearForm();
+      await refresh();
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to create request');
+    }
   }
 
   async function updateStatus(id: string, status: FeatureStatus) {
-    await fetch('/api/keeper', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, status }),
-    });
-    await refresh();
+    try {
+      const res = await fetch('/api/keeper', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status }),
+      });
+      if (!res.ok) throw new Error('Failed to update status');
+      await refresh();
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to update status');
+    }
   }
 
   async function deleteReq(id: string) {
-    await fetch('/api/keeper', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id }),
-    });
-    await refresh();
+    try {
+      const res = await fetch('/api/keeper', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+      if (!res.ok) throw new Error('Failed to delete request');
+      await refresh();
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to delete request');
+    }
   }
 
   function clearForm() {
@@ -144,13 +164,24 @@
 
   async function saveEdit() {
     if (!editingId) return;
-    await fetch('/api/keeper', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: editingId, title: formTitle, goal: formGoal, scope: formScope, details: formDetails }),
-    });
-    clearForm();
-    await refresh();
+    try {
+      const res = await fetch('/api/keeper', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editingId,
+          title: formTitle,
+          goal: formGoal,
+          scope: formScope,
+          details: formDetails,
+        }),
+      });
+      if (!res.ok) throw new Error('Failed to save edit');
+      clearForm();
+      await refresh();
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to save changes');
+    }
   }
 
   function formatDate(iso: string): string {
@@ -194,12 +225,13 @@
   async function fetchAgentStatus(id: string) {
     try {
       const res = await fetch(`/api/keeper/${id}/agent`);
+      if (!res.ok) throw new Error('Failed to fetch agent status');
       const data = await res.json();
       if (data.startedAt) {
         agentStartTimes[id] = data.startedAt;
       }
-    } catch {
-      // ignore
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to fetch agent status');
     }
   }
 
@@ -207,13 +239,14 @@
     try {
       const offset = logOffsets[id] || 0;
       const res = await fetch(`/api/keeper/${id}/log?offset=${offset}`);
+      if (!res.ok) throw new Error('Failed to fetch log');
       const data = await res.json();
       if (data.content) {
         logContent[id] = (logContent[id] || '') + data.content;
         logOffsets[id] = data.size;
       }
-    } catch {
-      // ignore
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to fetch log', { key: 'keeper-log' });
     }
   }
 
@@ -317,12 +350,17 @@
   }
 
   async function saveResult(id: string) {
-    await fetch('/api/keeper', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, result: editingResult }),
-    });
-    await refresh();
+    try {
+      const res = await fetch('/api/keeper', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, result: editingResult }),
+      });
+      if (!res.ok) throw new Error('Failed to save result');
+      await refresh();
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to save result');
+    }
   }
 
   let copiedResult = $state<string | null>(null);

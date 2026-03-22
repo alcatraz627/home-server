@@ -23,7 +23,7 @@ export function createSession(cols = 80, rows = 24): TerminalSession {
     name: 'xterm-256color',
     cols,
     rows,
-    cwd: os.homedir(),
+    cwd: process.cwd(),
     env: process.env as Record<string, string>,
   });
 

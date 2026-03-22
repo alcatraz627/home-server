@@ -13,10 +13,15 @@
 
   async function refresh() {
     refreshing = true;
-    const res = await fetch('/api/tailscale');
-    const result = await res.json();
-    devices = result.devices;
-    error = result.error;
+    try {
+      const res = await fetch('/api/tailscale');
+      if (!res.ok) throw new Error('Failed to fetch Tailscale devices');
+      const result = await res.json();
+      devices = result.devices;
+      error = result.error;
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to refresh Tailscale devices');
+    }
     refreshing = false;
   }
 
@@ -112,7 +117,28 @@
   <p class="error">{error}</p>
 {/if}
 
-{#if devices.length === 0}
+{#if devices.length === 0 && !error}
+  <div class="device-list">
+    <div class="device-header">
+      <span class="col-status"></span>
+      <span class="col-host">Hostname</span>
+      <span class="col-ip">IP Address</span>
+      <span class="col-os">OS</span>
+      <span class="col-chevron"></span>
+    </div>
+    {#each Array(3) as _, i}
+      <div class="device-row" style="animation-delay: {i * 40}ms">
+        <span class="col-status"
+          ><div class="skeleton" style="width: 10px; height: 10px; border-radius: 50%;"></div></span
+        >
+        <span class="col-host"><div class="skeleton" style="width: 100px; height: 14px;"></div></span>
+        <span class="col-ip"><div class="skeleton" style="width: 90px; height: 14px;"></div></span>
+        <span class="col-os"><div class="skeleton" style="width: 60px; height: 14px;"></div></span>
+        <span class="col-chevron"></span>
+      </div>
+    {/each}
+  </div>
+{:else if devices.length === 0}
   <p class="empty">No devices found on the tailnet.</p>
 {:else}
   <div class="device-list">
