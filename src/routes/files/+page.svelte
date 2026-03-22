@@ -5,6 +5,8 @@
   import { hasRenderer, renderDocument, type RenderResult, type SheetData } from '$lib/renderers';
   import DataTable from '$lib/components/DataTable.svelte';
   import MediaPlayer from '$lib/components/MediaPlayer.svelte';
+  import Button from '$lib/components/Button.svelte';
+  import SearchInput from '$lib/components/SearchInput.svelte';
   import { toast } from '$lib/toast';
   import { stars } from '$lib/stars';
 
@@ -264,10 +266,6 @@
 
   // Info panel state
   let infoFile = $state<FileInfo | null>(null);
-
-  // Delete confirm state
-  let confirmingDelete = $state<string | null>(null);
-  let confirmTimer: ReturnType<typeof setTimeout> | null = null;
 
   function formatSize(bytes: number): string {
     if (bytes === 0) return '0 B';
@@ -554,17 +552,7 @@
     }
   }
 
-  function requestDelete(filename: string) {
-    if (confirmTimer) clearTimeout(confirmTimer);
-    confirmingDelete = filename;
-    confirmTimer = setTimeout(() => {
-      confirmingDelete = null;
-    }, 3000);
-  }
-
   async function deleteFile(filename: string) {
-    confirmingDelete = null;
-    if (confirmTimer) clearTimeout(confirmTimer);
     try {
       const params = currentPath ? `?path=${encodeURIComponent(currentPath)}` : '';
       const res = await fetch(`/api/files/${encodeURIComponent(filename)}${params}`, { method: 'DELETE' });
@@ -576,8 +564,6 @@
   }
 
   async function deleteDir(name: string) {
-    confirmingDelete = null;
-    if (confirmTimer) clearTimeout(confirmTimer);
     try {
       const params = currentPath ? `path=${encodeURIComponent(currentPath)}&dir=true` : 'dir=true';
       const res = await fetch(`/api/files/${encodeURIComponent(name)}?${params}`, { method: 'DELETE' });
@@ -596,7 +582,7 @@
 <div class="page-header">
   <h2 class="page-title">Files</h2>
   <div class="page-actions">
-    <button class="btn btn-sm" onclick={() => (showNewDir = !showNewDir)}>New Folder</button>
+    <Button size="sm" onclick={() => (showNewDir = !showNewDir)}>New Folder</Button>
     <span class="file-count">{filtered.length} of {files.length} items</span>
   </div>
 </div>
@@ -654,8 +640,8 @@
         if (e.key === 'Escape') showNewDir = false;
       }}
     />
-    <button class="btn btn-sm" onclick={createDir} disabled={!newDirName.trim()}>Create</button>
-    <button class="btn btn-sm" onclick={() => (showNewDir = false)}>Cancel</button>
+    <Button size="sm" onclick={createDir} disabled={!newDirName.trim()}>Create</Button>
+    <Button size="sm" onclick={() => (showNewDir = false)}>Cancel</Button>
   </div>
 {/if}
 
@@ -711,16 +697,10 @@
 <!-- Search and filter bar -->
 <div class="file-controls">
   <div class="search-wrap">
-    <input
-      type="text"
-      class="search-input"
-      placeholder={searchScope === 'all' ? 'Search all files...' : 'Search this folder...'}
+    <SearchInput
       bind:value={search}
-      oninput={handleSearchInput}
-      onfocus={() => {
-        if (searchScope === 'all' && globalResults.length > 0) showGlobalResults = true;
-      }}
-      onblur={() => setTimeout(() => (showGlobalResults = false), 200)}
+      placeholder={searchScope === 'all' ? 'Search all files...' : 'Search this folder...'}
+      oninput={() => handleSearchInput()}
     />
     <div class="search-scope-toggle">
       <button
@@ -774,12 +754,12 @@
   <div class="bulk-bar">
     <span class="bulk-count">{selectedFiles.size} selected</span>
     <div class="bulk-actions">
-      <button class="btn btn-sm" onclick={clearSelection}>Clear</button>
+      <Button size="sm" onclick={clearSelection}>Clear</Button>
       {#if selectedMediaCount > 0}
-        <button class="btn btn-sm btn-media" onclick={playSelected}>&#9654; Play {selectedMediaCount} Media</button>
+        <Button size="sm" variant="accent" onclick={playSelected}>&#9654; Play {selectedMediaCount} Media</Button>
       {/if}
       <a href={zipDownloadUrl()} class="btn btn-sm" download="files.zip">Download Zip</a>
-      <button class="btn btn-sm btn-danger" onclick={deleteSelected}>Delete Selected</button>
+      <Button size="sm" variant="danger" confirm onclick={deleteSelected}>Delete Selected</Button>
     </div>
   </div>
 {/if}
@@ -881,23 +861,18 @@
         </span>
         <span class="col-date">{formatDate(file.modified)}</span>
         <span class="col-actions">
-          <button
-            class="btn btn-sm"
-            title="Info"
-            onclick={() => (infoFile = infoFile?.name === file.name ? null : file)}>i</button
-          >
-          <button class="btn btn-sm" title="Rename" onclick={() => startRename(file)}>mv</button>
+          <Button size="xs" onclick={() => (infoFile = infoFile?.name === file.name ? null : file)}>i</Button>
+          <Button size="xs" onclick={() => startRename(file)}>mv</Button>
           {#if !file.isDirectory}
             <a href={downloadUrl(file.name)} class="btn btn-sm" title="Download">dl</a>
           {/if}
-          {#if confirmingDelete === file.name}
-            <button
-              class="btn btn-sm btn-confirm"
-              onclick={() => (file.isDirectory ? deleteDir(file.name) : deleteFile(file.name))}>sure?</button
-            >
-          {:else}
-            <button class="btn btn-sm btn-danger" onclick={() => requestDelete(file.name)}>rm</button>
-          {/if}
+          <Button
+            size="xs"
+            variant="danger"
+            confirm
+            confirmText="sure?"
+            onclick={() => (file.isDirectory ? deleteDir(file.name) : deleteFile(file.name))}>rm</Button
+          >
         </span>
       </div>
       {#if infoFile?.name === file.name}

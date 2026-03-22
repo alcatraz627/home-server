@@ -543,9 +543,9 @@
     <div class="presets-header">
       <span class="presets-label">Presets</span>
       <span class="power-est" title="Estimated power consumption">⚡ {estimatePower()}W</span>
-      <button class="btn btn-sm" onclick={() => (showPresetForm = !showPresetForm)}>
+      <Button size="sm" onclick={() => (showPresetForm = !showPresetForm)}>
         {showPresetForm ? '✕' : '+ Custom'}
-      </button>
+      </Button>
     </div>
     <div class="quick-presets">
       {#each BUILTIN_PRESETS as preset}
@@ -605,7 +605,7 @@
           <input type="range" min="2200" max="6500" step="100" bind:value={presetFormTemp} />
           <span class="preset-val">{presetFormTemp}K</span>
         </label>
-        <button class="btn" onclick={addCustomPreset} disabled={!presetFormName.trim()}>Save Preset</button>
+        <Button onclick={addCustomPreset} disabled={!presetFormName.trim()}>Save Preset</Button>
       </div>
     {/if}
   </div>
@@ -620,20 +620,20 @@
     </label>
     {#if selectedBulbs.size > 0}
       <span class="group-info">{selectedBulbs.size} selected</span>
-      <button class="btn btn-sm" onclick={() => groupAction({ state: true })}>ON</button>
-      <button class="btn btn-sm" onclick={() => groupAction({ state: false })}>OFF</button>
-      <button class="btn btn-sm" onclick={() => groupAction({ dimming: 100 })}>100%</button>
-      <button class="btn btn-sm" onclick={() => groupAction({ dimming: 50 })}>50%</button>
-      <button class="btn btn-sm" onclick={() => groupAction({ dimming: 10 })}>10%</button>
+      <Button size="sm" onclick={() => groupAction({ state: true })}>ON</Button>
+      <Button size="sm" onclick={() => groupAction({ state: false })}>OFF</Button>
+      <Button size="sm" onclick={() => groupAction({ dimming: 100 })}>100%</Button>
+      <Button size="sm" onclick={() => groupAction({ dimming: 50 })}>50%</Button>
+      <Button size="sm" onclick={() => groupAction({ dimming: 10 })}>10%</Button>
     {/if}
     {#if allRooms.length > 0}
       <div class="room-filter">
-        <button class="btn btn-sm" class:active={!roomFilter} onclick={() => (roomFilter = '')}>All</button>
+        <Button size="sm" variant={!roomFilter ? 'accent' : 'default'} onclick={() => (roomFilter = '')}>All</Button>
         {#each allRooms as room}
-          <button
-            class="btn btn-sm"
-            class:active={roomFilter === room}
-            onclick={() => (roomFilter = roomFilter === room ? '' : room)}>{room}</button
+          <Button
+            size="sm"
+            variant={roomFilter === room ? 'accent' : 'default'}
+            onclick={() => (roomFilter = roomFilter === room ? '' : room)}>{room}</Button
           >
         {/each}
       </div>
@@ -882,31 +882,6 @@
     display: flex;
     gap: 8px;
   }
-  .btn {
-    padding: 6px 14px;
-    font-size: 0.8rem;
-    border-radius: 6px;
-    border: 1px solid var(--border);
-    background: var(--btn-bg);
-    color: var(--text-secondary);
-    cursor: pointer;
-    font-family: inherit;
-  }
-  .btn:hover:not(:disabled) {
-    border-color: var(--accent);
-  }
-  .btn:disabled {
-    opacity: 0.5;
-  }
-  .btn.active {
-    border-color: var(--success);
-    color: var(--success);
-  }
-  .btn-sm {
-    padding: 4px 10px;
-    font-size: 0.75rem;
-  }
-
   /* Presets section */
   .presets-section {
     margin-bottom: 16px;
@@ -1458,17 +1433,6 @@
   }
   .scene-presets {
     max-width: 100%;
-  }
-
-  .btn-spinner {
-    display: inline-block;
-    width: 10px;
-    height: 10px;
-    border: 2px solid var(--border);
-    border-top-color: var(--accent);
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-    vertical-align: middle;
   }
 
   .loading-state {

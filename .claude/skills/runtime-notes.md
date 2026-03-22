@@ -2,6 +2,21 @@
 
 Append-only log of skill run insights. Newest entries at top.
 
+## session: Migrate remaining 9 pages to shared component library — 2026-03-22
+
+**Purpose:** Replaced inline buttons, badges, tabs, search inputs, and loading skeletons with shared Button/Badge/Tabs/SearchInput/Loading components across all remaining pages.
+
+**Insights:**
+
+1. The `Button` component's `confirm` prop eliminates per-page confirm/delete state management (confirmDeleteId, deleteConfirm sets, confirmTimer). Removed ~50 lines of confirm-toggle boilerplate across files, backups, bookmarks, and processes pages.
+2. The `Tabs` component expects a `tabs` array prop with `{id, label, count?}` shape. For peripherals, needed a `$derived` array since counts depend on reactive state. For network, the existing `tabs` const already matched the shape.
+3. `Badge` with `dot` and `pulse` props works well as an online/offline indicator (tailscale), replacing inline `.dot` CSS with semantic markup.
+4. The `SearchInput` component uses `oninput` callback (not bind:value for debouncing), but `bind:value` still works for immediate binding. Files page global search needed `oninput={() => handleSearchInput()}` wrapper.
+5. When removing inline `.btn` CSS, must also remove `.btn:hover`, `.btn:disabled`, `.btn-sm`, `.btn.active` and variant classes — easy to miss the hover/disabled/active selectors scattered through the style block.
+6. Prettier only reformatted 1 of 9 files, confirming the edits maintained proper formatting. All 9 pages pass svelte-check with 0 errors.
+
+---
+
 ## session: Migrate 3 high-traffic pages to shared component library — 2026-03-22
 
 **Purpose:** Replaced inline button/badge/search/collapsible patterns in tasks, keeper, and layout pages with shared Button, Badge, SearchInput, and Collapsible components.
