@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { spawn, execSync } from 'child_process';
 import os from 'os';
+import { sanitizeShellArg } from '$lib/server/security';
 
 interface PacketEntry {
   id: number;
@@ -124,9 +125,12 @@ export const POST: RequestHandler = async ({ request }) => {
       return json({ error: 'Capture already running' }, { status: 400 });
     }
 
-    const iface = body.interface || 'en0';
-    const filter = body.filter || '';
-    const count = body.count || 100;
+    const iface = sanitizeShellArg(body.interface || 'en0');
+    const rawFilter = body.filter || '';
+    const count = Math.min(Math.max(parseInt(body.count) || 100, 1), 5000);
+
+    // Sanitize filter — only allow safe tcpdump filter tokens
+    const filter = sanitizeShellArg(rawFilter);
 
     // Reset
     capturedPackets = [];
@@ -134,7 +138,7 @@ export const POST: RequestHandler = async ({ request }) => {
     captureRunning = true;
 
     const args = ['-l', '-n', '-i', iface, '-c', String(count)];
-    if (filter) args.push(...filter.split(/\s+/));
+    if (filter) args.push(...filter.split(/\s+/).filter(Boolean));
 
     try {
       captureProcess = spawn('tcpdump', args, { stdio: ['ignore', 'pipe', 'pipe'] });

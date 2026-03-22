@@ -2,6 +2,9 @@ import { json } from '@sveltejs/kit';
 import { listFiles, saveFile, saveFileWithPath, createDirectory } from '$lib/server/files';
 import { setFileMetadata, getAllMetadata } from '$lib/server/metadata';
 import type { RequestHandler } from './$types';
+import { createLogger } from '$lib/server/logger';
+
+const log = createLogger('api:files');
 
 /** List files in the upload directory */
 export const GET: RequestHandler = async ({ url }) => {
@@ -48,9 +51,11 @@ export const POST: RequestHandler = async ({ request }) => {
   }
 
   if (uploaded.length === 0) {
+    log.warn('Upload request with no files');
     return json({ error: 'No files provided' }, { status: 400 });
   }
 
+  log.info('Files uploaded', { count: uploaded.length, subpath, from: forwarded });
   return json(uploaded.length === 1 ? uploaded[0] : uploaded, { status: 201 });
 };
 

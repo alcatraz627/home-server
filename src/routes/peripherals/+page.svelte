@@ -7,6 +7,7 @@
   import Tabs from '$lib/components/Tabs.svelte';
   import Loading from '$lib/components/Loading.svelte';
   import SearchInput from '$lib/components/SearchInput.svelte';
+  import Icon from '$lib/components/Icon.svelte';
 
   interface WifiNetwork {
     ssid: string;
@@ -394,7 +395,7 @@
       <div class="device-list">
         {#each usb as dev, i}
           <div class="device-row card-stagger" style="animation-delay: {i * 30}ms">
-            <div class="device-icon">🔌</div>
+            <div class="device-icon"><Icon name="usb" size={18} /></div>
             <div class="device-info">
               <span class="device-name">{dev.name}</span>
               <span class="device-meta">
@@ -423,7 +424,12 @@
       <div class="device-list">
         {#each audio as dev, i}
           <div class="device-row card-stagger" style="animation-delay: {i * 30}ms">
-            <div class="device-icon">{dev.type === 'input' ? '🎤' : '🔊'}</div>
+            <div class="device-icon">
+              {#if dev.type === 'input'}<Icon name="headphones" size={18} />{:else}<Icon
+                  name="volume-high"
+                  size={18}
+                />{/if}
+            </div>
             <div class="device-info">
               <span class="device-name">{dev.name}</span>
               <span class="device-meta">
@@ -490,7 +496,7 @@
       <div class="device-list">
         {#each displays as disp, i}
           <div class="device-row card-stagger" style="animation-delay: {i * 30}ms">
-            <div class="device-icon">🖵</div>
+            <div class="device-icon"><Icon name="monitor" size={18} /></div>
             <div class="device-info">
               <span class="device-name">
                 {disp.name}
@@ -521,7 +527,7 @@
       <div class="device-list">
         {#each networkInterfaces as iface, i}
           <div class="device-row card-stagger" style="animation-delay: {i * 30}ms">
-            <div class="device-icon">🌐</div>
+            <div class="device-icon"><Icon name="globe" size={18} /></div>
             <div class="device-info">
               <span class="device-name">{iface.port}</span>
               <span class="device-meta">

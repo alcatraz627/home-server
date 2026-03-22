@@ -7,6 +7,7 @@
   import Badge from '$lib/components/Badge.svelte';
   import SearchInput from '$lib/components/SearchInput.svelte';
   import Collapsible from '$lib/components/Collapsible.svelte';
+  import Icon from '$lib/components/Icon.svelte';
 
   let { data } = $props<{ data: PageData }>();
   // svelte-ignore state_referenced_locally
@@ -1661,14 +1662,14 @@
       <span class="scheduled-count">({scheduledCount} scheduled)</span>{/if}
   </h2>
   <div class="controls">
-    <Button onclick={refresh}>↻ Refresh</Button>
+    <Button onclick={refresh}><Icon name="refresh" size={14} /> Refresh</Button>
     <Button
       onclick={() => {
         showTemplates = !showTemplates;
         if (showTemplates) showForm = false;
       }}
     >
-      ☰ Templates
+      <Icon name="menu" size={14} /> Templates
     </Button>
     <Button
       onclick={() => {
@@ -1749,7 +1750,7 @@
                 onclick={(e) => {
                   e.stopPropagation();
                   if (customIdx >= 0) editCustomTemplate(customIdx);
-                }}>✎</button
+                }}><Icon name="edit" size={12} /></button
               >
               <button
                 class="template-delete-btn"
@@ -1757,7 +1758,7 @@
                 onclick={(e) => {
                   e.stopPropagation();
                   if (customIdx >= 0) deleteCustomTemplate(customIdx);
-                }}>✕</button
+                }}><Icon name="close" size={12} /></button
               >
             </div>
           {/if}
@@ -1775,7 +1776,7 @@
             </div>
           </button>
           <button class="template-run-btn" onclick={() => runTemplate(t)} title="Create and run immediately"
-            >▶ Run</button
+            ><Icon name="play" size={12} /> Run</button
           >
         </div>
       {/each}
@@ -1785,10 +1786,12 @@
     {/if}
     {#if templateTotalPages > 1}
       <div class="template-pagination">
-        <Button size="sm" disabled={templatePage === 0} onclick={() => templatePage--}>‹ Prev</Button>
+        <Button size="sm" disabled={templatePage === 0} onclick={() => templatePage--}
+          ><Icon name="arrow-left" size={12} /> Prev</Button
+        >
         <span class="page-info">{templatePage + 1} / {templateTotalPages}</span>
         <Button size="sm" disabled={templatePage >= templateTotalPages - 1} onclick={() => templatePage++}
-          >Next ›</Button
+          >Next <Icon name="arrow-right" size={12} /></Button
         >
       </div>
     {/if}
@@ -1800,11 +1803,13 @@
   <div class="terminal-section">
     <div class="terminal-header">
       <span class="terminal-title">
-        {terminalRunning ? '◌' : '●'}
+        {#if terminalRunning}<Icon name="loader" size={14} />{:else}<Icon name="check" size={14} />{/if}
         {terminalTaskName}
         {#if terminalRunning}<span class="terminal-spinner"></span>{/if}
       </span>
-      <Button size="xs" variant="ghost" onclick={closeTerminal} class="terminal-close">✕</Button>
+      <Button size="xs" variant="ghost" onclick={closeTerminal} class="terminal-close"
+        ><Icon name="close" size={14} /></Button
+      >
     </div>
     <pre class="terminal-output" bind:this={terminalEl}>{terminalOutput || 'Waiting for output...'}</pre>
   </div>
@@ -1830,7 +1835,7 @@
         {#if commandWarnings.length > 0}
           <div class="command-warnings">
             {#each commandWarnings as w}
-              <div class="warning-item">⚠ {w}</div>
+              <div class="warning-item"><Icon name="warning" size={14} /> {w}</div>
             {/each}
           </div>
         {/if}
@@ -1852,7 +1857,8 @@
 
       <div class="form-section form-advanced-toggle">
         <Button size="sm" onclick={() => (showAdvanced = !showAdvanced)}>
-          {showAdvanced ? '▲ Hide' : '▼ Show'} Advanced
+          {#if showAdvanced}<Icon name="chevron-up" size={14} /> Hide{:else}<Icon name="chevron-down" size={14} /> Show{/if}
+          Advanced
         </Button>
       </div>
 
@@ -1876,7 +1882,7 @@
     <div class="form-actions">
       {#if editingTemplateIdx !== null}
         <Button variant="primary" onclick={saveEditedTemplate} disabled={!formName || !formCommand}
-          >💾 Save Template</Button
+          ><Icon name="save" size={14} /> Save Template</Button
         >
         <Button
           onclick={() => {
@@ -1909,7 +1915,7 @@
 
 {#if statuses.length === 0 && !showForm}
   <EmptyState
-    icon="⚙"
+    icon="settings"
     title="No tasks configured"
     hint="Create shell command tasks to run on-demand or on a schedule"
     actionLabel="Browse Templates"
@@ -1929,15 +1935,15 @@
           <div class="task-info">
             <div class="task-title-row">
               {#if status.isRunning}
-                <span class="task-status-icon icon-running">◌</span>
+                <span class="task-status-icon icon-running"><Icon name="loader" size={14} /></span>
               {:else if status.lastRun?.status === 'success'}
-                <span class="task-status-icon icon-success">✓</span>
+                <span class="task-status-icon icon-success"><Icon name="check" size={14} /></span>
               {:else if status.lastRun?.status === 'failed' || status.lastRun?.status === 'timeout'}
-                <span class="task-status-icon icon-failed">✗</span>
+                <span class="task-status-icon icon-failed"><Icon name="error" size={14} /></span>
               {:else if status.config.schedule}
-                <span class="task-status-icon icon-scheduled">◷</span>
+                <span class="task-status-icon icon-scheduled"><Icon name="clock" size={14} /></span>
               {:else}
-                <span class="task-status-icon icon-idle">○</span>
+                <span class="task-status-icon icon-idle"><Icon name="pause" size={14} /></span>
               {/if}
               <h3>{status.config.name}</h3>
               {#if status.isRunning}
@@ -1965,21 +1971,24 @@
           </div>
           <div class="task-actions">
             <Button size="sm" onclick={() => runTask(status.config.id)} disabled={status.isRunning}>
-              {status.isRunning ? '⏳' : '▶'} Run
+              {#if status.isRunning}<Icon name="loader" size={14} />{:else}<Icon name="play" size={14} />{/if} Run
             </Button>
             <Button
               size="sm"
               onclick={() => (expandedTask = expandedTask === status.config.id ? null : status.config.id)}
             >
-              {expandedTask === status.config.id ? '▲' : '▼'}
+              {#if expandedTask === status.config.id}<Icon name="chevron-up" size={14} />{:else}<Icon
+                  name="chevron-down"
+                  size={14}
+                />{/if}
             </Button>
-            <Button size="sm" onclick={() => saveAsTemplate(status)}>💾 Save</Button>
+            <Button size="sm" onclick={() => saveAsTemplate(status)}><Icon name="save" size={14} /> Save</Button>
             <Button
               size="sm"
               variant="danger"
               confirm
               confirmText="Delete?"
-              onclick={() => requestDeleteTask(status.config.id)}>✕</Button
+              onclick={() => requestDeleteTask(status.config.id)}><Icon name="close" size={14} /></Button
             >
           </div>
         </div>
@@ -1997,12 +2006,13 @@
               onclick={() => (expandedTask = expandedTask === status.config.id ? null : status.config.id)}
               title="Toggle output"
             >
-              📋 {expandedTask === status.config.id ? 'Hide output' : 'Last output'}
+              <Icon name="clipboard" size={14} />
+              {expandedTask === status.config.id ? 'Hide output' : 'Last output'}
             </button>
           </div>
         {:else if status.config.schedule}
           <div class="last-run last-run-pending">
-            <span class="run-pending">📋 Output shown after first scheduled run</span>
+            <span class="run-pending"><Icon name="clipboard" size={14} /> Output shown after first scheduled run</span>
           </div>
         {/if}
 
@@ -2027,9 +2037,13 @@
   </div>
   {#if taskTotalPages > 1}
     <div class="template-pagination">
-      <Button size="sm" disabled={taskPage === 0} onclick={() => taskPage--}>‹ Prev</Button>
+      <Button size="sm" disabled={taskPage === 0} onclick={() => taskPage--}
+        ><Icon name="arrow-left" size={12} /> Prev</Button
+      >
       <span class="page-info">Page {taskPage + 1} of {taskTotalPages}</span>
-      <Button size="sm" disabled={taskPage >= taskTotalPages - 1} onclick={() => taskPage++}>Next ›</Button>
+      <Button size="sm" disabled={taskPage >= taskTotalPages - 1} onclick={() => taskPage++}
+        >Next <Icon name="arrow-right" size={12} /></Button
+      >
     </div>
   {/if}
 {/if}
@@ -2042,7 +2056,7 @@
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <div class="cron-dialog" onclick={(e) => e.stopPropagation()}>
-      <div class="cron-dialog-icon">⚠</div>
+      <div class="cron-dialog-icon"><Icon name="warning" size={24} /></div>
       <h3 class="cron-dialog-title">Delete Scheduled Task</h3>
       <p class="cron-dialog-text">
         <strong>{cronDeleteTarget.name}</strong> has an active cron schedule (<code>{cronDeleteTarget.schedule}</code>).

@@ -7,6 +7,7 @@
   import FileBrowser from '$lib/components/FileBrowser.svelte';
   import Button from '$lib/components/Button.svelte';
   import Badge from '$lib/components/Badge.svelte';
+  import Icon from '$lib/components/Icon.svelte';
 
   let { data } = $props<{ data: PageData }>();
   // svelte-ignore state_referenced_locally
@@ -329,7 +330,7 @@
             bind:value={formSource}
             placeholder="/path/to/source/ or user@host:/path"
           />
-          <FileBrowser value={formSource} onselect={(p) => (formSource = p)} label="📁" />
+          <FileBrowser value={formSource} onselect={(p) => (formSource = p)} />
         </div>
       </div>
 
@@ -341,7 +342,7 @@
 
       <div class="path-card path-dest">
         <div class="path-card-header">
-          <span class="path-card-icon">💾</span>
+          <span class="path-card-icon"><Icon name="save" size={16} /></span>
           <span class="path-card-label">Destination</span>
           {#if backupType === 'remote-dest'}
             <span class="path-badge path-remote">Remote</span>
@@ -351,7 +352,7 @@
         </div>
         <div class="path-input-row">
           <input class="path-input" type="text" bind:value={formDest} placeholder="/path/to/backup/" />
-          <FileBrowser value={formDest} onselect={(p) => (formDest = p)} label="📁" />
+          <FileBrowser value={formDest} onselect={(p) => (formDest = p)} />
         </div>
       </div>
     </div>
@@ -432,7 +433,7 @@
 
 {#if statuses.length === 0 && !showForm}
   <EmptyState
-    icon="⟲"
+    icon="rotate"
     title="No backup configurations"
     hint="Set up automated rsync backups between directories or devices"
     actionLabel="New Backup"
@@ -502,7 +503,7 @@
           <div class="preview-panel">
             <div class="preview-header">
               <span class="preview-title">Dry Run Preview ({previewFiles.length} files would transfer)</span>
-              <button class="preview-close" onclick={() => (previewId = null)}>✕</button>
+              <button class="preview-close" onclick={() => (previewId = null)}><Icon name="close" size={14} /></button>
             </div>
             <div class="preview-files">
               {#each previewFiles.slice(0, 50) as file}

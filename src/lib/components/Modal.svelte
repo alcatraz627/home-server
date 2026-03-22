@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
+  import Icon from '$lib/components/Icon.svelte';
 
   let {
     open = $bindable(false),
@@ -46,10 +47,12 @@
       {#if title}
         <div class="modal-header">
           <h3>{title}</h3>
-          <button class="modal-close" onclick={close} aria-label="Close">✕</button>
+          <button class="modal-close" onclick={close} aria-label="Close"><Icon name="close" size={14} /></button>
         </div>
       {:else}
-        <button class="modal-close modal-close-floating" onclick={close} aria-label="Close">✕</button>
+        <button class="modal-close modal-close-floating" onclick={close} aria-label="Close"
+          ><Icon name="close" size={14} /></button
+        >
       {/if}
       <div class="modal-body">
         {@render children()}

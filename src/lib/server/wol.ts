@@ -1,4 +1,7 @@
 import dgram from 'node:dgram';
+import { createLogger } from './logger';
+
+const log = createLogger('wol');
 
 /**
  * Send a Wake-on-LAN magic packet to the given MAC address.
@@ -27,6 +30,7 @@ export function sendMagicPacket(mac: string): Promise<void> {
     const socket = dgram.createSocket('udp4');
     socket.once('error', (err) => {
       socket.close();
+      log.error('Magic packet send error', err);
       reject(err);
     });
 
@@ -34,8 +38,13 @@ export function sendMagicPacket(mac: string): Promise<void> {
       socket.setBroadcast(true);
       socket.send(magicPacket, 0, magicPacket.length, 9, '255.255.255.255', (err) => {
         socket.close();
-        if (err) reject(err);
-        else resolve();
+        if (err) {
+          log.error('Magic packet send failed', err);
+          reject(err);
+        } else {
+          log.info('Magic packet sent', { mac });
+          resolve();
+        }
       });
     });
   });

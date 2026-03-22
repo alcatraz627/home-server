@@ -1,6 +1,6 @@
-<!-- TODO: Replace Unicode icons with lucide-svelte when installed (npm i lucide-svelte) -->
 <script lang="ts">
   import { toast } from '$lib/toast';
+  import Icon from '$lib/components/Icon.svelte';
   import { fade } from 'svelte/transition';
   import { cubicOut } from 'svelte/easing';
 
@@ -26,14 +26,16 @@
         out:fade={{ duration: 160 }}
       >
         <span class="toast-icon">
-          {#if t.type === 'success'}✓
-          {:else if t.type === 'error'}✗
-          {:else if t.type === 'warning'}⚠
-          {:else}ℹ
+          {#if t.type === 'success'}<Icon name="check" size={16} />
+          {:else if t.type === 'error'}<Icon name="error" size={16} />
+          {:else if t.type === 'warning'}<Icon name="warning" size={16} />
+          {:else}<Icon name="info" size={16} />
           {/if}
         </span>
         <span class="toast-message">{t.message}</span>
-        <button class="toast-close" onclick={() => toast.dismiss(t.id)} aria-label="Dismiss">×</button>
+        <button class="toast-close" onclick={() => toast.dismiss(t.id)} aria-label="Dismiss"
+          ><Icon name="close" size={14} /></button
+        >
         <div class="toast-progress" style="animation-duration: {t.duration}ms"></div>
       </div>
     {/each}
@@ -83,11 +85,11 @@
   }
 
   .toast-icon {
-    font-size: 1.1rem;
-    font-weight: 700;
     flex-shrink: 0;
     width: 20px;
-    text-align: center;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     line-height: 1;
   }
 

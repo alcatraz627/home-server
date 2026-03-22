@@ -6,6 +6,7 @@
   import SearchInput from '$lib/components/SearchInput.svelte';
   import Loading from '$lib/components/Loading.svelte';
   import Collapsible from '$lib/components/Collapsible.svelte';
+  import Icon from '$lib/components/Icon.svelte';
   import { toast } from '$lib/toast';
 
   // Component library demo state
@@ -57,12 +58,12 @@
 
   // ── Cards sample data ──────────────────────────────────────────────────────
   const sampleCards = [
-    { icon: '⇄', title: 'Files', desc: 'Browse and manage files on the server filesystem.' },
-    { icon: '◉', title: 'Lights', desc: 'Control Hue lights and set scenes per room.' },
-    { icon: '⊞', title: 'Processes', desc: 'Monitor running processes, signal and inspect them.' },
-    { icon: '⊶', title: 'Tailscale', desc: 'View devices and IP addresses on the VPN mesh.' },
-    { icon: '◈', title: 'Keeper', desc: 'Track tasks through a kanban-style backlog.' },
-    { icon: '▶', title: 'Terminal', desc: 'Open a live shell session directly in the browser.' },
+    { icon: 'folder', title: 'Files', desc: 'Browse and manage files on the server filesystem.' },
+    { icon: 'sun', title: 'Lights', desc: 'Control Hue lights and set scenes per room.' },
+    { icon: 'cpu', title: 'Processes', desc: 'Monitor running processes, signal and inspect them.' },
+    { icon: 'network', title: 'Tailscale', desc: 'View devices and IP addresses on the VPN mesh.' },
+    { icon: 'bookmark', title: 'Keeper', desc: 'Track tasks through a kanban-style backlog.' },
+    { icon: 'terminal', title: 'Terminal', desc: 'Open a live shell session directly in the browser.' },
   ];
 </script>
 
@@ -258,7 +259,9 @@
     </div>
     <div class="type-row">
       <span class="type-meta">1.2rem / success</span>
-      <code style="font-size: 1.2rem; color: var(--success); font-weight: 500">✓ Backup completed</code>
+      <code style="font-size: 1.2rem; color: var(--success); font-weight: 500"
+        ><Icon name="check" size={16} /> Backup completed</code
+      >
     </div>
   </div>
 </section>
@@ -316,7 +319,7 @@
   <div class="card-grid">
     {#each sampleCards as card}
       <div class="nav-card">
-        <span class="card-icon">{card.icon}</span>
+        <span class="card-icon"><Icon name={card.icon} size={18} /></span>
         <div>
           <div class="card-title">{card.title}</div>
           <div class="card-desc">{card.desc}</div>

@@ -305,12 +305,12 @@
   }
 
   const widgets = [
-    { href: '/files', icon: '⇄', label: 'Files' },
-    { href: '/lights', icon: '◉', label: 'Lights' },
-    { href: '/processes', icon: '⊞', label: 'Processes' },
-    { href: '/tailscale', icon: '⊶', label: 'Tailscale' },
-    { href: '/keeper', icon: '◈', label: 'Keeper' },
-    { href: '/terminal', icon: '▶', label: 'Terminal' },
+    { href: '/files', icon: 'folder', label: 'Files' },
+    { href: '/lights', icon: 'sun', label: 'Lights' },
+    { href: '/processes', icon: 'cpu', label: 'Processes' },
+    { href: '/tailscale', icon: 'network', label: 'Tailscale' },
+    { href: '/keeper', icon: 'bookmark', label: 'Keeper' },
+    { href: '/terminal', icon: 'terminal', label: 'Terminal' },
   ];
 
   const SIZE_OPTIONS: SectionSize[] = ['small', 'medium', 'large'];
@@ -626,7 +626,7 @@
           <div class="status-grid">
             <a href="/tasks" class="status-card card-stagger" style="animation-delay: 0ms">
               {#if sectionSize !== 'small'}
-                <div class="status-icon">⚙</div>
+                <div class="status-icon"><Icon name="settings" size={18} /></div>
               {/if}
               <div class="status-body">
                 {#if sectionSize !== 'small'}<h3>Tasks</h3>{/if}
@@ -650,7 +650,7 @@
           <div class="status-grid">
             <a href="/backups" class="status-card card-stagger" style="animation-delay: 0ms">
               {#if sectionSize !== 'small'}
-                <div class="status-icon">⟲</div>
+                <div class="status-icon"><Icon name="rotate" size={18} /></div>
               {/if}
               <div class="status-body">
                 {#if sectionSize !== 'small'}<h3>Backups</h3>{/if}
@@ -680,7 +680,7 @@
           <div class="status-grid">
             <a href="/keeper" class="status-card card-stagger" style="animation-delay: 0ms">
               {#if sectionSize !== 'small'}
-                <div class="status-icon">◈</div>
+                <div class="status-icon"><Icon name="bookmark" size={18} /></div>
               {/if}
               <div class="status-body">
                 {#if sectionSize !== 'small'}<h3>Keeper</h3>{/if}
@@ -791,7 +791,7 @@
           <div class="nav-grid">
             {#each widgets as w, i}
               <a href={w.href} class="nav-card card-stagger" style="animation-delay: {i * 40}ms">
-                <span class="nav-icon">{w.icon}</span>
+                <span class="nav-icon"><Icon name={w.icon} size={18} /></span>
                 <span>{w.label}</span>
               </a>
             {/each}

@@ -5,6 +5,7 @@
   import Button from '$lib/components/Button.svelte';
   import Badge from '$lib/components/Badge.svelte';
   import SearchInput from '$lib/components/SearchInput.svelte';
+  import Icon from '$lib/components/Icon.svelte';
   import { toast } from '$lib/toast';
 
   let { data } = $props<{ data: PageData }>();
@@ -594,7 +595,7 @@
 {#if filtered.length === 0 && !showForm}
   {#if requests.length === 0}
     <EmptyState
-      icon="◈"
+      icon="bookmark"
       title="No feature requests"
       hint="Track features, bugs, and enhancements with status workflow"
       actionLabel="+ New Request"
@@ -627,7 +628,12 @@
                 class:status-done-solid={req.status === 'done'}
                 style="background: {statusColor(req.status)}"
               ></span>
-              <span class="expand-indicator">{expandedId === req.id ? '▼' : '▸'}</span>
+              <span class="expand-indicator"
+                >{#if expandedId === req.id}<Icon name="chevron-down" size={12} />{:else}<Icon
+                    name="chevron-right"
+                    size={12}
+                  />{/if}</span
+              >
               <h3>{req.title}</h3>
               <span class="scope-badge">{scopeLabel(req.scope)}</span>
               <Badge
@@ -668,7 +674,8 @@
             {/if}
             {#if req.status !== 'running' && !runningAgents.includes(req.id)}
               <Button size="sm" onclick={() => startEdit(req)}>Edit</Button>
-              <Button size="sm" variant="danger" confirm confirmText="Sure?" onclick={() => deleteReq(req.id)}>✕</Button
+              <Button size="sm" variant="danger" confirm confirmText="Sure?" onclick={() => deleteReq(req.id)}
+                ><Icon name="close" size={14} /></Button
               >
             {/if}
           </div>

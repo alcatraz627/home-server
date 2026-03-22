@@ -1,4 +1,7 @@
 import { execSync } from 'node:child_process';
+import { createLogger } from './logger';
+
+const log = createLogger('processes');
 
 export interface ProcessInfo {
   pid: number;
@@ -58,8 +61,10 @@ export function sendSignal(pid: number, signal: string = 'TERM'): { ok: boolean;
 
   try {
     execSync(`kill -${sig} ${pid}`, { encoding: 'utf-8', timeout: 3000 });
+    log.info('Signal sent', { pid, signal: sig });
     return { ok: true };
   } catch (err: any) {
+    log.error('Signal send failed', { pid, signal: sig, error: err.message });
     return { ok: false, error: err.message || 'Failed to send signal' };
   }
 }
@@ -134,8 +139,10 @@ export function getProcessDetail(pid: number): ProcessDetail | null {
       /* ignore */
     }
 
+    log.debug('Process detail fetched', { pid, openFiles: openFiles.length, threads, connections: connections.length });
     return { pid, openFiles, env, threads, connections };
   } catch {
+    log.warn('Failed to get process detail', { pid });
     return null;
   }
 }

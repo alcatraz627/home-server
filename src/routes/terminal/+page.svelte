@@ -4,6 +4,7 @@
   import { toast } from '$lib/toast';
   import EmptyState from '$lib/components/EmptyState.svelte';
   import Badge from '$lib/components/Badge.svelte';
+  import Icon from '$lib/components/Icon.svelte';
 
   interface Tab {
     id: number;
@@ -508,10 +509,10 @@
     <button class="mk" onclick={() => sendKey('/')}>/</button>
     <button class="mk" onclick={() => sendKey('-')}>-</button>
     <button class="mk" onclick={() => sendKey('~')}>~</button>
-    <button class="mk" onclick={() => sendEscape('\x1b[D')}>←</button>
-    <button class="mk" onclick={() => sendEscape('\x1b[A')}>↑</button>
-    <button class="mk" onclick={() => sendEscape('\x1b[B')}>↓</button>
-    <button class="mk" onclick={() => sendEscape('\x1b[C')}>→</button>
+    <button class="mk" onclick={() => sendEscape('\x1b[D')}><Icon name="arrow-left" size={14} /></button>
+    <button class="mk" onclick={() => sendEscape('\x1b[A')}><Icon name="arrow-up" size={14} /></button>
+    <button class="mk" onclick={() => sendEscape('\x1b[B')}><Icon name="arrow-down" size={14} /></button>
+    <button class="mk" onclick={() => sendEscape('\x1b[C')}><Icon name="arrow-right" size={14} /></button>
   </div>
 
   <!-- Bottom status bar -->

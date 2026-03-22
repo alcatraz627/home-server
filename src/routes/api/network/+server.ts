@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import { execSync, exec } from 'child_process';
 import os from 'os';
 import net from 'net';
+import { sanitizeShellArg, validateRequired } from '$lib/server/security';
 
 // ---- OUI vendor lookup (common prefixes) ----
 const OUI_MAP: Record<string, string> = {
@@ -297,8 +298,9 @@ interface TracerouteHop {
 function runTraceroute(target: string): { hops: TracerouteHop[]; raw: string } {
   const platform = os.platform();
   const cmd = platform === 'darwin' ? 'traceroute' : 'tracepath';
+  const safeTarget = sanitizeShellArg(target);
   try {
-    const output = execSync(`${cmd} -m 20 ${target} 2>&1`, { timeout: 30000 }).toString();
+    const output = execSync(`${cmd} -m 20 ${safeTarget} 2>&1`, { timeout: 30000 }).toString();
 
     const hops: TracerouteHop[] = [];
     for (const line of output.split('\n')) {
@@ -329,8 +331,9 @@ function runTraceroute(target: string): { hops: TracerouteHop[]; raw: string } {
 
 // ---- Whois ----
 function runWhois(target: string): string {
+  const safeTarget = sanitizeShellArg(target);
   try {
-    return execSync(`whois ${target} 2>&1`, { timeout: 15000 }).toString();
+    return execSync(`whois ${safeTarget} 2>&1`, { timeout: 15000 }).toString();
   } catch (e: any) {
     return e.message || 'Whois lookup failed';
   }
@@ -404,9 +407,10 @@ interface SSLCertInfo {
 }
 
 function inspectSSLCert(domain: string): SSLCertInfo | string {
+  const safeDomain = sanitizeShellArg(domain);
   try {
     const output = execSync(
-      `echo | openssl s_client -connect ${domain}:443 -servername ${domain} 2>/dev/null | openssl x509 -noout -text -dates -subject -issuer -serial 2>/dev/null`,
+      `echo | openssl s_client -connect ${safeDomain}:443 -servername ${safeDomain} 2>/dev/null | openssl x509 -noout -text -dates -subject -issuer -serial 2>/dev/null`,
       { timeout: 10000 },
     ).toString();
 
@@ -557,29 +561,33 @@ export const POST: RequestHandler = async ({ request }) => {
   const body = await request.json();
   const { tool } = body;
 
+  if (!tool || typeof tool !== 'string') {
+    return json({ error: 'tool is required' }, { status: 400 });
+  }
+
   if (tool === 'traceroute') {
-    const target = body.target?.replace(/[^a-zA-Z0-9.\-:]/g, '');
+    const target = sanitizeShellArg(body.target?.replace(/[^a-zA-Z0-9.\-:]/g, '') || '');
     if (!target) return json({ error: 'Target is required' }, { status: 400 });
     const result = runTraceroute(target);
     return json(result);
   }
 
   if (tool === 'whois') {
-    const target = body.target?.replace(/[^a-zA-Z0-9.\-:]/g, '');
+    const target = sanitizeShellArg(body.target?.replace(/[^a-zA-Z0-9.\-:]/g, '') || '');
     if (!target) return json({ error: 'Target is required' }, { status: 400 });
     const result = runWhois(target);
     return json({ result });
   }
 
   if (tool === 'ping-sweep') {
-    const subnet = body.subnet?.replace(/[^0-9./]/g, '');
+    const subnet = body.subnet?.replace(/[^0-9./]/g, '') || '';
     if (!subnet) return json({ error: 'Subnet is required' }, { status: 400 });
     const results = await pingSweep(subnet, () => {});
     return json({ results });
   }
 
   if (tool === 'ssl') {
-    const domain = body.domain?.replace(/[^a-zA-Z0-9.\-]/g, '');
+    const domain = sanitizeShellArg(body.domain?.replace(/[^a-zA-Z0-9.\-]/g, '') || '');
     if (!domain) return json({ error: 'Domain is required' }, { status: 400 });
     const result = inspectSSLCert(domain);
     if (typeof result === 'string') return json({ error: result }, { status: 500 });
@@ -588,7 +596,13 @@ export const POST: RequestHandler = async ({ request }) => {
 
   if (tool === 'http-headers') {
     const targetUrl = body.url;
-    if (!targetUrl) return json({ error: 'URL is required' }, { status: 400 });
+    if (!targetUrl || typeof targetUrl !== 'string') return json({ error: 'URL is required' }, { status: 400 });
+    // Validate URL format
+    try {
+      new URL(targetUrl);
+    } catch {
+      return json({ error: 'Invalid URL format' }, { status: 400 });
+    }
     const result = await inspectHttpHeaders(targetUrl);
     if (typeof result === 'string') return json({ error: result }, { status: 500 });
     return json({ inspection: result });

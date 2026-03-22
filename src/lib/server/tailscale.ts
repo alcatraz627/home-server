@@ -1,4 +1,7 @@
 import { execSync } from 'node:child_process';
+import { createLogger } from './logger';
+
+const log = createLogger('tailscale');
 
 export interface TailscaleDevice {
   hostname: string;

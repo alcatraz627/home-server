@@ -1,5 +1,8 @@
 import dgram from 'node:dgram';
 import os from 'node:os';
+import { createLogger } from './logger';
+
+const log = createLogger('wiz');
 
 export interface WizBulb {
   ip: string;
@@ -55,7 +58,9 @@ export async function discoverBulbs(): Promise<WizBulb[]> {
 
     setTimeout(() => {
       socket.close();
-      resolve(Array.from(bulbs.values()));
+      const discovered = Array.from(bulbs.values());
+      log.info('Bulb discovery complete', { count: discovered.length });
+      resolve(discovered);
     }, DISCOVERY_TIMEOUT);
   });
 }
@@ -79,7 +84,13 @@ export async function setBulbState(
   params: { state?: boolean; dimming?: number; r?: number; g?: number; b?: number; temp?: number; sceneId?: number },
 ): Promise<boolean> {
   const response = await sendUdp(ip, { method: 'setPilot', params });
-  return response?.result?.success === true;
+  const success = response?.result?.success === true;
+  if (success) {
+    log.info('Bulb state changed', { ip, params });
+  } else {
+    log.warn('Bulb state change failed', { ip, params });
+  }
+  return success;
 }
 
 function parseBulbResult(ip: string, r: any): WizBulb {
@@ -120,6 +131,7 @@ function sendUdp(ip: string, message: object, timeout = 2000): Promise<any> {
       if (err && !resolved) {
         resolved = true;
         socket.close();
+        log.error('UDP send error', { ip, error: err.message });
         resolve(null);
       }
     });

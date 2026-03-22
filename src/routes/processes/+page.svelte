@@ -7,6 +7,7 @@
   import Button from '$lib/components/Button.svelte';
   import SearchInput from '$lib/components/SearchInput.svelte';
   import Loading from '$lib/components/Loading.svelte';
+  import Icon from '$lib/components/Icon.svelte';
 
   let { data } = $props<{ data: PageData }>();
 
@@ -168,9 +169,9 @@
     }
   }
 
-  function sortIndicator(col: SortCol): string {
-    if (sortCol !== col) return '';
-    return sortDir === 'asc' ? ' ▲' : ' ▼';
+  function sortIndicator(col: SortCol): 'asc' | 'desc' | null {
+    if (sortCol !== col) return null;
+    return sortDir === 'asc' ? 'asc' : 'desc';
   }
 
   // CPU/MEM display mode: percent or absolute
@@ -346,7 +347,7 @@
 <!-- System Monitor -->
 <div class="monitor-toggle">
   <Button size="sm" onclick={() => (monitorOpen = !monitorOpen)}>
-    {monitorOpen ? '▼' : '▶'} System Monitor
+    {#if monitorOpen}<Icon name="chevron-down" size={14} />{:else}<Icon name="play" size={14} />{/if} System Monitor
   </Button>
   {#if monitorHistory.length > 0}
     {@const latest = monitorHistory[monitorHistory.length - 1]}
@@ -609,13 +610,25 @@
 <div class="process-list">
   <div class="process-header">
     <span class="col-star"></span>
-    <button class="col-pid col-sortable" onclick={() => toggleSort('pid')}>PID{sortIndicator('pid')}</button>
-    <button class="col-name col-sortable" onclick={() => toggleSort('name')}>Name{sortIndicator('name')}</button>
+    <button class="col-pid col-sortable" onclick={() => toggleSort('pid')}
+      >PID{#if sortIndicator('pid') === 'asc'}
+        <Icon name="sort-asc" size={12} />{:else if sortIndicator('pid') === 'desc'}
+        <Icon name="sort-desc" size={12} />{/if}</button
+    >
+    <button class="col-name col-sortable" onclick={() => toggleSort('name')}
+      >Name{#if sortIndicator('name') === 'asc'}
+        <Icon name="sort-asc" size={12} />{:else if sortIndicator('name') === 'desc'}
+        <Icon name="sort-desc" size={12} />{/if}</button
+    >
     <button class="col-cpu col-sortable" onclick={() => toggleSort('cpu')}>
-      {showAbsolute ? 'CPU' : 'CPU%'}{sortIndicator('cpu')}
+      {showAbsolute ? 'CPU' : 'CPU%'}{#if sortIndicator('cpu') === 'asc'}
+        <Icon name="sort-asc" size={12} />{:else if sortIndicator('cpu') === 'desc'}
+        <Icon name="sort-desc" size={12} />{/if}
     </button>
     <button class="col-mem col-sortable" onclick={() => toggleSort('mem')}>
-      {showAbsolute ? 'MEM' : 'MEM%'}{sortIndicator('mem')}
+      {showAbsolute ? 'MEM' : 'MEM%'}{#if sortIndicator('mem') === 'asc'}
+        <Icon name="sort-asc" size={12} />{:else if sortIndicator('mem') === 'desc'}
+        <Icon name="sort-desc" size={12} />{/if}
     </button>
     <span class="col-rss">RSS</span>
     <span class="col-state">State</span>
@@ -663,7 +676,12 @@
             <span class="tree-branch">{node.isLast ? '└' : '├'}─</span>
           </span>
         {/if}
-        <span class="expand-indicator">{expandedPid === proc.pid ? '▼' : '▸'}</span>
+        <span class="expand-indicator"
+          >{#if expandedPid === proc.pid}<Icon name="chevron-down" size={12} />{:else}<Icon
+              name="chevron-right"
+              size={12}
+            />{/if}</span
+        >
         {proc.name}
       </span>
       <span class="col-cpu" class:hot={proc.cpu > 50}>

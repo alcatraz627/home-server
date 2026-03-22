@@ -8,6 +8,7 @@
   import Button from '$lib/components/Button.svelte';
   import SearchInput from '$lib/components/SearchInput.svelte';
   import Collapsible from '$lib/components/Collapsible.svelte';
+  import Icon from '$lib/components/Icon.svelte';
   import { toast } from '$lib/toast';
   import { stars } from '$lib/stars';
   import { browser } from '$app/environment';
@@ -266,9 +267,9 @@
     }
   }
 
-  function sortIcon(field: typeof sortField): string {
-    if (sortField !== field) return '';
-    return sortAsc ? ' ↑' : ' ↓';
+  function isSorted(field: typeof sortField): 'asc' | 'desc' | null {
+    if (sortField !== field) return null;
+    return sortAsc ? 'asc' : 'desc';
   }
 
   // Preview state
@@ -835,7 +836,7 @@
     </div>
   {:else}
     <div class="upload-content">
-      <span class="upload-icon">↑</span>
+      <span class="upload-icon"><Icon name="upload" size={24} /></span>
       <p class="upload-main">
         Drop files or folders here, or
         <label class="file-label">browse files<input type="file" multiple onchange={handleFileInput} /></label>
@@ -886,7 +887,7 @@
         {/if}
       {/each}
     </div>
-    <button class="path-edit-btn" onclick={startEditingPath} title="Edit path">✎</button>
+    <button class="path-edit-btn" onclick={startEditingPath} title="Edit path"><Icon name="edit" size={14} /></button>
   {/if}
 </nav>
 
@@ -961,10 +962,10 @@
   {/if}
   <div class="view-toggle">
     <button class="view-btn" class:active={viewMode === 'list'} onclick={() => setViewMode('list')} title="List view"
-      >☰</button
+      ><Icon name="list" size={14} /></button
     >
     <button class="view-btn" class:active={viewMode === 'grid'} onclick={() => setViewMode('grid')} title="Grid view"
-      >▦</button
+      ><Icon name="grid" size={14} /></button
     >
   </div>
 </div>
@@ -1001,7 +1002,9 @@
     <div class="bulk-actions">
       <Button size="sm" onclick={clearSelection}>Clear</Button>
       {#if selectedMediaCount > 0}
-        <Button size="sm" variant="accent" onclick={playSelected}>▶ Play {selectedMediaCount} Media</Button>
+        <Button size="sm" variant="accent" onclick={playSelected}
+          ><Icon name="play" size={14} /> Play {selectedMediaCount} Media</Button
+        >
       {/if}
       <a href={zipDownloadUrl()} class="btn btn-sm" download="files.zip">Download Zip</a>
       <Button size="sm" variant="danger" confirm onclick={deleteSelected}>Delete Selected</Button>
@@ -1082,10 +1085,26 @@
         />
       </span>
       <span class="col-star"></span>
-      <span class="col-name sortable" onclick={() => toggleSort('name')}>Name{sortIcon('name')}</span>
-      <span class="col-type sortable" onclick={() => toggleSort('mime')}>Type{sortIcon('mime')}</span>
-      <span class="col-size sortable" onclick={() => toggleSort('size')}>Size{sortIcon('size')}</span>
-      <span class="col-date sortable" onclick={() => toggleSort('modified')}>Modified{sortIcon('modified')}</span>
+      <span class="col-name sortable" onclick={() => toggleSort('name')}
+        >Name{#if isSorted('name') === 'asc'}
+          <Icon name="sort-asc" size={12} />{:else if isSorted('name') === 'desc'}
+          <Icon name="sort-desc" size={12} />{/if}</span
+      >
+      <span class="col-type sortable" onclick={() => toggleSort('mime')}
+        >Type{#if isSorted('mime') === 'asc'}
+          <Icon name="sort-asc" size={12} />{:else if isSorted('mime') === 'desc'}
+          <Icon name="sort-desc" size={12} />{/if}</span
+      >
+      <span class="col-size sortable" onclick={() => toggleSort('size')}
+        >Size{#if isSorted('size') === 'asc'}
+          <Icon name="sort-asc" size={12} />{:else if isSorted('size') === 'desc'}
+          <Icon name="sort-desc" size={12} />{/if}</span
+      >
+      <span class="col-date sortable" onclick={() => toggleSort('modified')}
+        >Modified{#if isSorted('modified') === 'asc'}
+          <Icon name="sort-asc" size={12} />{:else if isSorted('modified') === 'desc'}
+          <Icon name="sort-desc" size={12} />{/if}</span
+      >
       <span class="col-actions"></span>
     </div>
     {#each filtered as file}
@@ -1133,7 +1152,7 @@
                   onclick={(e) => {
                     e.stopPropagation();
                     openMediaPlayer(file);
-                  }}>▶</button
+                  }}><Icon name="play" size={12} /></button
                 >
                 <span class="media-icon">{getMediaIcon(file)}</span>
               {/if}

@@ -1,4 +1,6 @@
 <script lang="ts">
+  import Icon from '$lib/components/Icon.svelte';
+
   interface Props {
     headers: string[];
     rows: string[][];
@@ -72,9 +74,9 @@
     }
   }
 
-  function sortIndicator(col: number): string {
-    if (sortCol !== col) return '';
-    return sortAsc ? ' ↑' : ' ↓';
+  function isSorted(col: number): 'asc' | 'desc' | null {
+    if (sortCol !== col) return null;
+    return sortAsc ? 'asc' : 'desc';
   }
 
   function setColumnFilter(col: number, value: string) {
@@ -85,7 +87,7 @@
 <div class="dt-controls">
   <input type="text" class="dt-search" placeholder="Search all columns..." bind:value={search} />
   <button class="dt-btn" class:active={showFilters} onclick={() => (showFilters = !showFilters)}>
-    Filters {showFilters ? '▲' : '▼'}
+    Filters {#if showFilters}<Icon name="chevron-up" size={12} />{:else}<Icon name="chevron-down" size={12} />{/if}
   </button>
   <span class="dt-info">
     {filtered.length} of {rows.length} rows
@@ -98,7 +100,9 @@
       <tr>
         {#each headers as header, i}
           <th onclick={() => toggleSort(i)}>
-            {header}{sortIndicator(i)}
+            {header}{#if isSorted(i) === 'asc'}
+              <Icon name="sort-asc" size={12} />{:else if isSorted(i) === 'desc'}
+              <Icon name="sort-desc" size={12} />{/if}
           </th>
         {/each}
       </tr>
@@ -136,13 +140,17 @@
 
 {#if totalPages > 1}
   <div class="dt-pagination">
-    <button class="dt-btn" disabled={page === 0} onclick={() => (page = 0)}>«</button>
-    <button class="dt-btn" disabled={page === 0} onclick={() => page--}>‹</button>
+    <button class="dt-btn" disabled={page === 0} onclick={() => (page = 0)}><Icon name="skip-back" size={14} /></button>
+    <button class="dt-btn" disabled={page === 0} onclick={() => page--}><Icon name="arrow-left" size={14} /></button>
     <span class="dt-page-info">
       Page {page + 1} of {totalPages}
     </span>
-    <button class="dt-btn" disabled={page >= totalPages - 1} onclick={() => page++}>›</button>
-    <button class="dt-btn" disabled={page >= totalPages - 1} onclick={() => (page = totalPages - 1)}>»</button>
+    <button class="dt-btn" disabled={page >= totalPages - 1} onclick={() => page++}
+      ><Icon name="arrow-right" size={14} /></button
+    >
+    <button class="dt-btn" disabled={page >= totalPages - 1} onclick={() => (page = totalPages - 1)}
+      ><Icon name="skip-forward" size={14} /></button
+    >
   </div>
 {/if}
 

@@ -1,4 +1,7 @@
 import { env } from '$env/dynamic/private';
+import { createLogger } from './logger';
+
+const log = createLogger('notify');
 
 /**
  * Notification service — sends push notifications via ntfy.sh.
@@ -41,9 +44,15 @@ export async function sendNotification(notification: Notification): Promise<bool
       body: notification.message,
     });
 
+    if (res.ok) {
+      log.info('Notification sent', { title: notification.title, priority: notification.priority });
+    } else {
+      log.warn('Notification send failed', { title: notification.title, status: res.status });
+    }
+
     return res.ok;
-  } catch {
-    console.error('Failed to send notification');
+  } catch (err) {
+    log.error('Notification send error', err instanceof Error ? err : { title: notification.title });
     return false;
   }
 }

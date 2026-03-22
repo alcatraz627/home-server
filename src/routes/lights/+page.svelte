@@ -6,6 +6,7 @@
   import Button from '$lib/components/Button.svelte';
   import Loading from '$lib/components/Loading.svelte';
   import Collapsible from '$lib/components/Collapsible.svelte';
+  import Icon from '$lib/components/Icon.svelte';
 
   import { browser } from '$app/environment';
 
@@ -444,12 +445,12 @@
 
   // Quick presets (built-in)
   const BUILTIN_PRESETS = [
-    { label: 'All Off', icon: '⏻', dimming: 0, temp: 0, state: false },
-    { label: 'Movie Mode', icon: '🎬', dimming: 15, temp: 2700, state: true },
-    { label: 'Work Mode', icon: '💼', dimming: 80, temp: 5000, state: true },
-    { label: 'All On', icon: '☀', dimming: 100, temp: 4000, state: true },
-    { label: 'Night Light', icon: '🌙', dimming: 5, temp: 2200, state: true },
-    { label: 'Reading', icon: '📖', dimming: 60, temp: 4500, state: true },
+    { label: 'All Off', icon: 'power', dimming: 0, temp: 0, state: false },
+    { label: 'Movie Mode', icon: 'film', dimming: 15, temp: 2700, state: true },
+    { label: 'Work Mode', icon: 'monitor', dimming: 80, temp: 5000, state: true },
+    { label: 'All On', icon: 'sun', dimming: 100, temp: 4000, state: true },
+    { label: 'Night Light', icon: 'moon', dimming: 5, temp: 2200, state: true },
+    { label: 'Reading', icon: 'eye', dimming: 60, temp: 4500, state: true },
   ];
 
   // Custom presets (server-synced)
@@ -565,9 +566,11 @@
   <div class="presets-section">
     <div class="presets-header">
       <span class="presets-label">Presets</span>
-      <span class="power-est" title="Estimated power consumption">⚡ {estimatePower()}W</span>
+      <span class="power-est" title="Estimated power consumption"
+        ><Icon name="speed" size={14} /> {estimatePower()}W</span
+      >
       <Button size="sm" onclick={() => (showPresetForm = !showPresetForm)}>
-        {showPresetForm ? '✕' : '+ Custom'}
+        {#if showPresetForm}<Icon name="close" size={14} />{:else}+ Custom{/if}
       </Button>
     </div>
     <div class="quick-presets">
@@ -580,7 +583,7 @@
             applyPreset(preset);
           }}
         >
-          <span class="preset-icon">{preset.icon}</span>
+          <span class="preset-icon"><Icon name={preset.icon} size={16} /></span>
           <span class="preset-name">{preset.label}</span>
         </button>
       {/each}
@@ -594,7 +597,7 @@
               applyPreset(preset);
             }}
           >
-            <span class="preset-icon">{preset.icon}</span>
+            <span class="preset-icon"><Icon name={preset.icon} size={16} /></span>
             <span class="preset-name">{preset.label}</span>
           </button>
           <button
@@ -603,7 +606,7 @@
               e.stopPropagation();
               deleteCustomPreset(i);
             }}
-            title="Remove">✕</button
+            title="Remove"><Icon name="close" size={12} /></button
           >
         </div>
       {/each}
@@ -688,7 +691,7 @@
       >
         <!-- Drag handle -->
         <div class="drag-handle" title="Drag to reorder" draggable="true" ondragstart={() => handleDragStart(bulb.mac)}>
-          ≡
+          <Icon name="grip" size={14} />
         </div>
         <!-- Color swatch header -->
         <div

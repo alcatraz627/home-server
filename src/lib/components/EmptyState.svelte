@@ -1,4 +1,6 @@
 <script lang="ts">
+  import Icon from '$lib/components/Icon.svelte';
+
   interface Props {
     icon?: string;
     title: string;
@@ -7,11 +9,11 @@
     onaction?: () => void;
   }
 
-  let { icon = '📭', title, hint, actionLabel, onaction }: Props = $props();
+  let { icon = 'info', title, hint, actionLabel, onaction }: Props = $props();
 </script>
 
 <div class="empty-state">
-  <div class="empty-icon">{icon}</div>
+  <div class="empty-icon"><Icon name={icon} size={36} /></div>
   <p class="empty-title">{title}</p>
   {#if hint}
     <p class="empty-hint">{hint}</p>
@@ -33,7 +35,6 @@
   }
 
   .empty-icon {
-    font-size: 2.5rem;
     opacity: 0.3;
     margin-bottom: 4px;
   }

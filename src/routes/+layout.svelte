@@ -513,7 +513,7 @@
                 class:active={isActive(item.href)}
                 onclick={() => (sidebarOpen = false)}
               >
-                <span class="nav-icon">{item.icon}</span>
+                <span class="nav-icon"><Icon name={item.icon} size={16} /></span>
                 <span class="nav-text">
                   <span class="nav-label">{item.label}</span>
                   <span class="nav-desc">{item.desc}</span>
@@ -553,7 +553,7 @@
                   togglePin(item.href);
                 }}
               >
-                <span class="nav-icon">{item.icon}</span>
+                <span class="nav-icon"><Icon name={item.icon} size={16} /></span>
                 <span class="nav-text">
                   <span class="nav-label">{item.label}</span>
                   <span class="nav-desc">{item.desc}</span>
@@ -1058,9 +1058,10 @@
 
   /* ── Nav item content ────────────────────────────────────────────────────────── */
   .nav-icon {
-    font-size: 1rem;
     width: 18px;
-    text-align: center;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     flex-shrink: 0;
     opacity: 0.85;
   }

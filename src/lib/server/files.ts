@@ -3,6 +3,9 @@ import { createReadStream, existsSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { getUploadDir } from './config';
 import { Readable } from 'node:stream';
+import { createLogger } from './logger';
+
+const log = createLogger('files');
 
 const MIME_MAP: Record<string, string> = {
   // Images
@@ -137,6 +140,8 @@ export async function saveFile(file: File, subpath?: string): Promise<FileInfo> 
   const buffer = Buffer.from(await file.arrayBuffer());
   await fs.writeFile(filePath, buffer);
 
+  log.info('File uploaded', { name: file.name, size: buffer.length, subpath });
+
   const stat = await fs.stat(filePath);
   return {
     name: file.name,
@@ -181,8 +186,10 @@ export async function deleteFile(filename: string, subpath?: string): Promise<bo
 
   try {
     await fs.unlink(filePath);
+    log.info('File deleted', { filename, subpath });
     return true;
-  } catch {
+  } catch (err) {
+    log.error('File delete failed', err instanceof Error ? err : { filename, subpath });
     return false;
   }
 }
@@ -196,8 +203,10 @@ export async function renameFile(oldName: string, newName: string, subpath?: str
 
   try {
     await fs.rename(oldPath, newPath);
+    log.info('File renamed', { oldName, newName, subpath });
     return true;
-  } catch {
+  } catch (err) {
+    log.error('File rename failed', err instanceof Error ? err : { oldName, newName });
     return false;
   }
 }

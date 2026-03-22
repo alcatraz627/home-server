@@ -1,5 +1,8 @@
 import * as pty from 'node-pty';
 import os from 'node:os';
+import { createLogger } from './logger';
+
+const log = createLogger('terminal');
 
 export interface TerminalSession {
   id: string;
@@ -18,7 +21,7 @@ const sessions = new Map<string, TerminalSession>();
 const DEFAULT_SHELL = process.env.SHELL || '/bin/bash';
 const SCROLLBACK_LIMIT = 5000;
 
-console.log(`[terminal] Using node-pty with shell: ${DEFAULT_SHELL}`);
+log.info('Terminal module initialized', { shell: DEFAULT_SHELL });
 
 /** Create a new terminal session */
 export function createSession(cols = 80, rows = 24): TerminalSession {
@@ -66,8 +69,9 @@ export function createSession(cols = 80, rows = 24): TerminalSession {
   };
 
   sessions.set(id, session);
+  log.info('Session created', { id, pid: term.pid, cols, rows });
   term.onExit(() => {
-    console.log(`[terminal] Session ${id} — shell exited`);
+    log.info('Session shell exited', { id });
     sessions.delete(id);
   });
 
@@ -83,6 +87,7 @@ export function getSession(id: string): TerminalSession | undefined {
 export function destroySession(id: string): void {
   const session = sessions.get(id);
   if (session) {
+    log.info('Session destroyed', { id, pid: session.pid });
     session.kill();
     sessions.delete(id);
   }

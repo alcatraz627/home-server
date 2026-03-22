@@ -3,6 +3,9 @@ import fs from 'node:fs/promises';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import { createLogger } from './logger';
+
+const log = createLogger('backups');
 
 export interface BackupConfig {
   id: string;
@@ -125,8 +128,11 @@ export async function runBackup(configId: string): Promise<BackupRun> {
   if (!config) throw new Error('Backup config not found');
 
   if (runningBackups.has(configId)) {
+    log.warn('Backup already running', { configId });
     throw new Error('Backup already running');
   }
+
+  log.info('Backup started', { configId, name: config.name, source: config.sourcePath, dest: config.destPath });
 
   const run: BackupRun = {
     id: `${configId}-${Date.now()}`,
@@ -166,6 +172,13 @@ export async function runBackup(configId: string): Promise<BackupRun> {
 
     if (code !== 0) {
       run.error = output.slice(-500); // Last 500 chars of output
+      log.error('Backup failed', { configId, code, error: run.error });
+    } else {
+      log.info('Backup completed', {
+        configId,
+        filesTransferred: run.filesTransferred,
+        bytesTransferred: run.bytesTransferred,
+      });
     }
 
     // Parse rsync stats
@@ -187,6 +200,8 @@ export async function dryRunBackup(configId: string): Promise<{ files: string[];
   const configs = await getBackupConfigs();
   const config = configs.find((c) => c.id === configId);
   if (!config) throw new Error('Backup config not found');
+
+  log.info('Dry-run backup requested', { configId, name: config.name });
 
   const args = [
     '-avzn', // -n = dry-run
@@ -213,6 +228,7 @@ export async function dryRunBackup(configId: string): Promise<{ files: string[];
     const summary = lines.slice(-5).join('\n');
     return { files, summary };
   } catch (err: any) {
+    log.error('Dry-run backup failed', err);
     throw new Error(err.stderr || err.message);
   }
 }

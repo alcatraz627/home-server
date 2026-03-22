@@ -5,6 +5,7 @@
   import { onMount } from 'svelte';
   import type { PageData } from './$types';
   import type { DocFile, DocCategory } from './+page.server';
+  import Icon from '$lib/components/Icon.svelte';
 
   let { data } = $props<{ data: PageData }>();
 
@@ -98,7 +99,7 @@
       {@const isCatOpen = categoryExpanded[cat.id] !== false}
       <div class="category-section" id="cat-{cat.id}">
         <button class="category-header" onclick={() => toggleCategory(cat.id)} aria-expanded={isCatOpen}>
-          <span class="category-chevron" class:expanded={isCatOpen}>▸</span>
+          <span class="category-chevron" class:expanded={isCatOpen}><Icon name="chevron-right" size={12} /></span>
           <span class="category-label">{cat.label}</span>
           <span class="category-count">{cat.files.length}</span>
         </button>

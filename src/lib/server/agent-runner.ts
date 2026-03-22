@@ -3,6 +3,9 @@ import fs from 'node:fs/promises';
 import { createWriteStream, existsSync } from 'node:fs';
 import path from 'node:path';
 import { LOGS_DIR, getRequests, updateRequest } from './keeper';
+import { createLogger } from './logger';
+
+const log = createLogger('agent-runner');
 
 // --- Types ---
 
@@ -38,6 +41,7 @@ export function getRunningAgentIds(): string[] {
 
 export async function startAgent(requestId: string): Promise<{ ok: true } | { ok: false; error: string }> {
   if (activeAgents.has(requestId)) {
+    log.warn('Agent already running', { requestId });
     return { ok: false, error: 'Agent is already running for this request' };
   }
 
@@ -45,6 +49,7 @@ export async function startAgent(requestId: string): Promise<{ ok: true } | { ok
   const requests = await getRequests();
   const req = requests.find((r) => r.id === requestId);
   if (!req) {
+    log.warn('Request not found for agent start', { requestId });
     return { ok: false, error: 'Request not found' };
   }
 
@@ -71,8 +76,11 @@ export async function startAgent(requestId: string): Promise<{ ok: true } | { ok
     });
     claudePath = result;
   } catch {
+    log.error('claude CLI not found');
     return { ok: false, error: 'claude CLI not found. Install it first: npm install -g @anthropic-ai/claude-code' };
   }
+
+  log.info('Agent started', { requestId, title: req.title });
 
   const logStream = createWriteStream(logFile, { flags: 'a' });
   const startMarker = `\n--- Agent started at ${new Date().toISOString()} ---\n\n`;
@@ -97,6 +105,7 @@ export async function startAgent(requestId: string): Promise<{ ok: true } | { ok
     logStream.write(endMarker);
     logStream.end();
     activeAgents.delete(requestId);
+    log.info('Agent exited', { requestId, code });
 
     // Update status based on exit code
     if (code === 0) {
@@ -107,6 +116,7 @@ export async function startAgent(requestId: string): Promise<{ ok: true } | { ok
   });
 
   proc.on('error', async (err) => {
+    log.error('Agent process error', err);
     logStream.write(`\n[error] Failed to run agent: ${err.message}\n`);
     logStream.end();
     activeAgents.delete(requestId);
@@ -129,6 +139,7 @@ export async function stopAgent(requestId: string): Promise<boolean> {
   const agent = activeAgents.get(requestId);
   if (!agent) return false;
 
+  log.info('Agent stop requested', { requestId });
   agent.process.kill('SIGTERM');
   // Give it a moment then force kill
   setTimeout(() => {
@@ -144,6 +155,7 @@ export async function sendMessageToAgent(requestId: string, message: string): Pr
   const agent = activeAgents.get(requestId);
   if (!agent || !agent.process.stdin?.writable) return false;
 
+  log.debug('Sending message to agent', { requestId, messageLength: message.length });
   agent.process.stdin.write(message + '\n');
   return true;
 }
@@ -169,6 +181,7 @@ export async function getLogContent(requestId: string, offset: number = 0): Prom
 
 export async function resumeAgent(requestId: string): Promise<{ ok: true } | { ok: false; error: string }> {
   if (activeAgents.has(requestId)) {
+    log.warn('Agent already running for resume', { requestId });
     return { ok: false, error: 'Agent is already running for this request' };
   }
 
@@ -177,6 +190,8 @@ export async function resumeAgent(requestId: string): Promise<{ ok: true } | { o
   if (!req) {
     return { ok: false, error: 'Request not found' };
   }
+
+  log.info('Agent resuming', { requestId, title: req.title });
 
   // Build context with existing log as prefix
   const existingLog = await getLogContent(requestId);
@@ -232,6 +247,7 @@ export async function resumeAgent(requestId: string): Promise<{ ok: true } | { o
     logStream.write(endMarker);
     logStream.end();
     activeAgents.delete(requestId);
+    log.info('Resumed agent exited', { requestId, code });
 
     if (code === 0) {
       await updateRequest(requestId, { status: 'done' });
@@ -241,6 +257,7 @@ export async function resumeAgent(requestId: string): Promise<{ ok: true } | { o
   });
 
   proc.on('error', async (err) => {
+    log.error('Resumed agent process error', err);
     logStream.write(`\n[error] Failed to run agent: ${err.message}\n`);
     logStream.end();
     activeAgents.delete(requestId);

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { fly } from 'svelte/transition';
+  import Icon from '$lib/components/Icon.svelte';
 
   interface Props {
     value: string;
@@ -7,7 +8,7 @@
     label?: string;
   }
 
-  let { value, onselect, label = '📁' }: Props = $props();
+  let { value, onselect, label = '' }: Props = $props();
 
   let open = $state(false);
   let currentPath = $state(value || '');
@@ -49,7 +50,7 @@
 </script>
 
 <button class="fb-trigger" onclick={openBrowser} type="button">
-  {label}
+  {#if label}{label}{:else}<Icon name="folder-open" size={16} />{/if}
 </button>
 
 {#if open}
@@ -59,7 +60,7 @@
     <div class="fb-modal" onclick={(e) => e.stopPropagation()} transition:fly={{ y: 20, duration: 200 }}>
       <div class="fb-header">
         <span class="fb-title">Select Directory</span>
-        <button class="fb-close" onclick={() => (open = false)}>✕</button>
+        <button class="fb-close" onclick={() => (open = false)}><Icon name="close" size={14} /></button>
       </div>
 
       <div class="fb-pathbar">
@@ -78,12 +79,12 @@
           {#each entries as entry}
             {#if entry.isDir}
               <button class="fb-entry fb-dir" onclick={() => browse(entry.path)}>
-                <span class="fb-icon">📁</span>
+                <span class="fb-icon"><Icon name="folder" size={14} /></span>
                 <span class="fb-name">{entry.name}</span>
               </button>
             {:else}
               <div class="fb-entry fb-file">
-                <span class="fb-icon">📄</span>
+                <span class="fb-icon"><Icon name="file" size={14} /></span>
                 <span class="fb-name">{entry.name}</span>
                 <span class="fb-size">{formatSize(entry.size)}</span>
               </div>

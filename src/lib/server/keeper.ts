@@ -2,6 +2,9 @@ import fs from 'node:fs/promises';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import { createLogger } from './logger';
+
+const log = createLogger('keeper');
 
 // --- Types ---
 
@@ -89,6 +92,7 @@ export async function createRequest(data: {
 
   requests.push(request);
   await saveRequests(requests);
+  log.info('Request created', { id: request.id, title: request.title, scope: request.scope });
   return request;
 }
 
@@ -103,6 +107,7 @@ export async function updateRequest(id: string, updates: Partial<FeatureRequest>
   }
   requests[idx] = updated;
   await saveRequests(requests);
+  log.info('Request updated', { id, status: updated.status, fields: Object.keys(updates) });
   return updated;
 }
 
@@ -111,6 +116,7 @@ export async function deleteRequest(id: string): Promise<boolean> {
   const filtered = requests.filter((r) => r.id !== id);
   if (filtered.length === requests.length) return false;
   await saveRequests(filtered);
+  log.info('Request deleted', { id });
   return true;
 }
 

@@ -469,7 +469,12 @@
               >
                 <span class="playlist-num">{i + 1}</span>
                 <span class="playlist-name" title={item.filename}>{item.filename}</span>
-                <span class="playlist-type-icon">{item.type === 'video' ? '▶' : '♫'}</span>
+                <span class="playlist-type-icon"
+                  >{#if item.type === 'video'}<Icon name="play" size={12} />{:else}<Icon
+                      name="music"
+                      size={12}
+                    />{/if}</span
+                >
               </button>
             {/each}
           </div>

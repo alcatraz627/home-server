@@ -5,6 +5,7 @@
   import Button from '$lib/components/Button.svelte';
   import Badge from '$lib/components/Badge.svelte';
   import Loading from '$lib/components/Loading.svelte';
+  import Icon from '$lib/components/Icon.svelte';
 
   let { data } = $props<{ data: PageData }>();
   // svelte-ignore state_referenced_locally
@@ -172,7 +173,7 @@
         </span>
         <span class="col-os">{device.os}</span>
         <span class="col-chevron" aria-hidden="true">
-          <span class="chevron" class:open={isExpanded}>›</span>
+          <span class="chevron" class:open={isExpanded}><Icon name="chevron-right" size={12} /></span>
         </span>
       </div>
 
@@ -294,7 +295,11 @@
             {#if device.rxBytes || device.txBytes}
               <div class="detail-item">
                 <span class="detail-label">Traffic</span>
-                <span class="detail-value">↓ {formatBytes(device.rxBytes)} / ↑ {formatBytes(device.txBytes)}</span>
+                <span class="detail-value"
+                  ><Icon name="arrow-down" size={12} />
+                  {formatBytes(device.rxBytes)} / <Icon name="arrow-up" size={12} />
+                  {formatBytes(device.txBytes)}</span
+                >
               </div>
             {/if}
 

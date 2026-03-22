@@ -1,5 +1,6 @@
 <script lang="ts">
   import { toast } from '$lib/toast';
+  import Icon from '$lib/components/Icon.svelte';
 
   interface ClipEntry {
     id: string;
@@ -260,7 +261,7 @@
   <!-- Entries -->
   {#if entries.length === 0}
     <div class="card empty-state">
-      <div class="empty-icon">⎈</div>
+      <div class="empty-icon"><Icon name="clipboard" size={36} /></div>
       <h3>No entries yet</h3>
       <p>Paste content in the text area above to share it across your devices.</p>
       <div class="empty-tips">

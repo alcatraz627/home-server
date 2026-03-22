@@ -2,6 +2,9 @@ import { json } from '@sveltejs/kit';
 import os from 'node:os';
 import { execSync } from 'node:child_process';
 import type { RequestHandler } from './$types';
+import { createLogger } from '$lib/server/logger';
+
+const log = createLogger('api:system');
 
 function getSwapUsage(): { total: number; used: number; usedPercent: number } {
   try {
@@ -71,6 +74,7 @@ function getNetworkThroughput(): { bytesIn: number; bytesOut: number } {
 }
 
 export const GET: RequestHandler = async () => {
+  log.debug('System stats requested');
   const cpus = os.cpus();
   const totalMem = os.totalmem();
   const freeMem = os.freemem();

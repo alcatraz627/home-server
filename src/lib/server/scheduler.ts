@@ -2,15 +2,16 @@ import cron, { type ScheduledTask } from 'node-cron';
 import { getTaskConfigs, runTask } from './operator';
 import { getBackupConfigs, runBackup } from './backups';
 import { notifyTaskComplete, notifyBackupComplete, isNotifyConfigured } from './notify';
+import { createLogger } from './logger';
+
+const log = createLogger('scheduler');
 
 const scheduledJobs = new Map<string, ScheduledTask>();
 
 /** Start all scheduled tasks and backups */
 export async function startScheduler(): Promise<void> {
   await scheduleAll();
-  console.log(
-    `Scheduler started (notifications ${isNotifyConfigured() ? 'enabled' : 'disabled — set NTFY_TOPIC in .env'})`,
-  );
+  log.info('Scheduler started', { notifications: isNotifyConfigured() ? 'enabled' : 'disabled' });
 }
 
 /** Re-scan configs and update scheduled jobs */
@@ -26,13 +27,13 @@ export async function scheduleAll(): Promise<void> {
   for (const task of tasks) {
     if (task.schedule && task.enabled && cron.validate(task.schedule)) {
       const job = cron.schedule(task.schedule, async () => {
-        console.log(`[scheduler] Running task: ${task.name}`);
+        log.info('Scheduled task executing', { taskId: task.id, name: task.name });
         try {
           const run = await runTask(task.id);
           // Wait for completion by polling
           await waitForCompletion(task.id, 'task');
         } catch (err: any) {
-          console.error(`[scheduler] Task ${task.name} failed to start: ${err.message}`);
+          log.error('Scheduled task failed to start', { taskId: task.id, name: task.name, error: err.message });
         }
       });
       scheduledJobs.set(`task:${task.id}`, job);
@@ -44,19 +45,19 @@ export async function scheduleAll(): Promise<void> {
   for (const backup of backups) {
     if (backup.schedule && backup.enabled && cron.validate(backup.schedule)) {
       const job = cron.schedule(backup.schedule, async () => {
-        console.log(`[scheduler] Running backup: ${backup.name}`);
+        log.info('Scheduled backup executing', { backupId: backup.id, name: backup.name });
         try {
           await runBackup(backup.id);
           await waitForCompletion(backup.id, 'backup');
         } catch (err: any) {
-          console.error(`[scheduler] Backup ${backup.name} failed to start: ${err.message}`);
+          log.error('Scheduled backup failed to start', { backupId: backup.id, name: backup.name, error: err.message });
         }
       });
       scheduledJobs.set(`backup:${backup.id}`, job);
     }
   }
 
-  console.log(`[scheduler] ${scheduledJobs.size} jobs scheduled`);
+  log.info('Jobs scheduled', { count: scheduledJobs.size });
 }
 
 async function waitForCompletion(id: string, type: 'task' | 'backup'): Promise<void> {
@@ -104,7 +105,7 @@ export function unscheduleTask(taskId: string): boolean {
   if (job) {
     job.stop();
     scheduledJobs.delete(key);
-    console.log(`[scheduler] Unscheduled task: ${taskId}`);
+    log.info('Task unscheduled', { taskId });
     return true;
   }
   return false;

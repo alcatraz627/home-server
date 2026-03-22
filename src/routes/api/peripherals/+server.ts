@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { execSync } from 'node:child_process';
 import type { RequestHandler } from './$types';
+import { sanitizeShellArg } from '$lib/server/security';
 
 const isMac = process.platform === 'darwin';
 
@@ -150,8 +151,39 @@ function getBluetoothDevices(): BluetoothDevice[] {
         }
       }
       return devices;
+    } else {
+      // Linux: use bluetoothctl
+      const raw = execSync('bluetoothctl devices 2>/dev/null', {
+        encoding: 'utf-8',
+        timeout: 10000,
+      });
+      const devices: BluetoothDevice[] = [];
+      for (const line of raw.split('\n').filter((l) => l.trim())) {
+        // Format: Device AA:BB:CC:DD:EE:FF Device Name
+        const m = line.match(/^Device\s+([\dA-Fa-f:]+)\s+(.+)/);
+        if (!m) continue;
+        const address = m[1];
+        const name = m[2].trim();
+        // Check if connected via bluetoothctl info
+        let connected = false;
+        let type = 'Unknown';
+        let batteryLevel: number | null = null;
+        try {
+          const safeAddr = sanitizeShellArg(address);
+          const info = execSync(`bluetoothctl info ${safeAddr} 2>/dev/null`, {
+            encoding: 'utf-8',
+            timeout: 5000,
+          });
+          connected = /Connected:\s*yes/i.test(info);
+          const iconMatch = info.match(/Icon:\s*(.+)/);
+          if (iconMatch) type = iconMatch[1].trim();
+          const battMatch = info.match(/Battery Percentage:.*\((\d+)\)/);
+          if (battMatch) batteryLevel = parseInt(battMatch[1]);
+        } catch {}
+        devices.push({ name, address, connected, type, batteryLevel });
+      }
+      return devices;
     }
-    return [];
   } catch {
     return [];
   }
@@ -199,8 +231,36 @@ function getUSBDevices(): USBDevice[] {
         if (controller._items) walkUSB(controller._items, controller._name || '');
       }
       return devices;
+    } else {
+      // Linux: use lsusb
+      const raw = execSync('lsusb 2>/dev/null', {
+        encoding: 'utf-8',
+        timeout: 10000,
+      });
+      const devices: USBDevice[] = [];
+      for (const line of raw.split('\n').filter((l) => l.trim())) {
+        // Format: Bus 001 Device 003: ID 046d:c52b Logitech, Inc. Unifying Receiver
+        const m = line.match(/^Bus\s+(\d+)\s+Device\s+(\d+):\s+ID\s+(\S+)\s+(.*)/);
+        if (!m) continue;
+        const bus = m[1];
+        const port = m[2];
+        const vendorId = m[3];
+        const nameStr = m[4].trim();
+        // Split vendor and device name (vendor is before first device name)
+        const parts = nameStr.split(/\s+/);
+        const vendor = parts.length > 1 ? parts.slice(0, -1).join(' ') : vendorId;
+        const name = parts.length > 0 ? nameStr : 'Unknown';
+        devices.push({
+          name,
+          vendor,
+          serial: '',
+          speed: '',
+          bus: `Bus ${bus}`,
+          port: `Device ${port}`,
+        });
+      }
+      return devices;
     }
-    return [];
   } catch {
     return [];
   }
@@ -499,8 +559,78 @@ function getSystemInfo(): SystemInfo | null {
         serial: hw.serial_number || 'Unknown',
         model: hw.machine_name || hw.model_name || 'Unknown',
       };
+    } else {
+      // Linux: use lscpu, /etc/os-release, free -b
+      let cpuBrand = 'Unknown';
+      let cpuCores = 0;
+      let cpuThreads = 0;
+      try {
+        const lscpu = execSync('lscpu 2>/dev/null', { encoding: 'utf-8', timeout: 5000 });
+        const modelMatch = lscpu.match(/Model name:\s*(.*)/);
+        if (modelMatch) cpuBrand = modelMatch[1].trim();
+        const coreMatch = lscpu.match(/Core\(s\) per socket:\s*(\d+)/);
+        const socketMatch = lscpu.match(/Socket\(s\):\s*(\d+)/);
+        if (coreMatch && socketMatch) cpuCores = parseInt(coreMatch[1]) * parseInt(socketMatch[1]);
+        const threadMatch = lscpu.match(/CPU\(s\):\s*(\d+)/);
+        if (threadMatch) cpuThreads = parseInt(threadMatch[1]);
+      } catch {}
+
+      let ram = 'Unknown';
+      try {
+        const freeOut = execSync('free -b 2>/dev/null', { encoding: 'utf-8', timeout: 5000 });
+        const memMatch = freeOut.match(/Mem:\s+(\d+)/);
+        if (memMatch) {
+          const bytes = parseInt(memMatch[1]);
+          const gb = (bytes / (1024 * 1024 * 1024)).toFixed(1);
+          ram = `${gb} GB`;
+        }
+      } catch {}
+
+      let osVersion = '';
+      let model = 'Linux';
+      try {
+        const osRelease = execSync('cat /etc/os-release 2>/dev/null', { encoding: 'utf-8', timeout: 3000 });
+        const prettyMatch = osRelease.match(/PRETTY_NAME="?([^"\n]+)"?/);
+        if (prettyMatch) osVersion = prettyMatch[1];
+        // Try to detect model (Pi, etc.)
+        try {
+          const dmModel = execSync('cat /sys/firmware/devicetree/base/model 2>/dev/null', {
+            encoding: 'utf-8',
+            timeout: 3000,
+          })
+            .replace(/\0/g, '')
+            .trim();
+          if (dmModel) model = dmModel;
+        } catch {
+          try {
+            const prodName = execSync('cat /sys/class/dmi/id/product_name 2>/dev/null', {
+              encoding: 'utf-8',
+              timeout: 3000,
+            }).trim();
+            if (prodName) model = prodName;
+          } catch {}
+        }
+      } catch {}
+
+      let serial = 'Unknown';
+      try {
+        const serialOut = execSync('cat /sys/class/dmi/id/product_serial 2>/dev/null', {
+          encoding: 'utf-8',
+          timeout: 3000,
+        }).trim();
+        if (serialOut) serial = serialOut;
+      } catch {}
+
+      return {
+        cpuBrand,
+        cpuCores,
+        cpuThreads,
+        ram,
+        macosVersion: osVersion,
+        serial,
+        model,
+      };
     }
-    return null;
   } catch {
     return null;
   }
@@ -509,23 +639,45 @@ function getSystemInfo(): SystemInfo | null {
 // --- Bluetooth connect/disconnect ---
 
 function bluetoothAction(action: 'connect' | 'disconnect', address: string): { ok: boolean; error?: string } {
-  if (!isMac) return { ok: false, error: 'Bluetooth control is only supported on macOS' };
+  // Validate MAC address format to prevent injection
+  const safeAddress = sanitizeShellArg(address);
+  if (!/^[\dA-Fa-f]{2}([:-][\dA-Fa-f]{2}){5}$/.test(safeAddress)) {
+    return { ok: false, error: 'Invalid Bluetooth MAC address format' };
+  }
+
   try {
-    // Check if blueutil is available
-    try {
-      execSync('which blueutil', { encoding: 'utf-8', timeout: 3000 });
-    } catch {
-      return {
-        ok: false,
-        error: 'blueutil not found. Install it with: brew install blueutil',
-      };
+    if (isMac) {
+      // Check if blueutil is available
+      try {
+        execSync('which blueutil', { encoding: 'utf-8', timeout: 3000 });
+      } catch {
+        return {
+          ok: false,
+          error: 'blueutil not found. Install it with: brew install blueutil',
+        };
+      }
+      const flag = action === 'connect' ? '--connect' : '--disconnect';
+      execSync(`blueutil ${flag} "${safeAddress}"`, {
+        encoding: 'utf-8',
+        timeout: 15000,
+      });
+      return { ok: true };
+    } else {
+      // Linux: use bluetoothctl
+      try {
+        execSync('which bluetoothctl', { encoding: 'utf-8', timeout: 3000 });
+      } catch {
+        return {
+          ok: false,
+          error: 'bluetoothctl not found. Install bluez: sudo apt install bluez',
+        };
+      }
+      execSync(`bluetoothctl ${action} ${safeAddress}`, {
+        encoding: 'utf-8',
+        timeout: 15000,
+      });
+      return { ok: true };
     }
-    const flag = action === 'connect' ? '--connect' : '--disconnect';
-    execSync(`blueutil ${flag} "${address}"`, {
-      encoding: 'utf-8',
-      timeout: 15000,
-    });
-    return { ok: true };
   } catch (e: any) {
     return { ok: false, error: e.message || `Failed to ${action}` };
   }

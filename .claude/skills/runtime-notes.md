@@ -2,6 +2,34 @@
 
 Append-only log of skill run insights. Newest entries at top.
 
+## session: Auth implementation doc — 2026-03-22
+
+**Purpose:** Wrote comprehensive `docs/auth-implementation.md` specifying device-level authentication (WebAuthn biometric + PIN fallback) for another agent to implement.
+
+**Insights:**
+
+1. WebAuthn requires a domain for `rpId` — won't work when accessing via raw IP (e.g., `100.64.x.x`). The login page must detect IP access and hide the biometric option, falling back to PIN only.
+2. The Vite WebSocket handler in `vite.config.ts` bypasses SvelteKit's hooks entirely — auth must be manually checked by parsing cookies from `request.headers.cookie` before calling `wss.handleUpgrade()`.
+3. In production builds (`adapter-node`), the Vite plugin doesn't run at all — the terminal WebSocket handler needs a separate production entry point. This is a pre-existing gap, not introduced by auth.
+4. `crypto.scrypt` (Node built-in) is sufficient for PIN hashing on a single-user server and avoids adding native module dependencies (`argon2`/`bcrypt`) that complicate ARM/Pi deployment.
+5. SvelteKit's `event.cookies` API handles HttpOnly/SameSite automatically, but `secure` must be `false` since Tailscale uses HTTP (WireGuard encrypts at tunnel level, not TLS).
+
+---
+
+## session: Security audit + docs/security.md — 2026-03-22
+
+**Purpose:** Full security audit of the codebase — auth, command injection, data exposure, file access — written into `docs/security.md` with Tailscale deployment context.
+
+**Insights:**
+
+1. The app has zero authentication — Tailscale is the sole auth layer. This is acceptable for personal-only tailnets but becomes a problem immediately if the tailnet is shared or the server is exposed.
+2. Terminal WebSocket (`vite.config.ts:19`) has no auth on upgrade — it's the highest-risk endpoint because it gives persistent interactive shell, unlike API endpoints that return one-off JSON.
+3. Network tools use `execSync` with regex-filtered string interpolation (denylist approach) — safer than no filtering, but `spawn` with array args would eliminate the entire class of injection risk.
+4. The `/api/browse` endpoint is completely unrestricted — can browse any directory on the filesystem. Path traversal protection exists only on the file upload/download routes, not on browse.
+5. `svelte.config.js` CSRF config trusts `tailscale:*` and all private IP ranges — this is correct for the deployment model but means local network attackers can CSRF if the server is reachable without Tailscale.
+
+---
+
 ## session: Lights config sync + apps running detection — 2026-03-22
 
 **Purpose:** Moved lights config (bulb names, rooms, presets) from localStorage to server-synced JSON file, and added running app detection to the apps page.
