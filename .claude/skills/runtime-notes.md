@@ -4,6 +4,21 @@ Append-only log of skill run insights. Newest entries at top.
 
 ---
 
+## session: Navbar fixes and audit gap fills — 2026-03-22
+
+**Purpose:** Replaced theme dropdown with compact indicator, added system stats (swap/procs/net), help button, manage devices modal, wired shared stars store, added skeleton loading, and applied card-stagger animations across pages.
+
+**Insights:**
+
+1. The project has 20 themes (not 10) -- the theme.ts file grew since the original CLAUDE.md spec was written. Always re-read target files before editing.
+2. `stars.ts` provides `sortStarred()` helper that replaces manual starred-first sorting -- used it in processes page to simplify the derived.
+3. The files page used `starredFiles.has(...)` in both the sort comparator and the template -- needed `replace_all` to swap all occurrences consistently.
+4. Layout server can shell out with `execSync` for platform-specific stats (swap via `sysctl vm.swapusage` on macOS, `free -b` on Linux) but needs timeout guards and try/catch.
+5. Svelte component `class:selected={...}` and `class="card-stagger"` can coexist on the same element -- no conflict with dynamic class directives and static class attributes.
+6. For SSR-loaded pages (dashboard, tailscale), skeleton loading only helps when the data arrays are empty -- otherwise data arrives with the HTML.
+
+---
+
 ## session: Sidebar nav groups + per-page docs — 2026-03-22
 
 **Purpose:** Restructured sidebar navigation into collapsible groups with pinning, and created 24 per-page documentation files with categorized docs page.
