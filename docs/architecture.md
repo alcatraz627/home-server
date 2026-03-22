@@ -34,10 +34,11 @@ Home Server is a SvelteKit application that serves as a unified control plane fo
 │  ├─ REST: /api/files, /api/processes, ...   │
 │  └─ WebSocket: /ws/terminal                 │
 ├─────────────────────────────────────────────┤
-│  Server Helpers (src/lib/server/)           │
-│  ├─ files.ts, processes.ts, wiz.ts, ...     │
+│  Server Helpers (src/lib/server/) — 14 modules│
+│  ├─ files, processes, wiz, tailscale, ...   │
+│  ├─ agent-runner.ts (Claude CLI subprocess) │
 │  ├─ scheduler.ts (node-cron)                │
-│  └─ notify.ts (ntfy.sh)                     │
+│  └─ notify.ts (ntfy.sh), wol.ts             │
 ├─────────────────────────────────────────────┤
 │  System Layer                               │
 │  ├─ child_process (ps, kill, lsof, rsync)   │
@@ -51,15 +52,15 @@ Home Server is a SvelteKit application that serves as a unified control plane fo
 
 Each domain has a **server helper**, **API routes**, and a **page**. No cross-imports between server helpers — they are independent modules.
 
-| Domain | Server Helper | API Routes | Page |
-|--------|--------------|------------|------|
-| Files | `files.ts`, `metadata.ts` | `/api/files/`, `/api/files/[filename]/` | `/files` |
-| Processes | `processes.ts` | `/api/processes/`, `/api/processes/[pid]/` | `/processes` |
-| Lights | `wiz.ts` | `/api/lights/`, `/api/lights/[ip]/` | `/lights` |
-| Tailscale | `tailscale.ts` | `/api/tailscale/` | `/tailscale` |
-| Backups | `backups.ts` | `/api/backups/` | `/backups` |
-| Tasks | `operator.ts` | `/api/tasks/` | `/tasks` |
-| Terminal | `terminal.ts`, `ws.ts` | WebSocket `/ws/terminal` | `/terminal` |
+| Domain    | Server Helper             | API Routes                                 | Page         |
+| --------- | ------------------------- | ------------------------------------------ | ------------ |
+| Files     | `files.ts`, `metadata.ts` | `/api/files/`, `/api/files/[filename]/`    | `/files`     |
+| Processes | `processes.ts`            | `/api/processes/`, `/api/processes/[pid]/` | `/processes` |
+| Lights    | `wiz.ts`                  | `/api/lights/`, `/api/lights/[ip]/`        | `/lights`    |
+| Tailscale | `tailscale.ts`            | `/api/tailscale/`                          | `/tailscale` |
+| Backups   | `backups.ts`              | `/api/backups/`                            | `/backups`   |
+| Tasks     | `operator.ts`             | `/api/tasks/`                              | `/tasks`     |
+| Terminal  | `terminal.ts`, `ws.ts`    | WebSocket `/ws/terminal`                   | `/terminal`  |
 
 ## Data Flow
 
@@ -99,10 +100,10 @@ Browser (xterm.js) ↔ WebSocket (/ws/terminal)
 
 To avoid performance overhead, process inspection is split into two tiers:
 
-| Tier | Data | Cost | When |
-|------|------|------|------|
-| **Passive** | PID, PPID, CPU%, MEM%, RSS, VSZ, state, user, command | ~150ms (`ps -eo`) | Always shown, auto-refreshable |
-| **Active** | Open files, network connections, threads, environment | 1-5s (`lsof`, thread count) | On-demand via "Inspect" button |
+| Tier        | Data                                                  | Cost                        | When                           |
+| ----------- | ----------------------------------------------------- | --------------------------- | ------------------------------ |
+| **Passive** | PID, PPID, CPU%, MEM%, RSS, VSZ, state, user, command | ~150ms (`ps -eo`)           | Always shown, auto-refreshable |
+| **Active**  | Open files, network connections, threads, environment | 1-5s (`lsof`, thread count) | On-demand via "Inspect" button |
 
 ## Renderer Plugin System
 
@@ -122,13 +123,14 @@ Registry (index.ts) — first match wins:
 ```
 
 `RenderResult` types:
+
 - `html` — rendered via `{@html}` (markdown, word)
 - `text` — displayed in `<pre>` (plain text)
 - `data` — structured `SheetData[]` rendered by `DataTable` component (excel)
 
 ## Theme System
 
-CSS custom properties with two theme variants:
+CSS custom properties with 20 theme variants (dark, light, monokai, dracula, solarized-dark/light, nord, github-dark, catppuccin, tokyo-night, one-dark, gruvbox-dark/light, everforest, rosé-pine, ayu-dark/light, material-dark, kanagawa, cyberpunk):
 
 ```css
 :root, [data-theme='dark']  { --bg-primary: #0f1117; ... }

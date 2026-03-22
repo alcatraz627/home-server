@@ -1,6 +1,27 @@
+<div align="center">
+
 # Home Server
 
-Personal device management platform running across devices connected via **Tailscale VPN**. Built with SvelteKit.
+**A personal device management platform for your Tailscale network**
+
+[![SvelteKit](https://img.shields.io/badge/SvelteKit-2.x-FF3E00?logo=svelte&logoColor=white)](https://kit.svelte.dev)
+[![Svelte](<https://img.shields.io/badge/Svelte-5_(Runes)-FF3E00?logo=svelte&logoColor=white>)](https://svelte.dev)
+[![Node.js](https://img.shields.io/badge/Node.js-20+-339933?logo=node.js&logoColor=white)](https://nodejs.org)
+[![Tailscale](https://img.shields.io/badge/Tailscale-VPN-0A1F44?logo=tailscale&logoColor=white)](https://tailscale.com)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+_25 pages · 31 API endpoints · 20 themes · PWA · Multi-device_
+
+<!-- TODO: Replace with actual screenshot -->
+<!-- ![Home Server Dashboard](docs/assets/screenshot-dashboard.png) -->
+
+[Getting Started](#quick-start) · [Features](#features) · [Configuration](#configuration) · [Architecture](docs/architecture.md) · [API Reference](docs/api-reference.md)
+
+</div>
+
+---
+
+> **Home Server** is a self-hosted dashboard that runs on your laptop, Raspberry Pi, or any device on your Tailscale VPN. Manage files, smart lights, processes, backups, and 20+ tools from a single web UI — no cloud required.
 
 See [PROJECT.md](PROJECT.md) for the full vision, goals, and milestones.
 
@@ -136,7 +157,7 @@ src/
 │   │   ├── notify.ts      # ntfy.sh notifications
 │   │   ├── metadata.ts    # File metadata sidecar store
 │   │   └── config.ts      # Upload dir config
-│   ├── components/        # 8 reusable UI components
+│   ├── components/        # 11 reusable UI components
 │   │   ├── AiChat.svelte  # AI chat with tabs + history
 │   │   ├── CronBuilder.svelte  # Visual cron builder
 │   │   ├── MediaPlayer.svelte  # Video/audio player
@@ -147,14 +168,14 @@ src/
 │   │   └── EmptyState.svelte   # Empty state placeholder
 │   ├── renderers/         # Pluggable file preview
 │   ├── constants/app.ts   # Version tag
-│   ├── theme.ts           # 10 themes + setTheme
+│   ├── theme.ts           # 20 themes + setTheme
 │   ├── stars.ts           # Universal starring store
 │   ├── device-context.ts  # Multi-device switching
 │   ├── toast.ts           # Toast store with dedupe
 │   ├── markdown.ts        # Markdown→HTML
 │   └── types.ts           # Shared types
 ├── routes/                # 25 pages + 31 API endpoints
-└── app.css                # 10 themes + animations
+└── app.css                # 20 themes + animations
 ```
 
 ## Building for Production
@@ -174,3 +195,57 @@ docker compose up --build
 5. **Nav**: Add entry in `src/routes/+layout.svelte`
 
 For file preview, implement `DocumentRenderer` in `src/lib/renderers/` and register in `index.ts`.
+
+## Screenshots
+
+<!-- TODO: Add actual screenshots -->
+<!--
+<details>
+<summary>Dashboard</summary>
+<img src="docs/assets/screenshot-dashboard.png" alt="Dashboard" width="800" />
+</details>
+
+<details>
+<summary>File Manager</summary>
+<img src="docs/assets/screenshot-files.png" alt="Files" width="800" />
+</details>
+
+<details>
+<summary>Terminal</summary>
+<img src="docs/assets/screenshot-terminal.png" alt="Terminal" width="800" />
+</details>
+
+<details>
+<summary>Smart Lights</summary>
+<img src="docs/assets/screenshot-lights.png" alt="Lights" width="800" />
+</details>
+-->
+
+_Screenshots coming soon — run the app and explore!_
+
+## Documentation
+
+| Document                               | Description                                     |
+| -------------------------------------- | ----------------------------------------------- |
+| [Architecture](docs/architecture.md)   | System design, module boundaries, data flow     |
+| [API Reference](docs/api-reference.md) | All 31 endpoints with request/response examples |
+| [Setup Guide](docs/setup-guide.md)     | Detailed installation and configuration         |
+| [Extending](docs/extending.md)         | How to add new features and widgets             |
+| [Roadmap](docs/roadmap.md)             | Feature status and planned work                 |
+| [Page Guides](docs/pages/)             | Per-page usage documentation (24 pages)         |
+
+## Tech Stack
+
+| Layer         | Technology                                             |
+| ------------- | ------------------------------------------------------ |
+| Frontend      | SvelteKit 2, Svelte 5 (Runes), CSS Custom Properties   |
+| Backend       | Node.js, adapter-node, child_process, node-pty         |
+| Storage       | JSON files in `~/.home-server/` (no database)          |
+| Network       | Tailscale VPN, WebSocket (terminal), UDP (smart bulbs) |
+| Scheduling    | node-cron                                              |
+| Notifications | ntfy.sh                                                |
+| AI            | Claude API (chat), Claude CLI (agent)                  |
+
+## License
+
+MIT

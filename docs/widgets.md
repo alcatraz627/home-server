@@ -2,6 +2,10 @@
 
 Each widget is a self-contained feature with its own page, API, and server helper.
 
+> **Note:** For detailed per-page documentation, see the [Page Guides](pages/) directory (24 docs).
+> This file covers the original core widgets in detail. New features (QR, Bookmarks, Kanban, etc.)
+> are documented in their individual page guide files.
+
 ---
 
 ## File Transfer
@@ -15,17 +19,17 @@ A full file manager for uploading, downloading, previewing, renaming, and deleti
 - **Drag-and-drop upload** with progress bar (XHR-based for progress tracking)
 - **In-browser preview** — click any previewable filename to open a modal:
 
-  | Type | Renderer | Tech |
-  |------|----------|------|
-  | Images | Native `<img>` | Browser |
-  | Video | Native `<video>` | Browser |
-  | Audio | Native `<audio>` | Browser |
-  | PDF | `<iframe>` | Browser |
-  | Excel/CSV | DataTable component | SheetJS |
-  | Word (.docx) | HTML conversion | Mammoth.js |
-  | Markdown | Custom HTML renderer | Regex parser |
-  | JSON | Collapsible tree | Custom renderer |
-  | Text/Code | `<pre>` block | Plain text |
+  | Type         | Renderer             | Tech            |
+  | ------------ | -------------------- | --------------- |
+  | Images       | Native `<img>`       | Browser         |
+  | Video        | Native `<video>`     | Browser         |
+  | Audio        | Native `<audio>`     | Browser         |
+  | PDF          | `<iframe>`           | Browser         |
+  | Excel/CSV    | DataTable component  | SheetJS         |
+  | Word (.docx) | HTML conversion      | Mammoth.js      |
+  | Markdown     | Custom HTML renderer | Regex parser    |
+  | JSON         | Collapsible tree     | Custom renderer |
+  | Text/Code    | `<pre>` block        | Plain text      |
 
 - **File info panel** — click `i` to see MIME type, exact size, created/modified dates, permissions, upload source device
 - **Rename** — click `mv` for inline editing
@@ -35,6 +39,7 @@ A full file manager for uploading, downloading, previewing, renaming, and deleti
 ### DataTable (Excel Preview)
 
 The Excel renderer produces structured data rendered by a reusable `DataTable` component:
+
 - Column sorting (click headers — smart numeric vs. string detection)
 - Global search across all columns
 - Per-column filter inputs (toggle with "Filters" button)
@@ -65,6 +70,7 @@ Controls Wiz smart bulbs on the local network via UDP protocol (port 38899).
 ### Protocol
 
 Wiz bulbs use a JSON-over-UDP protocol:
+
 - **Discovery**: `{"method":"registration",...}` → broadcast to `255.255.255.255:38899`
 - **Get state**: `{"method":"getPilot","params":{}}` → specific bulb IP
 - **Set state**: `{"method":"setPilot","params":{"state":true,"dimming":80,...}}` → specific bulb IP
