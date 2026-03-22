@@ -2,6 +2,35 @@
 
 Append-only log of skill run insights. Newest entries at top.
 
+## session: Dashboard config, stats dropdown, page-desc, title audit — 2026-03-22
+
+**Purpose:** Added customizable dashboard sections, expanded stats gear dropdown, and added page descriptions and consistent titles across all pages.
+
+**Insights:**
+
+1. Dashboard sections can be toggled via `hs:dashboard-config` localStorage key. The disk cards are nested inside the stats-row div, so a separate `disk` toggle controls just the disk cards within the stats grid.
+2. The layout's `ALL_STATS` array drives both the header stat display and the dropdown toggles. Adding new stat keys (`netSpeed`, `diskIO`) requires updating the `StatKey` union type and the display template.
+3. Net speed tracking requires a delta calculation between consecutive reads of cumulative `networkBytes` data. The `prevNetBytes` state tracks the previous snapshot with timestamp for rate calculation.
+4. Disk I/O data is not available from the server API (`/api/system`), so the stat shows "n/a" when enabled. A future API endpoint would need to read `/proc/diskstats` or similar.
+5. Several pages used `<h1>` instead of `<h2>` for their page title (bookmarks, kanban, wol, dns, ports, speedtest, screenshots, benchmarks, qr). The terminal and clipboard pages had no page-level heading at all.
+6. The `page-desc` and `page-title` CSS classes are already defined in `app.css` -- no need to add component-scoped styles for these.
+
+---
+
+## session: Terminal scrollback, BT connect, peripherals expansion, per-core CPU — 2026-03-22
+
+**Purpose:** Added terminal scrollback buffer, Bluetooth connect/disconnect, new peripheral tabs (displays, network, system info), and per-core CPU monitor with swap color fix.
+
+**Insights:**
+
+1. The `TerminalSession` interface uses a plain object literal, so `scrollback` needs getter/setter to access a mutable closure variable — the interface field alone won't capture PTY output that accumulates outside the object.
+2. The vite.config.ts WebSocket handler already had session resume logic (`getSession`), making scrollback delivery straightforward — just send after the session ID message.
+3. `system_profiler SPDisplaysDataType -json` nests displays under GPU entries (`spdisplays_ndrvs`), not at the top level — must iterate GPUs first.
+4. `networksetup -listallhardwareports` gives port/device/MAC but no IP or status — need to cross-reference with `ifconfig` output parsed by device name.
+5. The peripherals page `activeTab` type needed to be widened from a union of 5 literals to 8 — used a `TabKey` type alias to keep it clean.
+
+---
+
 ## session: Six feature enhancements across files, lights, peripherals, QR, speedtest, benchmarks — 2026-03-22
 
 **Purpose:** Implemented global file search, bulb drag-and-drop reordering, peripherals caching with skeleton loading, QR WiFi auto-fill + share, speedtest visual improvements, and benchmark history clearing.
