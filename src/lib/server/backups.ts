@@ -170,6 +170,12 @@ export async function runBackup(configId: string): Promise<BackupRun> {
     run.completedAt = new Date().toISOString();
     run.status = code === 0 ? 'success' : 'failed';
 
+    // Parse rsync stats
+    const filesMatch = output.match(/Number of regular files transferred:\s*(\d+)/);
+    const bytesMatch = output.match(/Total transferred file size:\s*([\d,]+)/);
+    if (filesMatch) run.filesTransferred = parseInt(filesMatch[1]);
+    if (bytesMatch) run.bytesTransferred = parseInt(bytesMatch[1].replace(/,/g, ''));
+
     if (code !== 0) {
       run.error = output.slice(-500); // Last 500 chars of output
       log.error('Backup failed', { configId, code, error: run.error });
@@ -180,12 +186,6 @@ export async function runBackup(configId: string): Promise<BackupRun> {
         bytesTransferred: run.bytesTransferred,
       });
     }
-
-    // Parse rsync stats
-    const filesMatch = output.match(/Number of regular files transferred:\s*(\d+)/);
-    const bytesMatch = output.match(/Total transferred file size:\s*([\d,]+)/);
-    if (filesMatch) run.filesTransferred = parseInt(filesMatch[1]);
-    if (bytesMatch) run.bytesTransferred = parseInt(bytesMatch[1].replace(/,/g, ''));
 
     runningBackups.delete(configId);
     await appendHistory(run);

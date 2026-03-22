@@ -2,6 +2,36 @@
 
 Append-only log of skill run insights. Newest entries at top.
 
+## session: Replace all ASCII/Unicode icons with Icon component — 2026-03-22
+
+**Purpose:** Systematically replaced every Unicode/emoji icon across the SvelteKit project with the `<Icon>` component backed by lucide-svelte.
+
+**Insights:**
+
+1. The `EmptyState` component needed its `icon` prop changed from a Unicode character to a lucide icon name string, and the rendering updated to use `<Icon>`. Default changed from emoji to `'info'`.
+2. Sort indicator functions (`sortIcon`/`sortIndicator`) that returned arrow strings needed to be refactored to return `'asc' | 'desc' | null` so the template could conditionally render `<Icon>` components instead of concatenating strings.
+3. The `FileBrowser` component's `label` prop defaulted to `'📁'` emoji -- changed default to empty string with an `<Icon name="folder-open">` fallback in the template.
+4. Navigation icons in `nav.ts` are now lucide icon name strings rendered via `<Icon name={item.icon} size={16} />` in `+layout.svelte`, replacing `{item.icon}` text rendering.
+5. Unicode arrows in inline data labels (e.g., `1.2MB↓`, `→` flow diagrams) were intentionally left as-is since they're data formatting, not decorative icons.
+6. Light preset icons (emoji like movie clapboard, moon, book) were mapped to closest lucide equivalents: `film`, `moon`, `eye`, `power`, `monitor`, `sun`.
+
+---
+
+## session: Security hardening + Linux support — 2026-03-22
+
+**Purpose:** Added security sanitization module, hardened critical API endpoints against injection/traversal, and implemented Linux fallbacks for Bluetooth, USB, system info, and app launcher.
+
+**Insights:**
+
+1. The `files.ts` module already had a robust `safePath()` helper with `path.resolve()` + `startsWith()` — good pattern to reuse for the centralized `sanitizePath()` in security.ts.
+2. The `network/+server.ts` POST handler already had regex sanitization on targets (e.g., `body.target?.replace(/[^a-zA-Z0-9.\-:]/g, '')`), but the underlying functions (`runTraceroute`, `runWhois`, `inspectSSLCert`) did not re-sanitize — defense-in-depth via `sanitizeShellArg()` at both layers is worthwhile.
+3. The `packets/+server.ts` endpoint was the most dangerous — it passed raw `body.filter` directly to tcpdump spawn args, which could inject arbitrary tcpdump flags. The `interface` field was also unsanitized.
+4. For Linux Bluetooth, `bluetoothctl info <MAC>` provides connected status, icon type, and battery percentage — a single call per device gives rich data comparable to macOS `system_profiler`.
+5. Linux `.desktop` file parsing needs to handle `NoDisplay=true`, `Hidden=true`, and `Type!=Application` filters to avoid cluttering the app list with helper entries. The `%f/%u/%F/%U` placeholders in Exec fields must be stripped before launching.
+6. MAC address validation regex (`/^[\dA-Fa-f]{2}([:-][\dA-Fa-f]{2}){5}$/`) is the critical security gate for the Bluetooth connect/disconnect endpoint — prevents shell injection via crafted "addresses".
+
+---
+
 ## session: Auth implementation doc — 2026-03-22
 
 **Purpose:** Wrote comprehensive `docs/auth-implementation.md` specifying device-level authentication (WebAuthn biometric + PIN fallback) for another agent to implement.

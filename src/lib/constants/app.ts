@@ -10,5 +10,5 @@
  */
 export const APP = {
   title: 'Home Server',
-  version: '3.9.0-steel-vault-33',
+  version: '3.9.1-keen-owl-17',
 } as const;
