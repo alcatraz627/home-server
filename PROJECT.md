@@ -448,3 +448,32 @@ See [docs/claude-keeper.md](docs/claude-keeper.md) for full planning document.
   - **Bandwidth Monitor** — real-time bytes/sec per interface using `nettop` (macOS) or `/proc/net/dev` (Linux)
   - **SSL Certificate Inspector** — enter any domain, show full cert chain, expiry, issuer, SANs
   - **HTTP Header Inspector** — enter a URL, show all request/response headers with timing breakdown
+
+### T23 — AI Chat Polish
+- [ ] **Rename conversations** — double-click title in history/sidebar to rename. Persist to localStorage
+- [ ] **Animated FAB button** — replace plain "AI" text with an animated gradient icon (purple→blue shimmer, or a Claude-style logo SVG with subtle pulse animation). Professional but eye-catching
+- [ ] **UI improvements** — better message bubbles (rounded, subtle shadow), typing indicator animation (3 bouncing dots), code block syntax highlighting in responses, copy button per message
+
+### T24 — Navbar Enhancements
+- [ ] **Custom theme dropdown** — replace native `<select>` with a custom dropdown component showing theme name + 4 color swatches (bg, accent, text, border) per option. Smooth open/close animation. Better performance than re-rendering native select
+- [ ] **Font picker dropdown** — new dropdown next to theme selector with three sections: Header font, Body font, Monospace font. List system fonts from `document.fonts` API or hardcoded common ones. Group by type (sans-serif, serif, monospace, display). Preview each font in its own typeface. Persist to localStorage, apply via CSS var overrides on `:root`
+- [ ] **System monitor expanded controls** — for each stat (CPU, MEM, Load, Disk), allow toggling between: load average, absolute value, percentage. Dropdown per metric type
+- [ ] **More system info types** — add to navbar stats: disk I/O, network throughput, swap usage, process count, open file descriptors, TCP connections count. Show as expandable chips
+- [ ] **Muted stat colors** — reduce navbar stat color saturation/opacity further (opacity: 0.7), make them pop only on hover (opacity: 1 on hover with transition)
+
+### T25 — App-Wide Polish
+- [ ] **Dashboard animations** — auto-refresh system stats every 30s with smooth number transitions (counter animation), card entrance stagger on load, pulse on status change
+- [ ] **Dashboard live refresh** — poll `/api/system` and dashboard data periodically, update stat values with CSS counter transitions instead of hard-swapping text
+- [ ] **Toast UI v3** — research Sonner (shadcn), react-hot-toast, Vercel's toast design. Implement: stacked toasts with offset, richer content (title + description), action buttons, swipe-to-dismiss on mobile, dark shadow depth
+- [ ] **Smart lights cache** — on first load, store bulb data in `sessionStorage`. On page revisit, immediately render cached data, then refresh in background and merge (already uses `mergeBulbs` — just add the cache layer)
+
+### T26 — Documentation Sprint
+- [ ] **Page-by-page documentation** — for every page in the app, write a `docs/pages/{page-name}.md` with:
+  - Feature overview
+  - How it works (data flow: page → API → server module)
+  - Caveats and known issues
+  - Keyboard shortcuts (if any)
+  - Changelog of major changes
+- [ ] Pages to document (in order): Dashboard, Files, Lights, Processes, Tailscale, Backups, Tasks, Keeper, Terminal, Docs, Showcase
+- [ ] **Planned features doc** — `docs/roadmap.md` summarizing T1-T26 with status indicators
+- [ ] Auto-include new docs in the `/docs` page viewer
