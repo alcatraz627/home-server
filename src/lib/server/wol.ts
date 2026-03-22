@@ -55,10 +55,10 @@ export function sendMagicPacket(mac: string): Promise<void> {
  */
 export function pingHost(ip: string): Promise<boolean> {
   return new Promise((resolve) => {
-    const { execSync } = require('node:child_process');
+    const { spawnSync } = require('node:child_process');
     try {
-      execSync(`ping -c 1 -W 1 ${ip}`, { timeout: 3000, stdio: 'pipe' });
-      resolve(true);
+      const result = spawnSync('ping', ['-c', '1', '-W', '1', ip], { timeout: 3000, stdio: 'pipe' });
+      resolve(result.status === 0);
     } catch {
       resolve(false);
     }

@@ -1,7 +1,6 @@
 import { json } from '@sveltejs/kit';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { execSync } from 'node:child_process';
 import { getUploadDir } from '$lib/server/config';
 import { getMime } from '$lib/server/files';
 import type { RequestHandler } from './$types';
@@ -54,48 +53,54 @@ async function searchFiles(dir: string, query: string, base: string, depth: numb
   return results;
 }
 
-/** Sanitize a wildcard pattern to prevent command injection */
-function sanitizePattern(pattern: string): string {
-  // Strip dangerous characters: ; | ` $ ( ) { } < > & \ newlines
-  return pattern.replace(/[;|`$(){}\\<>&\n\r]/g, '').trim();
+/** Convert a simple wildcard pattern (with * and ?) to a regex */
+function wildcardToRegex(pattern: string): RegExp {
+  const escaped = pattern
+    .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+    .replace(/\*/g, '.*')
+    .replace(/\?/g, '.');
+  return new RegExp(`^${escaped}$`, 'i');
 }
 
-/** Wildcard search using find */
-async function wildcardSearch(uploadDir: string, pattern: string): Promise<SearchResult[]> {
-  const sanitized = sanitizePattern(pattern);
-  if (!sanitized) return [];
+/** Wildcard search using Node.js fs.readdir (no shell) */
+async function wildcardSearch(dir: string, pattern: string, base: string, depth = 0): Promise<SearchResult[]> {
+  if (depth > 5) return [];
 
+  const regex = depth === 0 ? wildcardToRegex(pattern) : null;
+  const results: SearchResult[] = [];
+
+  let entries;
   try {
-    const output = execSync(`find "${uploadDir}" -name "${sanitized}" -maxdepth 5 2>/dev/null`, {
-      encoding: 'utf-8',
-      timeout: 5000,
-    });
+    entries = await fs.readdir(dir, { withFileTypes: true });
+  } catch {
+    return results;
+  }
 
-    const lines = output.trim().split('\n').filter(Boolean);
-    const results: SearchResult[] = [];
+  const re = regex || wildcardToRegex(pattern);
 
-    for (const line of lines.slice(0, 50)) {
-      const fullPath = line.trim();
-      const relativePath = path.relative(uploadDir, fullPath);
-      const name = path.basename(fullPath);
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+    const relativePath = path.relative(base, fullPath);
 
+    if (entry.isDirectory()) {
+      const nested = await wildcardSearch(fullPath, pattern, base, depth + 1);
+      results.push(...nested);
+    } else if (re.test(entry.name)) {
       try {
         const stat = await fs.stat(fullPath);
         results.push({
-          name,
+          name: entry.name,
           path: relativePath,
           size: stat.size,
           modified: stat.mtime.toISOString(),
         });
-      } catch {
-        // skip unreadable files
-      }
+      } catch {}
     }
 
-    return results;
-  } catch {
-    return [];
+    if (results.length >= 50) break;
   }
+
+  return results;
 }
 
 /** Search files recursively by name */
@@ -108,7 +113,9 @@ export const GET: RequestHandler = async ({ url }) => {
   const wildcard = url.searchParams.get('wildcard') === 'true';
   const uploadDir = getUploadDir();
 
-  const results = wildcard ? await wildcardSearch(uploadDir, query) : await searchFiles(uploadDir, query, uploadDir, 0);
+  const results = wildcard
+    ? await wildcardSearch(uploadDir, query, uploadDir)
+    : await searchFiles(uploadDir, query, uploadDir, 0);
 
   return json({ results: results.slice(0, 50) });
 };

@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { execSync } from 'node:child_process';
+import { execSync, spawnSync } from 'node:child_process';
 import type { RequestHandler } from './$types';
 import { sanitizeShellArg } from '$lib/server/security';
 
@@ -170,10 +170,11 @@ function getBluetoothDevices(): BluetoothDevice[] {
         let batteryLevel: number | null = null;
         try {
           const safeAddr = sanitizeShellArg(address);
-          const info = execSync(`bluetoothctl info ${safeAddr} 2>/dev/null`, {
+          const btResult = spawnSync('bluetoothctl', ['info', safeAddr], {
             encoding: 'utf-8',
             timeout: 5000,
           });
+          const info = btResult.stdout || '';
           connected = /Connected:\s*yes/i.test(info);
           const iconMatch = info.match(/Icon:\s*(.+)/);
           if (iconMatch) type = iconMatch[1].trim();
@@ -275,6 +276,7 @@ interface AudioDevice {
 }
 
 function getAudioDevices(): AudioDevice[] {
+  const devices: AudioDevice[] = [];
   try {
     if (isMac) {
       const raw = execSync('system_profiler SPAudioDataType -json 2>/dev/null', {
@@ -282,7 +284,6 @@ function getAudioDevices(): AudioDevice[] {
         timeout: 15000,
       });
       const data = JSON.parse(raw);
-      const devices: AudioDevice[] = [];
       const audioData = data?.SPAudioDataType || [];
 
       for (const item of audioData) {
@@ -318,8 +319,42 @@ function getAudioDevices(): AudioDevice[] {
         }
       }
       return devices;
+    } else {
+      // Linux: try pactl (PulseAudio/PipeWire) then aplay (ALSA)
+      try {
+        const raw = execSync('pactl list sinks short 2>/dev/null', { encoding: 'utf-8', timeout: 5000 });
+        for (const line of raw.trim().split('\n').filter(Boolean)) {
+          const parts = line.split('\t');
+          if (parts.length >= 2) {
+            devices.push({ name: parts[1], type: 'output', sampleRate: '' });
+          }
+        }
+        const sources = execSync('pactl list sources short 2>/dev/null', { encoding: 'utf-8', timeout: 5000 });
+        for (const line of sources.trim().split('\n').filter(Boolean)) {
+          const parts = line.split('\t');
+          if (parts.length >= 2 && !parts[1].includes('.monitor')) {
+            devices.push({ name: parts[1], type: 'input', sampleRate: '' });
+          }
+        }
+      } catch {
+        // Fallback: ALSA
+        try {
+          const raw = execSync('aplay -l 2>/dev/null', { encoding: 'utf-8', timeout: 5000 });
+          for (const line of raw.split('\n')) {
+            const m = line.match(/^card \d+: (.+?) \[(.+?)\]/);
+            if (m) devices.push({ name: m[2], type: 'output', sampleRate: '' });
+          }
+        } catch {}
+        try {
+          const raw = execSync('arecord -l 2>/dev/null', { encoding: 'utf-8', timeout: 5000 });
+          for (const line of raw.split('\n')) {
+            const m = line.match(/^card \d+: (.+?) \[(.+?)\]/);
+            if (m) devices.push({ name: m[2], type: 'input', sampleRate: '' });
+          }
+        } catch {}
+      }
+      return devices;
     }
-    return [];
   } catch {
     return [];
   }
@@ -398,6 +433,7 @@ interface DisplayInfo {
 }
 
 function getDisplays(): DisplayInfo[] {
+  const displays: DisplayInfo[] = [];
   try {
     if (isMac) {
       const raw = execSync('system_profiler SPDisplaysDataType -json 2>/dev/null', {
@@ -405,7 +441,6 @@ function getDisplays(): DisplayInfo[] {
         timeout: 15000,
       });
       const data = JSON.parse(raw);
-      const displays: DisplayInfo[] = [];
       const gpuList = data?.SPDisplaysDataType || [];
       for (const gpu of gpuList) {
         const gpuName = gpu.sppci_model || gpu._name || 'Unknown GPU';
@@ -427,8 +462,29 @@ function getDisplays(): DisplayInfo[] {
         }
       }
       return displays;
+    } else {
+      // Linux: xrandr
+      try {
+        const raw = execSync('xrandr --current 2>/dev/null', { encoding: 'utf-8', timeout: 5000 });
+        let currentDisplay = '';
+        for (const line of raw.split('\n')) {
+          const connMatch = line.match(/^(\S+)\s+connected\s+(primary\s+)?(\d+x\d+)/);
+          if (connMatch) {
+            currentDisplay = connMatch[1];
+            const resMatch = line.match(/(\d+x\d+)\+\d+\+\d+/);
+            const rateMatch = line.match(/([\d.]+)\*/);
+            displays.push({
+              name: currentDisplay,
+              resolution: resMatch?.[1] || connMatch[3],
+              refreshRate: rateMatch ? `${rateMatch[1]} Hz` : '',
+              gpu: '',
+              builtIn: currentDisplay.toLowerCase().includes('edp') || currentDisplay.toLowerCase().includes('lvds'),
+            });
+          }
+        }
+      } catch {}
+      return displays;
     }
-    return [];
   } catch {
     return [];
   }
@@ -445,6 +501,7 @@ interface NetworkInterface {
 }
 
 function getNetworkInterfaces(): NetworkInterface[] {
+  const interfaces: NetworkInterface[] = [];
   try {
     if (isMac) {
       const raw = execSync('networksetup -listallhardwareports 2>/dev/null', {
@@ -476,7 +533,6 @@ function getNetworkInterfaces(): NetworkInterface[] {
         });
       }
 
-      const interfaces: NetworkInterface[] = [];
       const blocks = raw.split(/\n\n/).filter((b) => b.trim());
       for (const block of blocks) {
         const portMatch = block.match(/Hardware Port:\s*(.+)/);
@@ -495,8 +551,38 @@ function getNetworkInterfaces(): NetworkInterface[] {
         }
       }
       return interfaces;
+    } else {
+      // Linux: ip link show + ip addr
+      try {
+        const raw = execSync('ip -o link show 2>/dev/null', { encoding: 'utf-8', timeout: 5000 });
+        const addrRaw = execSync('ip -o -4 addr show 2>/dev/null', { encoding: 'utf-8', timeout: 5000 });
+
+        // Build IP map
+        const ipMap = new Map<string, string>();
+        for (const line of addrRaw.split('\n').filter(Boolean)) {
+          const m = line.match(/^\d+:\s+(\S+)\s+.*inet\s+(\d+\.\d+\.\d+\.\d+)/);
+          if (m) ipMap.set(m[1], m[2]);
+        }
+
+        for (const line of raw.split('\n').filter(Boolean)) {
+          const m = line.match(/^\d+:\s+(\S+?)(?:@\S+)?:\s+<([^>]*)>.*link\/\w+\s+([\da-f:]+)/);
+          if (m) {
+            const dev = m[1];
+            const flags = m[2];
+            const mac = m[3];
+            if (dev === 'lo') continue;
+            interfaces.push({
+              port: dev,
+              device: dev,
+              mac: mac || 'N/A',
+              ip: ipMap.get(dev) || '',
+              status: flags.includes('UP') ? 'active' : 'inactive',
+            });
+          }
+        }
+      } catch {}
+      return interfaces;
     }
-    return [];
   } catch {
     return [];
   }
@@ -657,7 +743,7 @@ function bluetoothAction(action: 'connect' | 'disconnect', address: string): { o
         };
       }
       const flag = action === 'connect' ? '--connect' : '--disconnect';
-      execSync(`blueutil ${flag} "${safeAddress}"`, {
+      spawnSync('blueutil', [flag, safeAddress], {
         encoding: 'utf-8',
         timeout: 15000,
       });
@@ -672,7 +758,7 @@ function bluetoothAction(action: 'connect' | 'disconnect', address: string): { o
           error: 'bluetoothctl not found. Install bluez: sudo apt install bluez',
         };
       }
-      execSync(`bluetoothctl ${action} ${safeAddress}`, {
+      spawnSync('bluetoothctl', [action, safeAddress], {
         encoding: 'utf-8',
         timeout: 15000,
       });

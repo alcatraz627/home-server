@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { execSync, exec } from 'child_process';
+import { execSync, exec, spawnSync } from 'child_process';
 import os from 'os';
 import net from 'net';
 import { sanitizeShellArg, validateRequired } from '$lib/server/security';
@@ -298,9 +298,10 @@ interface TracerouteHop {
 function runTraceroute(target: string): { hops: TracerouteHop[]; raw: string } {
   const platform = os.platform();
   const cmd = platform === 'darwin' ? 'traceroute' : 'tracepath';
-  const safeTarget = sanitizeShellArg(target);
   try {
-    const output = execSync(`${cmd} -m 20 ${safeTarget} 2>&1`, { timeout: 30000 }).toString();
+    const args = platform === 'darwin' ? ['-m', '20', target] : ['-m', '20', target];
+    const result = spawnSync(cmd, args, { timeout: 30000, encoding: 'utf-8' });
+    const output = (result.stdout || '') + (result.stderr || '');
 
     const hops: TracerouteHop[] = [];
     for (const line of output.split('\n')) {
@@ -331,9 +332,9 @@ function runTraceroute(target: string): { hops: TracerouteHop[]; raw: string } {
 
 // ---- Whois ----
 function runWhois(target: string): string {
-  const safeTarget = sanitizeShellArg(target);
   try {
-    return execSync(`whois ${safeTarget} 2>&1`, { timeout: 15000 }).toString();
+    const result = spawnSync('whois', [target], { timeout: 15000, encoding: 'utf-8' });
+    return (result.stdout || '') + (result.stderr || '') || 'No whois data';
   } catch (e: any) {
     return e.message || 'Whois lookup failed';
   }
@@ -407,12 +408,22 @@ interface SSLCertInfo {
 }
 
 function inspectSSLCert(domain: string): SSLCertInfo | string {
-  const safeDomain = sanitizeShellArg(domain);
+  // Validate domain contains only safe characters (alphanumeric, dots, hyphens)
+  if (!/^[a-zA-Z0-9.\-]+$/.test(domain)) return 'Invalid domain';
   try {
-    const output = execSync(
-      `echo | openssl s_client -connect ${safeDomain}:443 -servername ${safeDomain} 2>/dev/null | openssl x509 -noout -text -dates -subject -issuer -serial 2>/dev/null`,
-      { timeout: 10000 },
-    ).toString();
+    // Use spawnSync for the first stage, pipe stdout to second
+    const sClient = spawnSync('openssl', ['s_client', '-connect', `${domain}:443`, '-servername', domain], {
+      timeout: 10000,
+      encoding: 'utf-8',
+      input: '', // equivalent to `echo |`
+    });
+    const certPem = sClient.stdout || '';
+    const x509 = spawnSync('openssl', ['x509', '-noout', '-text', '-dates', '-subject', '-issuer', '-serial'], {
+      timeout: 5000,
+      encoding: 'utf-8',
+      input: certPem,
+    });
+    const output = x509.stdout || '';
 
     const subject = output.match(/subject=\s*(.*)/)?.[1]?.trim() || output.match(/Subject:\s*(.*)/)?.[1]?.trim() || '';
     const issuer = output.match(/issuer=\s*(.*)/)?.[1]?.trim() || output.match(/Issuer:\s*(.*)/)?.[1]?.trim() || '';

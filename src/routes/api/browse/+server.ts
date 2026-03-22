@@ -49,6 +49,16 @@ export const GET: RequestHandler = async ({ url }) => {
 
     return json({ current: resolved, entries: items });
   } catch (e: any) {
-    return json({ current: resolved, entries: [], error: e.message }, { status: 200 });
+    // Sanitize error — don't leak full file paths
+    const code = e.code || '';
+    const safeError =
+      code === 'ENOENT'
+        ? 'Directory not found'
+        : code === 'EACCES'
+          ? 'Permission denied'
+          : code === 'ENOTDIR'
+            ? 'Not a directory'
+            : 'Unable to read directory';
+    return json({ current: resolved, entries: [], error: safeError }, { status: 200 });
   }
 };

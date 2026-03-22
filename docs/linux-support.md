@@ -39,8 +39,8 @@ The project runs on Node.js/SvelteKit. Most platform-specific code lives in **se
 | **Bluetooth discovery**                   |  ✅   |    ✅    | `bluetoothctl devices` + `bluetoothctl info` on Linux            |
 | **Bluetooth control**                     |  ✅   |    ✅    | `bluetoothctl connect/disconnect` on Linux                       |
 | **USB devices**                           |  ✅   |    ✅    | `lsusb` parsing on Linux                                         |
-| **Audio devices**                         |  ✅   |    ❌    | Uses `system_profiler` — needs `aplay -l` / `pactl`              |
-| **Display info**                          |  ✅   |    ❌    | Uses `system_profiler` — needs `xrandr`                          |
+| **Audio devices**                         |  ✅   |    ✅    | `pactl list sinks/sources` + `aplay -l`/`arecord -l` fallback    |
+| **Display info**                          |  ✅   |    ✅    | `xrandr --current` for connected displays                        |
 | **Battery**                               |  ✅   |    ❌    | Uses `pmset` — needs `/sys/class/power_supply/`                  |
 | **System info**                           |  ✅   |    ✅    | `lscpu`, `free -b`, `/etc/os-release` on Linux                   |
 | **Screenshots**                           |  ✅   |    ⚠️    | `scrot` fallback exists but `osascript` fallback fails           |
@@ -77,12 +77,12 @@ Uses `const isMac = process.platform === 'darwin'` (line 5).
 | 65   | `airport -s` (hardcoded path)               | `nmcli dev wifi list`                              | ✅ Fallback exists    |
 | 119  | `system_profiler SPBluetoothDataType -json` | `bluetoothctl devices` + `bluetoothctl info <MAC>` | ✅ Implemented        |
 | 174  | `system_profiler SPUSBDataType -json`       | `lsusb`                                            | ✅ Implemented        |
-| 220  | `system_profiler SPAudioDataType -json`     | `aplay -l` / `pactl list sinks`                    | ❌ Returns `[]`       |
+| 220  | `system_profiler SPAudioDataType -json`     | `pactl list sinks/sources` + `aplay -l`            | ✅ Implemented        |
 | 280  | `pmset -g batt`                             | `/sys/class/power_supply/BAT*/capacity`            | ❌ Returns null       |
 | 295  | `system_profiler SPPowerDataType`           | Not applicable on Pi without UPS HAT               | ❌ N/A                |
 | 315  | `airport -I` (hardcoded path)               | `nmcli -t -f active,ssid dev wifi`                 | ❌ Uses macOS path    |
-| 343  | `system_profiler SPDisplaysDataType -json`  | `xrandr` or `/sys/class/drm/`                      | ❌ Returns `[]`       |
-| 390  | `networksetup -listallhardwareports`        | `ip link show`                                     | ❌ macOS-only         |
+| 343  | `system_profiler SPDisplaysDataType -json`  | `xrandr --current`                                 | ✅ Implemented        |
+| 390  | `networksetup -listallhardwareports`        | `ip -o link show` + `ip -o -4 addr show`           | ✅ Implemented        |
 | 462  | `sysctl -n machdep.cpu.brand_string`        | `lscpu \| grep 'Model name'`                       | ✅ Implemented        |
 | 471  | `sysctl -n hw.ncpu`                         | `nproc`                                            | ✅ Implemented        |
 | 478  | `system_profiler SPHardwareDataType -json`  | `cat /proc/cpuinfo`, `free -b`                     | ✅ Implemented        |
@@ -182,8 +182,9 @@ Items ordered by impact — highest first.
 4. ~~**WiFi interface hardcoded** — `api/wifi:124` uses `ifconfig en0`~~ ✅ Done (v4.3.1)
    - Uses `getPrimaryInterface()` from `$lib/server/network-utils.ts`
 
-5. **Screenshots `osascript` fallback** — `api/screenshots:83`
-   - Fix: Skip AppleScript branch on Linux, rely on `scrot` only
+5. ~~**Screenshots `osascript` fallback** — `api/screenshots:83`~~ ✅ Already correct
+   - macOS path (`screencapture` + `osascript`) is gated by `platform === 'darwin'`
+   - Linux path uses `scrot` / `import` — no osascript leak
 
 6. **Disk mount parsing** — `src/lib/server/operator.ts:225`
    - macOS `mount` output format differs from Linux

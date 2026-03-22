@@ -1,6 +1,6 @@
 # Security Audit & Hardening Guide
 
-Last audited: 2026-03-22 | App version: 3.8.0
+Last audited: 2026-03-23 | App version: 4.5.1
 
 This document covers the security posture of the home-server project under its intended deployment model: **running on a Tailscale VPN, accessible only from authenticated Tailscale nodes, with no public internet exposure.**
 
@@ -122,8 +122,8 @@ The terminal is the single most powerful feature — it's equivalent to SSH. If 
 **Recommendation (even for personal use):**
 
 - Consider requiring a confirmation step (PIN, button press) before terminal sessions start
-- Terminal session IDs use `Math.random()` (weak entropy) — switch to `crypto.randomUUID()` in `terminal.ts:25`
-- Consider filtering env vars passed to PTY (strip `ANTHROPIC_API_KEY`, etc.)
+- ~~Terminal session IDs use `Math.random()` (weak entropy)~~ ✅ Fixed — uses `crypto.randomUUID()`
+- ~~Consider filtering env vars passed to PTY~~ ✅ Fixed — blacklist + pattern matching filter
 
 #### V3: Task executor runs arbitrary shell commands
 
@@ -222,16 +222,16 @@ Using `spawn` with arrays is safer than `execSync`, but the unvalidated `interfa
 
 ### LOW — Acceptable risks for personal use
 
-| #   | Issue                                            | File                             | Notes                                 |
-| --- | ------------------------------------------------ | -------------------------------- | ------------------------------------- |
-| V12 | Clipboard stored in-memory unencrypted           | `api/clipboard/+server.ts`       | Volatile — lost on restart            |
-| V13 | Screenshots stored on disk unencrypted           | `api/screenshots/+server.ts`     | In `~/.home-server/screenshots/`      |
-| V14 | Task output history may contain secrets          | `src/lib/server/operator.ts`     | In `~/.home-server/task-history.json` |
-| V15 | Agent/keeper logs unencrypted                    | `src/lib/server/agent-runner.ts` | In `~/.home-server/keeper-logs/`      |
-| V16 | Backup configs reveal directory structure        | `src/lib/server/backups.ts`      | In `~/.home-server/backups.json`      |
-| V17 | Weak terminal session IDs                        | `src/lib/server/terminal.ts:25`  | `Math.random()` — 8 chars base-36     |
-| V18 | No rate limiting on any endpoint                 | All API routes                   | DoS possible from tailnet             |
-| V19 | No security headers (CSP, HSTS, X-Frame-Options) | `hooks.server.ts`                | SvelteKit defaults only               |
+| #       | Issue                                                                                              | File                             | Notes                                 |
+| ------- | -------------------------------------------------------------------------------------------------- | -------------------------------- | ------------------------------------- |
+| V12     | Clipboard stored in-memory unencrypted                                                             | `api/clipboard/+server.ts`       | Volatile — lost on restart            |
+| V13     | Screenshots stored on disk unencrypted                                                             | `api/screenshots/+server.ts`     | In `~/.home-server/screenshots/`      |
+| V14     | Task output history may contain secrets                                                            | `src/lib/server/operator.ts`     | In `~/.home-server/task-history.json` |
+| V15     | Agent/keeper logs unencrypted                                                                      | `src/lib/server/agent-runner.ts` | In `~/.home-server/keeper-logs/`      |
+| V16     | Backup configs reveal directory structure                                                          | `src/lib/server/backups.ts`      | In `~/.home-server/backups.json`      |
+| ~~V17~~ | ~~Weak terminal session IDs~~ ✅ Fixed (v4.3) — uses `crypto.randomUUID()`                         | `src/lib/server/terminal.ts`     |                                       |
+| V18     | No rate limiting on any endpoint                                                                   | All API routes                   | DoS possible from tailnet             |
+| ~~V19~~ | ~~No security headers~~ ✅ Fixed (v4.3) — X-Frame-Options, X-Content-Type-Options, Referrer-Policy | `hooks.server.ts`                |                                       |
 
 ---
 
@@ -296,14 +296,9 @@ Even under Tailscale-only, these modules have outsized blast radius:
 
 - [ ] Add full session-based authentication (login page + cookies)
 - [ ] Add rate limiting (especially on terminal, network tools, AI chat)
-- [ ] Switch all `execSync` string interpolation to `spawn` with array args
-- [ ] Add security headers in `hooks.server.ts`:
-  ```typescript
-  response.headers.set('X-Frame-Options', 'DENY');
-  response.headers.set('X-Content-Type-Options', 'nosniff');
-  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-  ```
-- [ ] Sanitize error messages (don't leak file paths)
+- [x] Switch all `execSync` string interpolation to `spawn` with array args ✅ (v4.5)
+- [x] Add security headers in `hooks.server.ts` ✅ (v4.3)
+- [x] Sanitize error messages (don't leak file paths) ✅ (v4.5)
 - [x] Use `crypto.randomUUID()` for terminal session IDs ✅ (v4.3.1)
 - [x] Filter environment variables passed to terminal PTY ✅ (v4.3.1)
 - [x] Validate `interface` parameter in packets API against `os.networkInterfaces()` ✅ (v4.3.1)
@@ -313,19 +308,19 @@ Even under Tailscale-only, these modules have outsized blast radius:
 
 ## Tech Debt: Security Items
 
-| ID     | Item                                                                                                   | Priority | Effort  |
-| ------ | ------------------------------------------------------------------------------------------------------ | -------- | ------- |
-| S1     | Replace `execSync` string interpolation with `spawn` array args in network tools                       | P1       | Medium  |
-| ~~S2~~ | ~~Validate/allowlist `interface` param in packets API~~ ✅ Done (v4.3.1)                               | ~~P1~~   | ~~Low~~ |
-| ~~S3~~ | ~~Use `crypto.randomUUID()` for terminal session IDs~~ ✅ Done (v4.3.1) — all 11 server files migrated | ~~P2~~   | ~~Low~~ |
-| ~~S4~~ | ~~Filter env vars passed to terminal PTY~~ ✅ Done (v4.3.1) — blacklist + pattern matching             | ~~P2~~   | ~~Low~~ |
-| S5     | Restrict `/api/browse` to configurable allowlist of directories                                        | P2       | Low     |
-| ~~S6~~ | ~~Mask sensitive env vars in process detail endpoint~~ ✅ N/A — no env vars exposed                    | ~~P2~~   | ~~Low~~ |
-| S7     | Replace `find` shell-out in file search with Node.js `fs.readdir`                                      | P2       | Medium  |
-| ~~S8~~ | ~~Add security response headers in `hooks.server.ts`~~ ✅ Done (v4.3.1)                                | ~~P3~~   | ~~Low~~ |
-| S9     | Sanitize error messages to not leak file paths                                                         | P3       | Low     |
-| S10    | Add optional PIN gate for terminal WebSocket                                                           | P3       | Medium  |
-| S11    | Rate limiting on expensive endpoints                                                                   | P3       | Medium  |
+| ID     | Item                                                                                                           | Priority | Effort     |
+| ------ | -------------------------------------------------------------------------------------------------------------- | -------- | ---------- |
+| ~~S1~~ | ~~Replace `execSync` string interpolation with `spawn` array args~~ ✅ Done (v4.5) — network, wol, peripherals | ~~P1~~   | ~~Medium~~ |
+| ~~S2~~ | ~~Validate/allowlist `interface` param in packets API~~ ✅ Done (v4.3.1)                                       | ~~P1~~   | ~~Low~~    |
+| ~~S3~~ | ~~Use `crypto.randomUUID()` for terminal session IDs~~ ✅ Done (v4.3.1) — all 11 server files migrated         | ~~P2~~   | ~~Low~~    |
+| ~~S4~~ | ~~Filter env vars passed to terminal PTY~~ ✅ Done (v4.3.1) — blacklist + pattern matching                     | ~~P2~~   | ~~Low~~    |
+| S5     | Restrict `/api/browse` to configurable allowlist of directories                                                | P2       | Low        |
+| ~~S6~~ | ~~Mask sensitive env vars in process detail endpoint~~ ✅ N/A — no env vars exposed                            | ~~P2~~   | ~~Low~~    |
+| ~~S7~~ | ~~Replace `find` shell-out in file search with Node.js `fs.readdir`~~ ✅ Done (v4.5) — wildcard-to-regex       | ~~P2~~   | ~~Medium~~ |
+| ~~S8~~ | ~~Add security response headers in `hooks.server.ts`~~ ✅ Done (v4.3.1)                                        | ~~P3~~   | ~~Low~~    |
+| ~~S9~~ | ~~Sanitize error messages to not leak file paths~~ ✅ Done (v4.5) — browse API returns generic errors          | ~~P3~~   | ~~Low~~    |
+| S10    | Add optional PIN gate for terminal WebSocket                                                                   | P3       | Medium     |
+| S11    | Rate limiting on expensive endpoints                                                                           | P3       | Medium     |
 
 ---
 
