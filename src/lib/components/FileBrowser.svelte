@@ -1,0 +1,252 @@
+<script lang="ts">
+  interface Props {
+    value: string;
+    onselect: (path: string) => void;
+    label?: string;
+  }
+
+  let { value, onselect, label = 'Browse' }: Props = $props();
+
+  let open = $state(false);
+  let currentPath = $state(value || '');
+  let entries = $state<{ name: string; path: string; isDir: boolean; size: number }[]>([]);
+  let loading = $state(false);
+  let error = $state('');
+
+  async function browse(dir: string) {
+    loading = true;
+    error = '';
+    try {
+      const res = await fetch(`/api/browse?path=${encodeURIComponent(dir)}`);
+      const data = await res.json();
+      currentPath = data.current;
+      entries = data.entries;
+      if (data.error) error = data.error;
+    } catch (e: any) {
+      error = e.message;
+    }
+    loading = false;
+  }
+
+  function openBrowser() {
+    open = true;
+    browse(value || '~');
+  }
+
+  function selectDir(path: string) {
+    onselect(path);
+    open = false;
+  }
+
+  function formatSize(bytes: number): string {
+    if (bytes === 0) return '';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1048576) return `${(bytes / 1024).toFixed(0)} KB`;
+    return `${(bytes / 1048576).toFixed(1)} MB`;
+  }
+</script>
+
+<div class="fb-container">
+  <button class="fb-trigger" onclick={openBrowser} type="button">
+    {label}
+  </button>
+
+  {#if open}
+    <div class="fb-dropdown">
+      <div class="fb-header">
+        <code class="fb-current">{currentPath}</code>
+        <button class="fb-select-btn" onclick={() => selectDir(currentPath)}>Select this</button>
+      </div>
+      {#if error}
+        <div class="fb-error">{error}</div>
+      {/if}
+      <div class="fb-list">
+        {#if loading}
+          <div class="fb-loading">Loading...</div>
+        {:else}
+          {#each entries as entry}
+            {#if entry.isDir}
+              <button class="fb-entry fb-dir" onclick={() => browse(entry.path)}>
+                <span class="fb-icon">📁</span>
+                <span class="fb-name">{entry.name}</span>
+              </button>
+            {:else}
+              <div class="fb-entry fb-file">
+                <span class="fb-icon">📄</span>
+                <span class="fb-name">{entry.name}</span>
+                <span class="fb-size">{formatSize(entry.size)}</span>
+              </div>
+            {/if}
+          {/each}
+        {/if}
+      </div>
+      <div class="fb-footer">
+        <button class="fb-cancel" onclick={() => (open = false)}>Cancel</button>
+      </div>
+    </div>
+  {/if}
+</div>
+
+<style>
+  .fb-container {
+    position: relative;
+    display: inline-block;
+  }
+
+  .fb-trigger {
+    padding: 4px 10px;
+    font-size: 0.7rem;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--btn-bg);
+    color: var(--accent);
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s;
+  }
+
+  .fb-trigger:hover {
+    border-color: var(--accent);
+    background: var(--accent-bg);
+  }
+
+  .fb-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    min-width: 360px;
+    max-height: 320px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    margin-top: 4px;
+    overflow: hidden;
+  }
+
+  .fb-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+    gap: 8px;
+  }
+
+  .fb-current {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+  }
+
+  .fb-select-btn {
+    font-size: 0.65rem;
+    padding: 3px 10px;
+    border-radius: 4px;
+    border: 1px solid var(--accent);
+    background: var(--accent);
+    color: white;
+    cursor: pointer;
+    font-family: inherit;
+    flex-shrink: 0;
+  }
+
+  .fb-select-btn:hover {
+    filter: brightness(1.15);
+  }
+
+  .fb-error {
+    padding: 6px 10px;
+    font-size: 0.7rem;
+    color: var(--danger);
+    background: var(--danger-bg);
+  }
+
+  .fb-list {
+    flex: 1;
+    overflow-y: auto;
+    max-height: 220px;
+  }
+
+  .fb-loading {
+    padding: 16px;
+    text-align: center;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+
+  .fb-entry {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 10px;
+    font-size: 0.75rem;
+    width: 100%;
+    text-align: left;
+    border: none;
+    background: none;
+    color: var(--text-primary);
+    font-family: inherit;
+  }
+
+  .fb-dir {
+    cursor: pointer;
+  }
+
+  .fb-dir:hover {
+    background: var(--bg-hover);
+  }
+
+  .fb-file {
+    color: var(--text-muted);
+  }
+
+  .fb-icon {
+    font-size: 0.8rem;
+    flex-shrink: 0;
+  }
+
+  .fb-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .fb-size {
+    font-size: 0.6rem;
+    color: var(--text-faint);
+    font-family: 'JetBrains Mono', monospace;
+    flex-shrink: 0;
+  }
+
+  .fb-footer {
+    padding: 6px 10px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .fb-cancel {
+    font-size: 0.65rem;
+    padding: 3px 10px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: var(--btn-bg);
+    color: var(--text-muted);
+    cursor: pointer;
+    font-family: inherit;
+  }
+
+  .fb-cancel:hover {
+    border-color: var(--danger);
+    color: var(--danger);
+  }
+</style>

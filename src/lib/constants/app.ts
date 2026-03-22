@@ -10,5 +10,5 @@
  */
 export const APP = {
   title: 'Home Server',
-  version: '2.1.0-deep-flux-22',
+  version: '2.2.0-prism-wave-17',
 } as const;
