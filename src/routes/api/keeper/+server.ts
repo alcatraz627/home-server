@@ -1,11 +1,13 @@
 import { json } from '@sveltejs/kit';
 import { getRequests, createRequest, updateRequest, deleteRequest, getStats } from '$lib/server/keeper';
+import { getRunningAgentIds } from '$lib/server/agent-runner';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async () => {
   const requests = await getRequests();
   const stats = await getStats();
-  return json({ requests, stats });
+  const runningAgents = getRunningAgentIds();
+  return json({ requests, stats, runningAgents });
 };
 
 export const POST: RequestHandler = async ({ request }) => {

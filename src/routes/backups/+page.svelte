@@ -69,6 +69,43 @@
   let deleteConfirm = $state<Set<string>>(new Set());
   let deleteTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
+  // Dry-run preview state
+  let previewId = $state<string | null>(null);
+  let previewLoading = $state(false);
+  let previewFiles = $state<string[]>([]);
+  let previewSummary = $state('');
+
+  async function dryRunPreview(configId: string) {
+    if (previewId === configId) {
+      previewId = null;
+      return;
+    }
+    previewId = configId;
+    previewLoading = true;
+    previewFiles = [];
+    previewSummary = '';
+    try {
+      const res = await fetch('/api/backups/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ configId }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        toast.error(data.error);
+        previewId = null;
+      } else {
+        previewFiles = data.files;
+        previewSummary = data.summary;
+      }
+    } catch (e: any) {
+      toast.error(e.message || 'Preview failed');
+      previewId = null;
+    } finally {
+      previewLoading = false;
+    }
+  }
+
   async function refresh() {
     const res = await fetch('/api/backups');
     const result = await res.json();
@@ -438,6 +475,13 @@
           </div>
           <div class="card-actions">
             <button
+              class="btn btn-preview"
+              onclick={() => dryRunPreview(status.config.id)}
+              disabled={runningIds.has(status.config.id) || previewLoading}
+            >
+              {previewId === status.config.id && previewLoading ? 'Previewing...' : 'Preview'}
+            </button>
+            <button
               class="btn"
               onclick={() => triggerBackup(status.config.id)}
               disabled={runningIds.has(status.config.id)}
@@ -461,6 +505,26 @@
             </button>
           </div>
         </div>
+
+        {#if previewId === status.config.id && !previewLoading && previewFiles.length > 0}
+          <div class="preview-panel">
+            <div class="preview-header">
+              <span class="preview-title">Dry Run Preview ({previewFiles.length} files would transfer)</span>
+              <button class="preview-close" onclick={() => (previewId = null)}>✕</button>
+            </div>
+            <div class="preview-files">
+              {#each previewFiles.slice(0, 50) as file}
+                <div class="preview-file">{file}</div>
+              {/each}
+              {#if previewFiles.length > 50}
+                <div class="preview-more">...and {previewFiles.length - 50} more files</div>
+              {/if}
+            </div>
+            {#if previewSummary}
+              <pre class="preview-summary">{previewSummary}</pre>
+            {/if}
+          </div>
+        {/if}
 
         {#if status.lastRun}
           <div class="last-run">
@@ -1075,5 +1139,81 @@
     .path-arrow-icon {
       transform: rotate(90deg);
     }
+  }
+
+  /* ── Preview panel ──────────────────────────────────────────── */
+  .preview-panel {
+    border-top: 1px solid var(--border);
+    padding: 12px 16px;
+    background: var(--bg-inset);
+  }
+
+  .preview-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+
+  .preview-title {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--accent);
+  }
+
+  .preview-close {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 0.9rem;
+    padding: 2px 6px;
+  }
+
+  .preview-files {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid var(--border-subtle);
+    border-radius: 4px;
+    background: var(--bg-primary);
+  }
+
+  .preview-file {
+    padding: 3px 10px;
+    font-size: 0.75rem;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .preview-file:last-child {
+    border-bottom: none;
+  }
+
+  .preview-more {
+    padding: 6px 10px;
+    font-size: 0.72rem;
+    color: var(--text-faint);
+    font-style: italic;
+  }
+
+  .preview-summary {
+    margin-top: 8px;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--bg-primary);
+    padding: 8px;
+    border-radius: 4px;
+    overflow-x: auto;
+  }
+
+  .btn-preview {
+    border-color: var(--purple);
+    color: var(--purple);
+  }
+
+  .btn-preview:hover:not(:disabled) {
+    background: var(--purple-bg);
   }
 </style>

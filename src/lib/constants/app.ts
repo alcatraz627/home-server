@@ -10,5 +10,5 @@
  */
 export const APP = {
   title: 'Home Server',
-  version: '2.5.1-pulse-tide-07',
+  version: '3.0.0-nova-drift-42',
 } as const;

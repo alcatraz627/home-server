@@ -182,6 +182,41 @@ export async function runBackup(configId: string): Promise<BackupRun> {
   return run;
 }
 
+/** Dry-run a backup to preview what would transfer */
+export async function dryRunBackup(configId: string): Promise<{ files: string[]; summary: string }> {
+  const configs = await getBackupConfigs();
+  const config = configs.find((c) => c.id === configId);
+  if (!config) throw new Error('Backup config not found');
+
+  const args = [
+    '-avzn', // -n = dry-run
+    '--stats',
+    ...config.excludes.flatMap((e: string) => ['--exclude', e]),
+    config.sourcePath.endsWith('/') ? config.sourcePath : config.sourcePath + '/',
+    config.destPath,
+  ];
+
+  try {
+    const output = execSync(`rsync ${args.map((a) => `'${a}'`).join(' ')}`, {
+      encoding: 'utf-8',
+      timeout: 30000,
+    });
+    const lines = output.split('\n').filter(Boolean);
+    const files = lines.filter(
+      (l) =>
+        !l.startsWith('sending') &&
+        !l.startsWith('sent') &&
+        !l.startsWith('total') &&
+        !l.startsWith('Number') &&
+        !l.startsWith('.'),
+    );
+    const summary = lines.slice(-5).join('\n');
+    return { files, summary };
+  } catch (err: any) {
+    throw new Error(err.stderr || err.message);
+  }
+}
+
 /** Check if rsync is available */
 export function isRsyncAvailable(): boolean {
   try {

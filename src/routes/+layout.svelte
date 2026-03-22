@@ -7,7 +7,9 @@
   import { theme, THEMES, setTheme, initTheme } from '$lib/theme';
   import Toast from '$lib/components/Toast.svelte';
   import AiChat from '$lib/components/AiChat.svelte';
+  import SettingsPanel from '$lib/components/SettingsPanel.svelte';
   import { browser } from '$app/environment';
+  import { targetDevice, remoteDevices, setTarget, addDevice, removeDevice, getApiBase } from '$lib/device-context';
 
   let { data, children } = $props<{ data: LayoutData; children: any }>();
   let sidebarOpen = $state(false);
@@ -37,6 +39,25 @@
 
   let statsConfig = $state(loadStatsConfig());
   let statsDropdownOpen = $state(false);
+  let settingsOpen = $state(false);
+
+  // PWA install prompt
+  let installPromptEvent = $state<any>(null);
+  let showInstallBanner = $state(false);
+
+  onMount(() => {
+    // Listen for beforeinstallprompt
+    const handler = (e: Event) => {
+      e.preventDefault();
+      installPromptEvent = e;
+      // Show banner if not dismissed before
+      if (!localStorage.getItem('hs:install-dismissed')) {
+        showInstallBanner = true;
+      }
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  });
 
   function setCpuMode(m: CpuMode) {
     statsConfig.cpuMode = m;
@@ -59,6 +80,20 @@
     { href: '/tasks', label: 'Tasks', desc: 'Automation', icon: '⚙' },
     { href: '/keeper', label: 'Keeper', desc: 'Feature tracker', icon: '◈' },
     { href: '/terminal', label: 'Terminal', desc: 'Shell access', icon: '▶' },
+    { href: '/peripherals', label: 'Peripherals', desc: 'WiFi & Bluetooth', icon: '⊙' },
+    { href: '/qr', label: 'QR Code', desc: 'Generate QR codes', icon: '⊞' },
+    { href: '/bookmarks', label: 'Bookmarks', desc: 'Link manager', icon: '⊡' },
+    { href: '/kanban', label: 'Kanban', desc: 'Project board', icon: '▥' },
+    { href: '/wol', label: 'Wake-on-LAN', desc: 'Wake devices', icon: '⊕' },
+    { href: '/dns', label: 'DNS Lookup', desc: 'Domain resolver', icon: '⊘' },
+    { href: '/ports', label: 'Port Scanner', desc: 'Scan ports', icon: '⊗' },
+    { href: '/speedtest', label: 'Speed Test', desc: 'Bandwidth test', icon: '⊛' },
+    { href: '/clipboard', label: 'Clipboard', desc: 'Sync clipboard', icon: '⊟' },
+    { href: '/screenshots', label: 'Screenshots', desc: 'Screen gallery', icon: '⊠' },
+    { href: '/benchmarks', label: 'Benchmarks', desc: 'System bench', icon: '⊜' },
+    { href: '/wifi', label: 'WiFi Scanner', desc: 'Network scan', icon: '⊚' },
+    { href: '/packets', label: 'Packets', desc: 'Packet sniffer', icon: '⊝' },
+    { href: '/network', label: 'Network Tools', desc: 'Net toolkit', icon: '⊙' },
     { href: '/docs', label: 'Docs', desc: 'Documentation', icon: '◧' },
     { href: '/showcase', label: 'Showcase', desc: 'Design system', icon: '◎' },
   ];
@@ -170,7 +205,21 @@
       </select>
     </div>
 
-    <span class="device-info">{data.device.hostname}</span>
+    <button class="icon-btn" aria-label="Settings" onclick={() => (settingsOpen = true)} title="Settings">⚙</button>
+
+    <div class="device-selector">
+      <select
+        value={$targetDevice}
+        onchange={(e) => setTarget((e.currentTarget as HTMLSelectElement).value)}
+        aria-label="Target device"
+        class="device-select"
+      >
+        <option value="local">{data.device.hostname} (local)</option>
+        {#each $remoteDevices as d}
+          <option value={d.ip}>{d.label || d.hostname} ({d.ip})</option>
+        {/each}
+      </select>
+    </div>
   </header>
 
   <div class="body">
@@ -198,8 +247,32 @@
   </div>
 </div>
 
+{#if showInstallBanner}
+  <div class="install-banner">
+    <span>Install Home Server as an app for quick access</span>
+    <button
+      class="install-btn"
+      onclick={async () => {
+        if (installPromptEvent) {
+          installPromptEvent.prompt();
+          const r = await installPromptEvent.userChoice;
+          if (r.outcome === 'accepted') showInstallBanner = false;
+        }
+      }}>Install</button
+    >
+    <button
+      class="dismiss-btn"
+      onclick={() => {
+        showInstallBanner = false;
+        localStorage.setItem('hs:install-dismissed', '1');
+      }}>✕</button
+    >
+  </div>
+{/if}
+
 <Toast />
 <AiChat />
+<SettingsPanel bind:open={settingsOpen} />
 
 <style>
   .app {
@@ -230,10 +303,26 @@
     letter-spacing: -0.01em;
   }
 
-  .device-info {
+  .device-selector {
+    display: flex;
+    align-items: center;
+  }
+
+  .device-select {
     font-size: 0.72rem;
+    padding: 3px 6px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: var(--btn-bg);
     color: var(--text-muted);
     font-family: 'JetBrains Mono', monospace;
+    cursor: pointer;
+    max-width: 180px;
+  }
+
+  .device-select:hover {
+    border-color: var(--accent);
+    color: var(--text-secondary);
   }
 
   /* ── System stats ────────────────────────────────────────────────────────────── */
@@ -249,8 +338,14 @@
     font-family: 'JetBrains Mono', monospace;
     letter-spacing: 0.04em;
     cursor: default;
-    opacity: 0.9;
-    transition: color 0.3s;
+    opacity: 0.6;
+    transition:
+      color 0.3s,
+      opacity 0.2s;
+  }
+
+  .stat:hover {
+    opacity: 1;
   }
 
   /* ── Stats gear dropdown ─────────────────────────────────────────────────────── */
@@ -521,9 +616,18 @@
   @media (max-width: 640px) {
     .menu-toggle {
       display: block;
+      min-width: 44px;
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
     .system-stats {
+      display: none;
+    }
+
+    .theme-selector {
       display: none;
     }
 
@@ -534,15 +638,82 @@
       bottom: 0;
       z-index: 10;
       transform: translateX(-100%);
-      transition: transform 0.2s ease;
+      transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 4px 0 20px rgba(0, 0, 0, 0.3);
+      width: 240px;
     }
 
     nav.open {
       transform: translateX(0);
     }
 
+    nav a {
+      padding: 12px 16px;
+      min-height: 44px;
+    }
+
     main {
-      padding: 16px;
+      padding: 12px;
+    }
+
+    header h1 {
+      font-size: 0.95rem;
+    }
+  }
+
+  /* ── Install banner ────────────────────────────────────────────────────────── */
+  :global(.install-banner) {
+    position: fixed;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 150;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--accent);
+    border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    animation: slideInRight 0.3s ease-out;
+  }
+
+  :global(.install-btn) {
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: none;
+    background: var(--accent);
+    color: white;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  :global(.dismiss-btn) {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 1rem;
+    padding: 2px 6px;
+  }
+
+  /* Touch target minimum sizing for interactive elements */
+  @media (pointer: coarse) {
+    button,
+    .btn,
+    .icon-btn,
+    a {
+      min-height: 44px;
+      min-width: 44px;
+    }
+
+    select {
+      min-height: 44px;
     }
   }
 </style>

@@ -61,9 +61,39 @@
   }
 
   function getMdnsName(device: TailscaleDevice): string {
-    // Use only the first label of the hostname for mDNS
     const label = device.hostname.split('.')[0];
     return `${label}.local`;
+  }
+
+  function formatRelativeTime(iso: string): string {
+    if (!iso) return '—';
+    const diff = Date.now() - new Date(iso).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 0) return 'in the future';
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    return `${days}d ago`;
+  }
+
+  function formatBytes(b: number): string {
+    if (b < 1024) return `${b} B`;
+    if (b < 1048576) return `${(b / 1024).toFixed(0)} KB`;
+    if (b < 1073741824) return `${(b / 1048576).toFixed(1)} MB`;
+    return `${(b / 1073741824).toFixed(2)} GB`;
+  }
+
+  function isKeyExpiringSoon(expiry: string): boolean {
+    if (!expiry) return false;
+    const diff = new Date(expiry).getTime() - Date.now();
+    return diff > 0 && diff < 7 * 24 * 60 * 60 * 1000; // < 7 days
+  }
+
+  function isKeyExpired(expiry: string): boolean {
+    if (!expiry) return false;
+    return new Date(expiry).getTime() < Date.now();
   }
 </script>
 
@@ -151,6 +181,19 @@
               </div>
             {/if}
 
+            {#if device.ipv6}
+              <div class="detail-item">
+                <span class="detail-label">IPv6</span>
+                <button
+                  class="ip-btn"
+                  onclick={() => copyToClipboard(device.ipv6, 'Copied IPv6')}
+                  title="Click to copy"
+                >
+                  <code>{device.ipv6}</code>
+                </button>
+              </div>
+            {/if}
+
             <div class="detail-item">
               <span class="detail-label">MagicDNS</span>
               <button
@@ -162,8 +205,21 @@
               </button>
             </div>
 
+            {#if device.dnsName}
+              <div class="detail-item">
+                <span class="detail-label">DNS Name</span>
+                <button
+                  class="ip-btn"
+                  onclick={() => copyToClipboard(device.dnsName, 'Copied DNS name')}
+                  title="Click to copy"
+                >
+                  <code>{device.dnsName}</code>
+                </button>
+              </div>
+            {/if}
+
             <div class="detail-item">
-              <span class="detail-label">mDNS (local)</span>
+              <span class="detail-label">mDNS</span>
               <button
                 class="ip-btn"
                 onclick={() => copyToClipboard(getMdnsName(device), 'Copied mDNS name')}
@@ -172,6 +228,82 @@
                 <code>{getMdnsName(device)}</code>
               </button>
             </div>
+
+            <div class="detail-item">
+              <span class="detail-label">Status</span>
+              <span class="detail-value" class:online-text={device.online}>
+                {device.online ? 'Online' : 'Offline'}
+              </span>
+            </div>
+
+            {#if device.tailscaleVersion}
+              <div class="detail-item">
+                <span class="detail-label">Version</span>
+                <span class="detail-value">{device.tailscaleVersion}</span>
+              </div>
+            {/if}
+
+            {#if device.lastSeen}
+              <div class="detail-item">
+                <span class="detail-label">Last Seen</span>
+                <span class="detail-value">{formatRelativeTime(device.lastSeen)}</span>
+              </div>
+            {/if}
+
+            {#if device.created}
+              <div class="detail-item">
+                <span class="detail-label">Created</span>
+                <span class="detail-value">{new Date(device.created).toLocaleDateString()}</span>
+              </div>
+            {/if}
+
+            {#if device.keyExpiry}
+              <div class="detail-item">
+                <span class="detail-label">Key Expiry</span>
+                <span
+                  class="detail-value"
+                  class:expiry-warn={isKeyExpiringSoon(device.keyExpiry)}
+                  class:expiry-expired={isKeyExpired(device.keyExpiry)}
+                >
+                  {isKeyExpired(device.keyExpiry) ? 'Expired' : new Date(device.keyExpiry).toLocaleDateString()}
+                  {#if isKeyExpiringSoon(device.keyExpiry)}
+                    <span class="tag exit">expiring soon</span>
+                  {/if}
+                </span>
+              </div>
+            {/if}
+
+            {#if device.relay}
+              <div class="detail-item">
+                <span class="detail-label">Relay/Addr</span>
+                <span class="detail-value"><code>{device.relay}</code></span>
+              </div>
+            {/if}
+
+            {#if device.rxBytes || device.txBytes}
+              <div class="detail-item">
+                <span class="detail-label">Traffic</span>
+                <span class="detail-value">↓ {formatBytes(device.rxBytes)} / ↑ {formatBytes(device.txBytes)}</span>
+              </div>
+            {/if}
+
+            {#if device.exitNodeOption}
+              <div class="detail-item">
+                <span class="detail-label">Exit Node</span>
+                <span class="detail-value"><span class="tag">available</span></span>
+              </div>
+            {/if}
+
+            {#if device.advertisedRoutes.length > 0}
+              <div class="detail-item">
+                <span class="detail-label">Routes</span>
+                <span class="detail-tags">
+                  {#each device.advertisedRoutes as route}
+                    <span class="tag">{route}</span>
+                  {/each}
+                </span>
+              </div>
+            {/if}
 
             {#if device.tags.length > 0}
               <div class="detail-item">
@@ -183,13 +315,6 @@
                 </span>
               </div>
             {/if}
-
-            <div class="detail-item">
-              <span class="detail-label">Status</span>
-              <span class="detail-value" class:online-text={device.online}>
-                {device.online ? 'Online' : 'Offline'}
-              </span>
-            </div>
           </div>
         </div>
       {/if}
@@ -327,6 +452,14 @@
 
   .detail-value.online-text {
     color: var(--success);
+  }
+
+  .detail-value.expiry-warn {
+    color: var(--warning);
+  }
+
+  .detail-value.expiry-expired {
+    color: var(--danger);
   }
 
   .detail-tags {

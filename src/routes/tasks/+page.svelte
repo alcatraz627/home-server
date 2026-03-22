@@ -1293,11 +1293,48 @@
     }
   }
 
+  // Edit template state
+  let editingTemplateIdx = $state<number | null>(null);
+
   function deleteCustomTemplate(index: number) {
     const t = customTemplates[index];
     customTemplates = customTemplates.filter((_, i) => i !== index);
     saveCustomTemplates();
     toast.success(`Deleted template "${t.name}"`);
+  }
+
+  function editCustomTemplate(index: number) {
+    const t = customTemplates[index];
+    editingTemplateIdx = index;
+    formName = t.name;
+    formCommand = t.command;
+    formTimeout = t.timeout;
+    formRetries = t.retries;
+    formSchedule = t.schedule || '';
+    showTemplates = false;
+    showForm = true;
+  }
+
+  function saveEditedTemplate() {
+    if (editingTemplateIdx === null) return;
+    customTemplates[editingTemplateIdx] = {
+      name: formName,
+      command: formCommand,
+      timeout: formTimeout,
+      retries: formRetries,
+      schedule: formSchedule || null,
+      desc: customTemplates[editingTemplateIdx].desc,
+      tags: customTemplates[editingTemplateIdx].tags,
+    };
+    saveCustomTemplates();
+    toast.success(`Updated template "${formName}"`);
+    editingTemplateIdx = null;
+    showForm = false;
+    formName = '';
+    formCommand = '';
+    formTimeout = 300;
+    formRetries = 3;
+    formSchedule = '';
   }
 
   function saveAsTemplate(status: (typeof statuses)[0]) {
@@ -1383,6 +1420,12 @@
       const taskId = created.id || statuses.find((s) => s.config.name === t.name)?.config.id;
       if (taskId) {
         expandedTask = taskId;
+        // Open terminal
+        terminalVisible = true;
+        terminalTaskName = t.name;
+        terminalTaskId = taskId;
+        terminalRunning = true;
+        terminalOutput = `$ ${t.command}\n\n`;
         await fetch('/api/tasks', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -1391,8 +1434,16 @@
         const poll = setInterval(async () => {
           await refresh();
           const s = statuses.find((s) => s.config.id === taskId);
+          if (s?.lastRun?.output) {
+            terminalOutput = `$ ${t.command}\n\n${s.lastRun.output}`;
+            if (terminalEl) terminalEl.scrollTop = terminalEl.scrollHeight;
+          }
           if (!s?.isRunning) {
             clearInterval(poll);
+            terminalRunning = false;
+            if (s?.lastRun?.output) {
+              terminalOutput = `$ ${t.command}\n\n${s.lastRun.output}`;
+            }
             if (s?.lastRun?.status === 'success') toast.success(`"${t.name}" completed`);
             else if (s?.lastRun?.status) toast.error(`"${t.name}" ${s.lastRun.status}`);
           }
@@ -1402,6 +1453,25 @@
       toast.error(e.message || 'Failed to run template');
     }
   }
+
+  // Template runner terminal state
+  let terminalVisible = $state(false);
+  let terminalOutput = $state('');
+  let terminalTaskName = $state('');
+  let terminalTaskId = $state<string | null>(null);
+  let terminalRunning = $state(false);
+  let terminalEl: HTMLPreElement | undefined = $state(undefined);
+
+  function closeTerminal() {
+    terminalVisible = false;
+    terminalOutput = '';
+    terminalTaskName = '';
+    terminalTaskId = null;
+    terminalRunning = false;
+  }
+
+  // Advanced form toggle
+  let showAdvanced = $state(false);
 
   let expandedTask = $state<string | null>(null);
 
@@ -1420,6 +1490,12 @@
 
   let taskTotalPages = $derived(Math.max(1, Math.ceil(filteredStatuses.length / TASKS_PER_PAGE)));
   let pagedStatuses = $derived(filteredStatuses.slice(taskPage * TASKS_PER_PAGE, (taskPage + 1) * TASKS_PER_PAGE));
+
+  // Reset task page on filter change
+  $effect(() => {
+    taskSearch;
+    taskPage = 0;
+  });
 
   // Form presets
   const TIMEOUT_PRESETS = [
@@ -1553,7 +1629,7 @@
 <div class="header">
   <h2>Operator Tasks</h2>
   <div class="controls">
-    <button class="btn" onclick={refresh}>Refresh</button>
+    <button class="btn" onclick={refresh}>&#x21bb; Refresh</button>
     <button
       class="btn"
       onclick={() => {
@@ -1561,16 +1637,19 @@
         if (showTemplates) showForm = false;
       }}
     >
-      Templates
+      &#x2630; Templates
     </button>
     <button
       class="btn"
       onclick={() => {
         showForm = !showForm;
-        if (showForm) showTemplates = false;
+        if (showForm) {
+          showTemplates = false;
+          editingTemplateIdx = null;
+        }
       }}
     >
-      {showForm ? 'Cancel' : 'New Task'}
+      {showForm ? 'Cancel' : '\uFF0B New Task'}
     </button>
   </div>
 </div>
@@ -1600,96 +1679,127 @@
   </div>
 {/if}
 
-{#if showTemplates}
-  <div class="template-section">
-    <div class="template-filters">
-      <input type="text" class="template-search" placeholder="Search templates..." bind:value={templateSearch} />
-      <div class="tag-bar">
-        <button class="tag-btn" class:active={templateTag === ''} onclick={() => (templateTag = '')}
-          >All ({allTemplates.length})</button
-        >
-        {#each allTags as tag}
-          <button
-            class="tag-btn"
-            class:active={templateTag === tag}
-            onclick={() => (templateTag = templateTag === tag ? '' : tag)}>{tag}</button
+<!-- Template panel with slide transition -->
+<div class="template-section-wrapper" class:template-section-open={showTemplates}>
+  {#if showTemplates}
+    <div class="template-section">
+      <div class="template-filters">
+        <input type="text" class="template-search" placeholder="Search templates..." bind:value={templateSearch} />
+        <div class="tag-bar">
+          <button class="tag-btn" class:active={templateTag === ''} onclick={() => (templateTag = '')}
+            >All ({allTemplates.length})</button
           >
+          {#each allTags as tag}
+            <button
+              class="tag-btn"
+              class:active={templateTag === tag}
+              onclick={() => (templateTag = templateTag === tag ? '' : tag)}>{tag}</button
+            >
+          {/each}
+        </div>
+      </div>
+      <div class="template-grid">
+        {#each pagedTemplates as t}
+          {@const isCustom = t.tags.includes('custom')}
+          {@const customIdx = isCustom
+            ? customTemplates.findIndex((c) => c.name === t.name && c.command === t.command)
+            : -1}
+          <div class="template-card" class:template-card-custom={isCustom}>
+            {#if isCustom}
+              <div class="template-custom-actions">
+                <button
+                  class="template-edit-btn"
+                  title="Edit custom template"
+                  onclick={(e) => {
+                    e.stopPropagation();
+                    if (customIdx >= 0) editCustomTemplate(customIdx);
+                  }}>&#x270E;</button
+                >
+                <button
+                  class="template-delete-btn"
+                  title="Delete custom template"
+                  onclick={(e) => {
+                    e.stopPropagation();
+                    if (customIdx >= 0) deleteCustomTemplate(customIdx);
+                  }}>&#x2715;</button
+                >
+              </div>
+            {/if}
+            <button class="template-body" onclick={() => applyTemplate(t)}>
+              <strong>{t.name}</strong>
+              <span class="template-desc">{t.desc}</span>
+              <code class="template-cmd">{t.command.slice(0, 70)}{t.command.length > 70 ? '...' : ''}</code>
+              <div class="template-footer">
+                <div class="template-tags">
+                  {#each t.tags as tag}
+                    <span class="template-tag" class:template-tag-custom={tag === 'custom'}>{tag}</span>
+                  {/each}
+                </div>
+                {#if t.schedule}<span class="template-schedule">{t.schedule}</span>{/if}
+              </div>
+            </button>
+            <button class="template-run-btn" onclick={() => runTemplate(t)} title="Create and run immediately"
+              >▶ Run</button
+            >
+          </div>
         {/each}
       </div>
-    </div>
-    <div class="template-grid">
-      {#each pagedTemplates as t}
-        {@const isCustom = t.tags.includes('custom')}
-        {@const customIdx = isCustom
-          ? customTemplates.findIndex((c) => c.name === t.name && c.command === t.command)
-          : -1}
-        <div class="template-card" class:template-card-custom={isCustom}>
-          {#if isCustom}
-            <button
-              class="template-delete-btn"
-              title="Delete custom template"
-              onclick={(e) => {
-                e.stopPropagation();
-                if (customIdx >= 0) deleteCustomTemplate(customIdx);
-              }}>✕</button
-            >
-          {/if}
-          <button class="template-body" onclick={() => applyTemplate(t)}>
-            <strong>{t.name}</strong>
-            <span class="template-desc">{t.desc}</span>
-            <code class="template-cmd">{t.command.slice(0, 70)}{t.command.length > 70 ? '...' : ''}</code>
-            <div class="template-footer">
-              <div class="template-tags">
-                {#each t.tags as tag}
-                  <span class="template-tag" class:template-tag-custom={tag === 'custom'}>{tag}</span>
-                {/each}
-              </div>
-              {#if t.schedule}<span class="template-schedule">{t.schedule}</span>{/if}
-            </div>
-          </button>
-          <button class="template-run-btn" onclick={() => runTemplate(t)} title="Create and run immediately"
-            >▶ Run</button
+      {#if filteredTemplates.length === 0}
+        <p class="template-empty">No templates match your search.</p>
+      {/if}
+      {#if templateTotalPages > 1}
+        <div class="template-pagination">
+          <button class="tool-btn" disabled={templatePage === 0} onclick={() => templatePage--}>‹ Prev</button>
+          <span class="page-info">{templatePage + 1} / {templateTotalPages}</span>
+          <button class="tool-btn" disabled={templatePage >= templateTotalPages - 1} onclick={() => templatePage++}
+            >Next ›</button
           >
         </div>
-      {/each}
+      {/if}
     </div>
-    {#if filteredTemplates.length === 0}
-      <p class="template-empty">No templates match your search.</p>
-    {/if}
-    {#if templateTotalPages > 1}
-      <div class="template-pagination">
-        <button class="tool-btn" disabled={templatePage === 0} onclick={() => templatePage--}>‹ Prev</button>
-        <span class="page-info">{templatePage + 1} / {templateTotalPages}</span>
-        <button class="tool-btn" disabled={templatePage >= templateTotalPages - 1} onclick={() => templatePage++}
-          >Next ›</button
-        >
-      </div>
-    {/if}
+  {/if}
+</div>
+
+<!-- Template Runner Terminal -->
+{#if terminalVisible}
+  <div class="terminal-section">
+    <div class="terminal-header">
+      <span class="terminal-title">
+        {terminalRunning ? '◌' : '●'}
+        {terminalTaskName}
+        {#if terminalRunning}<span class="terminal-spinner"></span>{/if}
+      </span>
+      <button class="terminal-close" onclick={closeTerminal} title="Close terminal">&#x2715;</button>
+    </div>
+    <pre class="terminal-output" bind:this={terminalEl}>{terminalOutput || 'Waiting for output...'}</pre>
   </div>
 {/if}
 
 {#if showForm}
   <div class="form-card">
-    <h3>New Task</h3>
+    <h3>{editingTemplateIdx !== null ? 'Edit Template' : 'New Task'}</h3>
     <div class="form-grid">
-      <label>
-        <span>Task Name</span>
-        <input type="text" bind:value={formName} placeholder="e.g., Disk space check" />
-      </label>
+      <div class="form-section">
+        <span class="form-section-label">Basics</span>
+        <label>
+          <span>Task Name</span>
+          <input type="text" bind:value={formName} placeholder="e.g., Disk space check" />
+        </label>
 
-      <label>
-        <span>Shell Command</span>
-        <textarea class="command-input" bind:value={formCommand} rows="3" placeholder="e.g., df -h / | grep dev"
-        ></textarea>
-      </label>
+        <label>
+          <span>Shell Command</span>
+          <textarea class="command-input" bind:value={formCommand} rows="3" placeholder="e.g., df -h / | grep dev"
+          ></textarea>
+        </label>
 
-      {#if commandWarnings.length > 0}
-        <div class="command-warnings">
-          {#each commandWarnings as w}
-            <div class="warning-item">⚠ {w}</div>
-          {/each}
-        </div>
-      {/if}
+        {#if commandWarnings.length > 0}
+          <div class="command-warnings">
+            {#each commandWarnings as w}
+              <div class="warning-item">&#x26A0; {w}</div>
+            {/each}
+          </div>
+        {/if}
+      </div>
 
       <div class="form-section">
         <span class="form-section-label">Schedule</span>
@@ -1705,33 +1815,61 @@
         <input type="text" bind:value={formSchedule} placeholder="Custom cron expression (leave empty for manual)" />
       </div>
 
-      <div class="form-section">
-        <span class="form-section-label">Timeout</span>
-        <div class="preset-row">
-          {#each TIMEOUT_PRESETS as p}
-            <button class="preset-btn" class:active={formTimeout === p.value} onclick={() => (formTimeout = p.value)}
-              >{p.label}</button
-            >
-          {/each}
-        </div>
-        <div class="form-row">
-          <label><span>Custom (seconds)</span><input type="number" bind:value={formTimeout} min="5" /></label>
-          <label><span>Max Retries</span><input type="number" bind:value={formRetries} min="0" max="10" /></label>
-        </div>
+      <div class="form-section form-advanced-toggle">
+        <button class="btn btn-sm" onclick={() => (showAdvanced = !showAdvanced)}>
+          {showAdvanced ? '&#x25B2; Hide' : '&#x25BC; Show'} Advanced
+        </button>
       </div>
+
+      {#if showAdvanced}
+        <div class="form-section form-advanced">
+          <span class="form-section-label">Timeout</span>
+          <div class="preset-row">
+            {#each TIMEOUT_PRESETS as p}
+              <button class="preset-btn" class:active={formTimeout === p.value} onclick={() => (formTimeout = p.value)}
+                >{p.label}</button
+              >
+            {/each}
+          </div>
+          <div class="form-row">
+            <label><span>Custom (seconds)</span><input type="number" bind:value={formTimeout} min="5" /></label>
+            <label><span>Max Retries</span><input type="number" bind:value={formRetries} min="0" max="10" /></label>
+          </div>
+        </div>
+      {/if}
     </div>
     <div class="form-actions">
-      <button class="btn btn-primary" onclick={createTask} disabled={!formName || !formCommand}>Create Task</button>
-      {#if formName || formCommand}<button
+      {#if editingTemplateIdx !== null}
+        <button class="btn btn-primary" onclick={saveEditedTemplate} disabled={!formName || !formCommand}
+          >&#x1F4BE; Save Template</button
+        >
+        <button
           class="btn"
           onclick={() => {
+            editingTemplateIdx = null;
+            showForm = false;
             formName = '';
             formCommand = '';
             formTimeout = 300;
             formRetries = 3;
             formSchedule = '';
-          }}>Clear</button
-        >{/if}
+          }}>Cancel</button
+        >
+      {:else}
+        <button class="btn btn-primary" onclick={createTask} disabled={!formName || !formCommand}
+          >{'\uFF0B'} Create Task</button
+        >
+        {#if formName || formCommand}<button
+            class="btn"
+            onclick={() => {
+              formName = '';
+              formCommand = '';
+              formTimeout = 300;
+              formRetries = 3;
+              formSchedule = '';
+            }}>Clear</button
+          >{/if}
+      {/if}
     </div>
   </div>
 {/if}
@@ -1752,11 +1890,22 @@
     </div>
   {/if}
   <div class="task-list">
-    {#each pagedStatuses as status}
-      <div class="task-card" class:task-running={status.isRunning}>
+    {#each pagedStatuses as status, i}
+      <div class="task-card" class:task-running={status.isRunning} style="animation-delay: {i * 40}ms">
         <div class="task-top">
           <div class="task-info">
             <div class="task-title-row">
+              {#if status.isRunning}
+                <span class="task-status-icon icon-running">&#x25CC;</span>
+              {:else if status.lastRun?.status === 'success'}
+                <span class="task-status-icon icon-success">&#x2713;</span>
+              {:else if status.lastRun?.status === 'failed' || status.lastRun?.status === 'timeout'}
+                <span class="task-status-icon icon-failed">&#x2717;</span>
+              {:else if status.config.schedule}
+                <span class="task-status-icon icon-scheduled">&#x25F7;</span>
+              {:else}
+                <span class="task-status-icon icon-idle">&#x25CB;</span>
+              {/if}
               <h3>{status.config.name}</h3>
               {#if status.isRunning}
                 <span class="status-badge badge-running">running</span>
@@ -1782,17 +1931,26 @@
             </div>
           </div>
           <div class="task-actions">
-            <button class="btn btn-sm btn-run" onclick={() => runTask(status.config.id)} disabled={status.isRunning}>
-              {status.isRunning ? '⏳' : '▶'}
+            <button
+              class="btn btn-sm btn-run"
+              onclick={() => runTask(status.config.id)}
+              disabled={status.isRunning}
+              title="Run task"
+            >
+              {status.isRunning ? '&#x23F3;' : '&#x25B6;'} Run
             </button>
             <button
               class="btn btn-sm"
               onclick={() => (expandedTask = expandedTask === status.config.id ? null : status.config.id)}
             >
-              {expandedTask === status.config.id ? '▲' : '▼'}
+              {expandedTask === status.config.id ? '&#x25B2;' : '&#x25BC;'}
             </button>
-            <button class="btn btn-sm" onclick={() => saveAsTemplate(status)} title="Save as template">📋</button>
-            <button class="btn btn-sm btn-danger" onclick={() => deleteTask(status.config.id)}>✕</button>
+            <button class="btn btn-sm" onclick={() => saveAsTemplate(status)} title="Save as template"
+              >&#x1F4BE; Save</button
+            >
+            <button class="btn btn-sm btn-danger" onclick={() => deleteTask(status.config.id)} title="Delete task"
+              >&#x2715;</button
+            >
           </div>
         </div>
 
@@ -1839,9 +1997,11 @@
   </div>
   {#if taskTotalPages > 1}
     <div class="template-pagination">
-      <button class="tool-btn" disabled={taskPage === 0} onclick={() => taskPage--}>‹ Prev</button>
-      <span class="page-info">{taskPage + 1} / {taskTotalPages}</span>
-      <button class="tool-btn" disabled={taskPage >= taskTotalPages - 1} onclick={() => taskPage++}>Next ›</button>
+      <button class="tool-btn" disabled={taskPage === 0} onclick={() => taskPage--}>&#x2039; Prev</button>
+      <span class="page-info">Page {taskPage + 1} of {taskTotalPages}</span>
+      <button class="tool-btn" disabled={taskPage >= taskTotalPages - 1} onclick={() => taskPage++}
+        >Next &#x203A;</button
+      >
     </div>
   {/if}
 {/if}
@@ -2500,5 +2660,191 @@
   .template-tag-custom {
     background: var(--accent-bg);
     color: var(--accent);
+  }
+
+  /* Template section slide transition */
+  .template-section-wrapper {
+    overflow: hidden;
+    max-height: 0;
+    opacity: 0;
+    transition:
+      max-height 0.35s ease-out,
+      opacity 0.25s ease-out;
+  }
+  .template-section-wrapper.template-section-open {
+    max-height: 2000px;
+    opacity: 1;
+    transition:
+      max-height 0.45s ease-in,
+      opacity 0.3s ease-in;
+  }
+
+  /* Custom template edit button */
+  .template-custom-actions {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    display: flex;
+    gap: 4px;
+    z-index: 1;
+  }
+  .template-edit-btn {
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.6rem;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--btn-bg);
+    color: var(--text-faint);
+    cursor: pointer;
+    font-family: inherit;
+    padding: 0;
+    transition: all 0.15s;
+  }
+  .template-edit-btn:hover {
+    background: var(--accent-bg);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  /* Reposition delete button when inside actions container */
+  .template-custom-actions .template-delete-btn {
+    position: static;
+  }
+
+  /* Template Runner Terminal */
+  .terminal-section {
+    margin-bottom: 16px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    animation: slideDown 0.25s ease-out;
+  }
+  .terminal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 14px;
+    background: #1a1a2e;
+    border-bottom: 1px solid #2a2a3e;
+  }
+  .terminal-title {
+    font-size: 0.8rem;
+    color: #a0e0a0;
+    font-family: 'JetBrains Mono', monospace;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .terminal-spinner {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border: 2px solid #444;
+    border-top-color: #a0e0a0;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  .terminal-close {
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    border-radius: 4px;
+    border: 1px solid #333;
+    background: transparent;
+    color: #888;
+    cursor: pointer;
+    font-family: inherit;
+    padding: 0;
+    transition: all 0.15s;
+  }
+  .terminal-close:hover {
+    background: #333;
+    color: #e88;
+    border-color: #e88;
+  }
+  .terminal-output {
+    background: #0d0d1a;
+    color: #c8c8d8;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    padding: 12px 14px;
+    margin: 0;
+    max-height: 300px;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+    line-height: 1.5;
+  }
+
+  /* Task card status icons */
+  .task-status-icon {
+    font-size: 0.9rem;
+    line-height: 1;
+  }
+  .icon-running {
+    color: var(--warning);
+    animation: spinIcon 1.2s linear infinite;
+  }
+  .icon-success {
+    color: var(--success);
+  }
+  .icon-failed {
+    color: var(--danger);
+  }
+  .icon-scheduled {
+    color: var(--accent);
+  }
+  .icon-idle {
+    color: var(--text-faint);
+  }
+  @keyframes spinIcon {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  /* Task card enter animation */
+  .task-card {
+    animation: cardEnter 0.3s ease-out both;
+  }
+  @keyframes cardEnter {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Slide down animation for panels */
+  @keyframes slideDown {
+    from {
+      opacity: 0;
+      transform: translateY(-8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Form advanced toggle */
+  .form-advanced-toggle {
+    border-top: none;
+    padding-top: 4px;
+  }
+  .form-advanced {
+    animation: slideDown 0.2s ease-out;
   }
 </style>

@@ -1,9 +1,30 @@
 <script lang="ts">
   import type { PageData } from './$types';
   import type { LayoutData } from './$types';
+  import { onMount } from 'svelte';
 
   let { data } = $props<{ data: PageData & LayoutData }>();
-  const { dashboard, system } = $derived({ dashboard: data.dashboard, system: data.system });
+  let dashboard = $state(data.dashboard);
+  let system = $state(data.system);
+
+  // Live refresh every 30s
+  let refreshTimer: ReturnType<typeof setInterval> | null = null;
+
+  onMount(() => {
+    refreshTimer = setInterval(async () => {
+      try {
+        const res = await fetch('/?_data=routes%2F_page');
+        if (res.ok) {
+          const fresh = await res.json();
+          if (fresh.dashboard) dashboard = fresh.dashboard;
+          if (fresh.system) system = fresh.system;
+        }
+      } catch {}
+    }, 30000);
+    return () => {
+      if (refreshTimer) clearInterval(refreshTimer);
+    };
+  });
 
   function formatRelativeTime(iso: string): string {
     const diff = Date.now() - new Date(iso).getTime();
@@ -19,7 +40,7 @@
     system.memUsedPercent >= 90 ? 'var(--danger)' : system.memUsedPercent >= 70 ? 'var(--warning)' : 'var(--success)',
   );
 
-  const loadColor = $derived(() => {
+  const loadColor = $derived.by(() => {
     const ratio = system.loadAvg / system.cpuCount;
     return ratio >= 0.9 ? 'var(--danger)' : ratio >= 0.7 ? 'var(--warning)' : 'var(--success)';
   });
@@ -53,11 +74,11 @@
 
   <div class="stat-card">
     <div class="stat-header">CPU Load</div>
-    <div class="stat-value" style="color: {loadColor()}">{system.loadAvg}</div>
+    <div class="stat-value" style="color: {loadColor}">{system.loadAvg}</div>
     <div class="stat-bar">
       <div
         class="stat-fill"
-        style="width: {Math.min(100, (system.loadAvg / system.cpuCount) * 100)}%; background: {loadColor()}"
+        style="width: {Math.min(100, (system.loadAvg / system.cpuCount) * 100)}%; background: {loadColor}"
       ></div>
     </div>
     <div class="stat-detail">{system.cpuCount} cores</div>

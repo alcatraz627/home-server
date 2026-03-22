@@ -2,6 +2,8 @@
 
 All endpoints return JSON unless otherwise noted. Base URL: `http://<host>:5555`
 
+**31 total endpoints across 25 domains.** Last updated: v3.0.0
+
 ---
 
 ## Files
@@ -13,6 +15,7 @@ List all files in the upload directory with metadata.
 **Query params:** `path` (optional) — subdirectory path
 
 **Response:** `200`
+
 ```json
 [
   {
@@ -36,6 +39,7 @@ List all files in the upload directory with metadata.
 Upload a file. Records upload source device in metadata.
 
 **Body:** `multipart/form-data` with fields:
+
 - `file` (required) — the file
 - `path` (optional) — subdirectory
 
@@ -46,6 +50,7 @@ Upload a file. Records upload source device in metadata.
 Download or preview a file.
 
 **Query params:**
+
 - `path` (optional) — subdirectory
 - `preview=true` (optional) — serve with correct MIME type and `Content-Disposition: inline` instead of download
 
@@ -78,6 +83,7 @@ List all running processes.
 **Query params:** `sort` (optional) — `cpu` (default), `mem`, `name`, `pid`
 
 **Response:** `200`
+
 ```json
 [
   {
@@ -101,6 +107,7 @@ List all running processes.
 Get detailed inspection data for a process (active tier — may take 1-5s).
 
 **Response:** `200`
+
 ```json
 {
   "pid": 1234,
@@ -128,6 +135,7 @@ Send a signal to a process.
 Discover all Wiz bulbs on the local network. Takes ~3s (UDP broadcast timeout).
 
 **Response:** `200`
+
 ```json
 [
   {
@@ -157,11 +165,14 @@ Get current state of a specific bulb.
 Set bulb state.
 
 **Body:** Any combination of:
+
 ```json
 {
   "state": true,
   "dimming": 80,
-  "r": 255, "g": 200, "b": 100,
+  "r": 255,
+  "g": 200,
+  "b": 100,
   "temp": 4000,
   "sceneId": 6
 }
@@ -178,17 +189,30 @@ Set bulb state.
 Get all devices on the tailnet.
 
 **Response:** `200`
+
 ```json
 {
   "devices": [
     {
       "hostname": "macbook-pro",
       "ipv4": "100.88.194.107",
+      "ipv6": "fd7a:...",
       "os": "macOS",
       "online": true,
       "isSelf": true,
       "exitNode": false,
-      "tags": []
+      "exitNodeOption": true,
+      "tags": [],
+      "tailscaleVersion": "1.62.0",
+      "lastSeen": "2026-03-22T01:00:00Z",
+      "created": "2025-01-15T00:00:00Z",
+      "keyExpiry": "2026-06-15T00:00:00Z",
+      "relay": "derp1",
+      "rxBytes": 1048576,
+      "txBytes": 524288,
+      "advertisedRoutes": [],
+      "user": "user@example.com",
+      "dnsName": "macbook-pro.tail1234.ts.net"
     }
   ],
   "error": null
@@ -204,6 +228,7 @@ Get all devices on the tailnet.
 Get all backup configurations with last run status.
 
 **Response:** `200`
+
 ```json
 {
   "statuses": [
@@ -239,6 +264,7 @@ Get all backup configurations with last run status.
 Create or update a backup configuration.
 
 **Body:**
+
 ```json
 {
   "name": "Phone Photos",
@@ -268,6 +294,7 @@ Trigger a backup run.
 Get all task configurations with last run status and disk usage.
 
 **Response:** `200`
+
 ```json
 {
   "statuses": [
@@ -296,9 +323,7 @@ Get all task configurations with last run status and disk usage.
       "isRunning": false
     }
   ],
-  "disk": [
-    { "mount": "/", "total": "500G", "used": "280G", "available": "220G", "usePercent": "56%" }
-  ]
+  "disk": [{ "mount": "/", "total": "500G", "used": "280G", "available": "220G", "usePercent": "56%" }]
 }
 ```
 
@@ -307,6 +332,7 @@ Get all task configurations with last run status and disk usage.
 Create or update a task configuration.
 
 **Body:**
+
 ```json
 {
   "name": "Disk Space Check",
@@ -344,18 +370,247 @@ Delete a task configuration.
 Full-duplex terminal session over WebSocket.
 
 **Query params:**
+
 - `cols` (optional, default: 80) — terminal columns
 - `rows` (optional, default: 24) — terminal rows
 - `session` (optional) — session ID to resume
 
 **Messages (client → server):**
+
 ```json
 { "type": "input", "data": "ls -la\n" }
 { "type": "resize", "cols": 120, "rows": 40 }
 ```
 
 **Messages (server → client):**
+
 ```json
 { "type": "session", "id": "a1b2c3d4" }
 { "type": "output", "data": "total 64\ndrwxr-xr-x  12 user  staff  384 Mar 21 12:00 .\n" }
 ```
+
+---
+
+## Media Streaming
+
+### `GET /api/files/stream/[...path]`
+
+Serve files with HTTP Range support (206 Partial Content) for video/audio seeking.
+
+**Headers:** `Range: bytes=start-end` (optional)
+
+**Response:** `200` (full) or `206` (partial) with `Content-Range`, `Accept-Ranges: bytes`
+
+---
+
+## Keeper Agent
+
+### `GET /api/keeper`
+
+Get all feature requests with running agent status.
+
+### `POST /api/keeper`
+
+Create a new feature request. Status starts as `draft`.
+
+### `GET /api/keeper/:id/log?offset=N`
+
+Stream agent log content from byte offset N. Used for 1s polling.
+
+### `POST /api/keeper/:id/message`
+
+Send a message to the running agent's stdin.
+
+**Body:** `{ "message": "..." }`
+
+### `POST /api/keeper/:id/agent`
+
+Control agent lifecycle.
+
+**Body:** `{ "action": "start" | "stop" | "resume" }`
+
+---
+
+## Backup Preview
+
+### `POST /api/backups/preview`
+
+Dry-run rsync to preview what would transfer.
+
+**Body:** `{ "configId": "abc123" }`
+
+**Response:** `200` — `{ "files": [...], "summary": "..." }`
+
+---
+
+## AI Chat
+
+### `POST /api/ai/chat`
+
+Proxy to Claude API with codebase context injection.
+
+**Body:** `{ "messages": [{ "role": "user", "content": "..." }] }`
+
+**Response:** `200` — `{ "reply": "..." }`
+
+---
+
+## Bookmarks
+
+### `GET /api/bookmarks` — List all bookmarks
+
+### `POST /api/bookmarks` — Create bookmark
+
+### `PUT /api/bookmarks` — Update bookmark
+
+### `DELETE /api/bookmarks` — Delete bookmark
+
+Stored in `~/.home-server/bookmarks.json`.
+
+---
+
+## Kanban
+
+### `GET /api/kanban` — Get board state (3 columns + cards)
+
+### `POST /api/kanban` — Add card
+
+### `PUT /api/kanban` — Move/update card
+
+### `DELETE /api/kanban` — Delete card
+
+Stored in `~/.home-server/kanban.json`.
+
+---
+
+## Wake-on-LAN
+
+### `GET /api/wol` — List configured devices
+
+### `POST /api/wol` — Send magic packet or add device
+
+### `DELETE /api/wol` — Remove device
+
+Stored in `~/.home-server/wol-devices.json`.
+
+---
+
+## DNS Lookup
+
+### `POST /api/dns`
+
+Multi-provider DNS lookup.
+
+**Body:** `{ "domain": "example.com", "type": "A" }`
+
+Queries Google (8.8.8.8), Cloudflare (1.1.1.1), and system DNS.
+
+---
+
+## Port Scanner
+
+### `POST /api/ports`
+
+Scan ports on a target host.
+
+**Body:** `{ "host": "192.168.1.1", "ports": [22, 80, 443] }`
+
+Uses `net.createConnection` with concurrency limits.
+
+---
+
+## Speed Test
+
+### `GET /api/speedtest` — Download test blob
+
+### `POST /api/speedtest` — Upload test blob
+
+Measures local network throughput.
+
+---
+
+## Clipboard Sync
+
+### `GET /api/clipboard` — List clipboard entries
+
+### `POST /api/clipboard` — Add entry
+
+### `DELETE /api/clipboard` — Clear entries
+
+In-memory storage (max 50 entries, FIFO).
+
+---
+
+## Screenshots
+
+### `GET /api/screenshots` — List screenshots
+
+### `POST /api/screenshots` — Capture screenshot (`screencapture` on macOS)
+
+### `DELETE /api/screenshots` — Delete screenshot
+
+Stored in `~/.home-server/screenshots/`.
+
+---
+
+## Benchmarks
+
+### `POST /api/benchmarks`
+
+Run CPU, memory, or disk benchmark.
+
+**Body:** `{ "type": "cpu" | "memory" | "disk" }`
+
+History stored in `~/.home-server/benchmarks.json`.
+
+---
+
+## WiFi
+
+### `GET /api/wifi` — Scan nearby networks + current connection
+
+### `POST /api/wifi` — Connect to network (macOS)
+
+---
+
+## Packets
+
+### `GET /api/packets` — Get captured packets
+
+### `POST /api/packets` — Start/stop/clear capture
+
+Uses `tcpdump` subprocess. Requires sudo.
+
+---
+
+## Network Toolkit
+
+### `POST /api/network`
+
+Multi-tool endpoint. Tool selected via `tool` parameter.
+
+**Body:** `{ "tool": "traceroute" | "ping" | "arp" | "whois" | "bandwidth" | "ssl" | "http", ... }`
+
+---
+
+## Peripherals
+
+### `GET /api/peripherals`
+
+WiFi networks + Bluetooth devices.
+
+**Response:** `200` — `{ "wifi": [...], "bluetooth": [...], "currentWifi": { ... } }`
+
+---
+
+## System
+
+### `GET /api/system`
+
+System stats snapshot (CPU cores, memory, network, disk I/O, uptime).
+
+### `GET /api/browse`
+
+Directory listing for file browser.
+
+**Query params:** `path` (optional)

@@ -4,12 +4,34 @@
   import { onMount } from 'svelte';
   import { toast } from '$lib/toast';
 
+  import { browser } from '$app/environment';
+
   let { data } = $props<{ data: PageData }>();
-  let bulbs = $state<WizBulb[]>([]);
+
+  // Load cached bulbs for instant render, then refresh
+  const CACHE_KEY = 'hs:lights-cache';
+  function loadCachedBulbs(): WizBulb[] {
+    if (!browser) return [];
+    try {
+      const raw = sessionStorage.getItem(CACHE_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch {}
+    return [];
+  }
+
+  function cacheBulbs(b: WizBulb[]) {
+    if (browser) {
+      try {
+        sessionStorage.setItem(CACHE_KEY, JSON.stringify(b));
+      } catch {}
+    }
+  }
+
+  let bulbs = $state<WizBulb[]>(loadCachedBulbs());
   let discovering = $state(true);
   let polling = $state(false);
   let pollInterval: ReturnType<typeof setInterval> | null = null;
-  let initialLoad = $state(true);
+  let initialLoad = $state(bulbs.length === 0);
 
   onMount(async () => {
     await rediscover();
@@ -148,6 +170,7 @@
       }
     }
     bulbs = merged;
+    cacheBulbs(merged);
   }
 
   async function setBulb(ip: string, params: Record<string, any>) {

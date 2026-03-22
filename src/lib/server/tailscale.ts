@@ -3,11 +3,23 @@ import { execSync } from 'node:child_process';
 export interface TailscaleDevice {
   hostname: string;
   ipv4: string;
+  ipv6: string;
   os: string;
   online: boolean;
   isSelf: boolean;
   exitNode: boolean;
+  exitNodeOption: boolean;
   tags: string[];
+  tailscaleVersion: string;
+  lastSeen: string;
+  created: string;
+  keyExpiry: string;
+  relay: string;
+  rxBytes: number;
+  txBytes: number;
+  advertisedRoutes: string[];
+  user: string;
+  dnsName: string;
 }
 
 const TAILSCALE_CLI =
@@ -48,10 +60,22 @@ function parsePeer(peer: any, isSelf: boolean): TailscaleDevice {
   return {
     hostname: (peer.HostName || peer.DNSName || 'unknown').replace(/\.$/, ''),
     ipv4: ips.find((ip: string) => !ip.includes(':')) || '',
+    ipv6: ips.find((ip: string) => ip.includes(':')) || '',
     os: peer.OS || '',
     online: peer.Online ?? true,
     isSelf,
     exitNode: peer.ExitNode ?? false,
+    exitNodeOption: peer.ExitNodeOption ?? false,
     tags: peer.Tags || [],
+    tailscaleVersion: peer.TailscaleVersion || '',
+    lastSeen: peer.LastSeen || '',
+    created: peer.Created || '',
+    keyExpiry: peer.KeyExpiry || '',
+    relay: peer.Relay || peer.CurAddr || '',
+    rxBytes: peer.RxBytes ?? 0,
+    txBytes: peer.TxBytes ?? 0,
+    advertisedRoutes: peer.AllowedIPs || peer.PrimaryRoutes || [],
+    user: peer.UserID?.toString() || peer.User || '',
+    dnsName: (peer.DNSName || '').replace(/\.$/, ''),
   };
 }

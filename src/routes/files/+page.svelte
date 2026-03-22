@@ -4,7 +4,87 @@
   import type { FileMetadata } from '$lib/server/metadata';
   import { hasRenderer, renderDocument, type RenderResult, type SheetData } from '$lib/renderers';
   import DataTable from '$lib/components/DataTable.svelte';
+  import MediaPlayer from '$lib/components/MediaPlayer.svelte';
   import { toast } from '$lib/toast';
+
+  // --- Media file detection ---
+  const MEDIA_VIDEO_EXTS = ['.mp4', '.webm', '.mkv', '.avi', '.mov'];
+  const MEDIA_AUDIO_EXTS = ['.mp3', '.wav', '.ogg', '.flac', '.m4a', '.aac'];
+  const MEDIA_EXTS = [...MEDIA_VIDEO_EXTS, ...MEDIA_AUDIO_EXTS];
+
+  function getFileExt(name: string): string {
+    const dot = name.lastIndexOf('.');
+    return dot >= 0 ? name.slice(dot).toLowerCase() : '';
+  }
+
+  function isMediaFile(file: FileInfo): boolean {
+    return MEDIA_EXTS.includes(getFileExt(file.name));
+  }
+
+  function getMediaType(file: FileInfo): 'video' | 'audio' {
+    return MEDIA_VIDEO_EXTS.includes(getFileExt(file.name)) ? 'video' : 'audio';
+  }
+
+  function getMediaIcon(file: FileInfo): string {
+    const ext = getFileExt(file.name);
+    if (MEDIA_VIDEO_EXTS.includes(ext)) return '\u{1F3AC}';
+    if (MEDIA_AUDIO_EXTS.includes(ext)) return '\u{1F3B5}';
+    return '';
+  }
+
+  function streamUrl(filename: string): string {
+    const filePath = currentPath ? `${currentPath}/${filename}` : filename;
+    return `/api/files/stream/${encodeURIComponent(filePath).replace(/%2F/g, '/')}`;
+  }
+
+  // --- Media player state ---
+  let mediaPlayerOpen = $state(false);
+  let mediaPlayerSrc = $state('');
+  let mediaPlayerType = $state<'video' | 'audio'>('video');
+  let mediaPlayerFilename = $state('');
+  let mediaPlaylist = $state<{ src: string; filename: string; type: 'video' | 'audio' }[]>([]);
+  let mediaPlaylistIndex = $state(0);
+
+  function openMediaPlayer(file: FileInfo) {
+    const url = streamUrl(file.name);
+    const mType = getMediaType(file);
+    mediaPlayerSrc = url;
+    mediaPlayerType = mType;
+    mediaPlayerFilename = file.name;
+    mediaPlaylist = [{ src: url, filename: file.name, type: mType }];
+    mediaPlaylistIndex = 0;
+    mediaPlayerOpen = true;
+  }
+
+  function playSelected() {
+    const mediaFiles = filtered
+      .filter((f) => selectedFiles.has(f.name) && isMediaFile(f))
+      .map((f) => ({
+        src: streamUrl(f.name),
+        filename: f.name,
+        type: getMediaType(f),
+      }));
+    if (mediaFiles.length === 0) return;
+    mediaPlaylist = mediaFiles;
+    mediaPlaylistIndex = 0;
+    mediaPlayerSrc = mediaFiles[0].src;
+    mediaPlayerType = mediaFiles[0].type;
+    mediaPlayerFilename = mediaFiles[0].filename;
+    mediaPlayerOpen = true;
+  }
+
+  function onChangeTrack(index: number) {
+    if (index < 0 || index >= mediaPlaylist.length) return;
+    mediaPlaylistIndex = index;
+    const item = mediaPlaylist[index];
+    mediaPlayerSrc = item.src;
+    mediaPlayerType = item.type;
+    mediaPlayerFilename = item.filename;
+  }
+
+  function closeMediaPlayer() {
+    mediaPlayerOpen = false;
+  }
 
   type EnrichedFile = FileInfo & { meta: FileMetadata | null };
 
@@ -45,6 +125,13 @@
 
   // --- Bulk selection ---
   let selectedFiles = $state<Set<string>>(new Set());
+
+  let selectedMediaCount = $derived(
+    [...selectedFiles].filter((name) => {
+      const file = files.find((f) => f.name === name);
+      return file && isMediaFile(file);
+    }).length,
+  );
 
   function toggleSelect(filename: string) {
     const next = new Set(selectedFiles);
@@ -529,6 +616,9 @@
     <span class="bulk-count">{selectedFiles.size} selected</span>
     <div class="bulk-actions">
       <button class="btn btn-sm" onclick={clearSelection}>Clear</button>
+      {#if selectedMediaCount > 0}
+        <button class="btn btn-sm btn-media" onclick={playSelected}>&#9654; Play {selectedMediaCount} Media</button>
+      {/if}
       <a href={zipDownloadUrl()} class="btn btn-sm" download="files.zip">Download Zip</a>
       <button class="btn btn-sm btn-danger" onclick={deleteSelected}>Delete Selected</button>
     </div>
@@ -597,9 +687,22 @@
               📁 {file.name}
             </button>
           {:else}
-            <button class="name-btn" class:previewable={isPreviewable(file)} onclick={() => openPreview(file)}>
-              {file.name}
-            </button>
+            <span class="name-with-play">
+              {#if isMediaFile(file)}
+                <button
+                  class="play-inline-btn"
+                  title="Play media"
+                  onclick={(e) => {
+                    e.stopPropagation();
+                    openMediaPlayer(file);
+                  }}>&#9654;</button
+                >
+                <span class="media-icon">{getMediaIcon(file)}</span>
+              {/if}
+              <button class="name-btn" class:previewable={isPreviewable(file)} onclick={() => openPreview(file)}>
+                {file.name}
+              </button>
+            </span>
           {/if}
         </span>
         <span class="col-type" title={file.mime}>{file.mime.split('/')[1] || file.mime}</span>
@@ -714,6 +817,19 @@
       </div>
     </div>
   </div>
+{/if}
+
+<!-- Media Player Modal -->
+{#if mediaPlayerOpen}
+  <MediaPlayer
+    src={mediaPlayerSrc}
+    type={mediaPlayerType}
+    filename={mediaPlayerFilename}
+    onclose={closeMediaPlayer}
+    playlist={mediaPlaylist}
+    currentIndex={mediaPlaylistIndex}
+    onchangetrack={onChangeTrack}
+  />
 {/if}
 
 <style>
@@ -1500,6 +1616,53 @@
     background: var(--accent);
     border-radius: 2px;
     min-width: 2px;
+  }
+
+  /* Media play button inline */
+  .name-with-play {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .play-inline-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--accent);
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 0.6rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    padding: 0;
+    line-height: 1;
+    transition:
+      background 0.15s,
+      border-color 0.15s;
+  }
+
+  .play-inline-btn:hover {
+    background: var(--accent-bg);
+    border-color: var(--accent);
+  }
+
+  .media-icon {
+    font-size: 0.75rem;
+    flex-shrink: 0;
+  }
+
+  .btn-media {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .btn-media:hover {
+    background: var(--accent-bg);
   }
 
   @media (max-width: 640px) {

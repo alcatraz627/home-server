@@ -470,7 +470,39 @@ main > :first-child {
 h1,
 h2,
 h3 {
-  font-family: 'Space Grotesk', 'Inter', sans-serif;
+  font-family: var(--font-heading, 'Space Grotesk', 'Inter', sans-serif);
+}
+
+body {
+  font-family: var(--font-body, 'Inter', sans-serif);
+}
+
+/* High contrast mode */
+.high-contrast {
+  --text-primary: #ffffff;
+  --text-secondary: #e8e8e8;
+  --text-muted: #c0c0c0;
+  --text-faint: #a0a0a0;
+  --border: #555;
+  --border-subtle: #444;
+}
+
+[data-theme='light'].high-contrast {
+  --text-primary: #000000;
+  --text-secondary: #1a1a1a;
+  --text-muted: #333;
+  --text-faint: #555;
+  --border: #888;
+  --border-subtle: #999;
+}
+
+/* Global border-radius variable */
+.card,
+button,
+input,
+textarea,
+select {
+  border-radius: var(--radius, 8px);
 }
 
 /* ===== Animations ===== */
@@ -507,6 +539,29 @@ button:active:not(:disabled) {
 
 .star-animate {
   animation: starBurst 0.3s ease-out;
+}
+
+/* Star button shared style */
+.star-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 2px 4px;
+  color: var(--text-faint);
+  transition:
+    color 0.15s,
+    transform 0.15s;
+}
+
+.star-btn:hover {
+  color: var(--warning);
+  transform: scale(1.15);
+}
+
+.star-btn.starred {
+  color: var(--warning);
 }
 
 /* Skeleton shimmer for loading states */
@@ -560,4 +615,179 @@ button:active:not(:disabled) {
     background-color 0.2s ease,
     border-color 0.2s ease,
     color 0.15s ease;
+}
+
+/* ===== Enhanced Animations ===== */
+
+/* Card stagger — apply via style="animation-delay: {i * 50}ms" */
+.card-stagger {
+  opacity: 0;
+  animation: cardEnter 0.3s ease-out forwards;
+}
+
+/* Page slide transitions */
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Pulse for live/active indicators */
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.pulse {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+/* Spin for loading indicators */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+/* Number counter transition (CSS-only smooth counting) */
+.counter-transition {
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease;
+}
+
+/* Toggle switch with spring easing */
+@keyframes toggleBounce {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(0.85);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Slide down for panels */
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    max-height: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    max-height: 1000px;
+    transform: translateY(0);
+  }
+}
+
+.slide-down {
+  animation: slideDown 0.25s ease-out;
+  overflow: hidden;
+}
+
+/* Skeleton variants for different shapes */
+.skeleton-text {
+  height: 14px;
+  margin-bottom: 8px;
+  background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--bg-hover) 50%, var(--bg-secondary) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: 4px;
+}
+
+.skeleton-circle {
+  border-radius: 50%;
+  background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--bg-hover) 50%, var(--bg-secondary) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+.skeleton-card {
+  height: 120px;
+  background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--bg-hover) 50%, var(--bg-secondary) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+}
+
+/* Hover lift for cards */
+.hover-lift {
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Status dot pulse */
+.status-pulse {
+  position: relative;
+}
+
+.status-pulse::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  animation: pulse 2s ease-in-out infinite;
+  opacity: 0.4;
+}
+
+/* Tooltip animation */
+@keyframes tooltipIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Reduced motion: disable all animations for accessibility */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

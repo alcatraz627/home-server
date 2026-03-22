@@ -6,7 +6,7 @@ import os from 'node:os';
 // --- Types ---
 
 export type FeatureScope = 'bug-fix' | 'tweak' | 'feature' | 'enhancement' | 'refactor' | 'research' | 'epic';
-export type FeatureStatus = 'backlog' | 'ready' | 'in-progress' | 'review' | 'done' | 'rejected';
+export type FeatureStatus = 'draft' | 'ready' | 'running' | 'halted' | 'done';
 
 export interface FeatureRequest {
   id: string;
@@ -24,11 +24,26 @@ export interface FeatureRequest {
 
 // --- Storage ---
 
-const CONFIG_DIR = path.join(os.homedir(), '.home-server');
+export const CONFIG_DIR = path.join(os.homedir(), '.home-server');
 const REQUESTS_FILE = path.join(CONFIG_DIR, 'keeper-requests.json');
+export const LOGS_DIR = path.join(CONFIG_DIR, 'keeper-logs');
 
 async function ensureDir() {
   await fs.mkdir(CONFIG_DIR, { recursive: true });
+  await fs.mkdir(LOGS_DIR, { recursive: true });
+}
+
+// --- Status migration helper ---
+function migrateStatus(status: string): FeatureStatus {
+  const map: Record<string, FeatureStatus> = {
+    backlog: 'draft',
+    ready: 'ready',
+    'in-progress': 'running',
+    review: 'halted',
+    done: 'done',
+    rejected: 'done',
+  };
+  return map[status] || (status as FeatureStatus);
 }
 
 // --- CRUD ---
@@ -37,7 +52,9 @@ export async function getRequests(): Promise<FeatureRequest[]> {
   await ensureDir();
   if (!existsSync(REQUESTS_FILE)) return [];
   try {
-    return JSON.parse(readFileSync(REQUESTS_FILE, 'utf-8'));
+    const raw = JSON.parse(readFileSync(REQUESTS_FILE, 'utf-8')) as FeatureRequest[];
+    // Migrate old statuses on read
+    return raw.map((r) => ({ ...r, status: migrateStatus(r.status) }));
   } catch {
     return [];
   }
@@ -62,7 +79,7 @@ export async function createRequest(data: {
     goal: data.goal,
     scope: data.scope,
     details: data.details || '',
-    status: 'backlog',
+    status: 'draft',
     priority: maxPriority + 1,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -81,7 +98,7 @@ export async function updateRequest(id: string, updates: Partial<FeatureRequest>
   if (idx < 0) return null;
 
   const updated = { ...requests[idx], ...updates, updatedAt: new Date().toISOString() };
-  if (updates.status === 'done' || updates.status === 'rejected') {
+  if (updates.status === 'done') {
     updated.completedAt = new Date().toISOString();
   }
   requests[idx] = updated;
@@ -113,12 +130,11 @@ export async function reorderRequests(ids: string[]): Promise<void> {
 export async function getStats(): Promise<Record<FeatureStatus, number>> {
   const requests = await getRequests();
   const stats: Record<string, number> = {
-    backlog: 0,
+    draft: 0,
     ready: 0,
-    'in-progress': 0,
-    review: 0,
+    running: 0,
+    halted: 0,
     done: 0,
-    rejected: 0,
   };
   for (const r of requests) {
     stats[r.status] = (stats[r.status] || 0) + 1;

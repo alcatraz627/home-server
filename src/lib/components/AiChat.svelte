@@ -72,6 +72,43 @@
     saveConversations();
   }
 
+  // Rename conversation
+  let renamingId = $state<string | null>(null);
+  let renameInput = $state('');
+
+  function startRename(id: string) {
+    renamingId = id;
+    renameInput = conversations.find((c) => c.id === id)?.title ?? '';
+  }
+
+  function finishRename() {
+    if (renamingId && renameInput.trim()) {
+      const convo = conversations.find((c) => c.id === renamingId);
+      if (convo) {
+        convo.title = renameInput.trim();
+        conversations = [...conversations];
+        saveConversations();
+      }
+    }
+    renamingId = null;
+  }
+
+  // Copy message
+  async function copyMessage(content: string) {
+    try {
+      await navigator.clipboard.writeText(content);
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = content;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+  }
+
   function scrollToBottom() {
     const el = fullscreen ? document.querySelector('.ai-fs-messages') : document.querySelector('.ai-messages');
     if (el) el.scrollTop = el.scrollHeight;
@@ -151,7 +188,7 @@
   }}
   title="AI Assistant"
 >
-  {#if open || fullscreen}✕{:else}AI{/if}
+  {#if open || fullscreen}<span class="fab-icon">✕</span>{:else}<span class="fab-icon fab-gradient">AI</span>{/if}
 </button>
 
 <!-- Fullscreen modal -->
@@ -171,9 +208,24 @@
               class="ai-fs-convo-item"
               class:active={activeConvoId === convo.id}
               onclick={() => switchConvo(convo.id)}
+              ondblclick={() => startRename(convo.id)}
             >
-              <span class="ai-fs-convo-title">{convo.title}</span>
-              <span class="ai-fs-convo-count">{convo.messages.length} msgs</span>
+              {#if renamingId === convo.id}
+                <input
+                  class="ai-rename-input"
+                  type="text"
+                  bind:value={renameInput}
+                  onkeydown={(e) => {
+                    if (e.key === 'Enter') finishRename();
+                    if (e.key === 'Escape') renamingId = null;
+                  }}
+                  onblur={finishRename}
+                  onclick={(e) => e.stopPropagation()}
+                />
+              {:else}
+                <span class="ai-fs-convo-title">{convo.title}</span>
+                <span class="ai-fs-convo-count">{convo.messages.length} msgs</span>
+              {/if}
             </button>
           {/each}
         </div>
@@ -209,14 +261,21 @@
           {/if}
           {#each messages as msg}
             <div class="ai-msg ai-{msg.role}">
-              <span class="ai-role">{msg.role === 'user' ? 'You' : 'Claude'}</span>
+              <div class="ai-msg-header">
+                <span class="ai-role">{msg.role === 'user' ? 'You' : 'Claude'}</span>
+                <button class="ai-copy-btn" onclick={() => copyMessage(msg.content)} title="Copy">&#x2398;</button>
+              </div>
               <div class="ai-content">{msg.content}</div>
             </div>
           {/each}
           {#if loading}
             <div class="ai-msg ai-assistant">
               <span class="ai-role">Claude</span>
-              <div class="ai-content ai-thinking">Thinking...</div>
+              <div class="ai-content ai-thinking">
+                <span class="typing-dot"></span>
+                <span class="typing-dot"></span>
+                <span class="typing-dot"></span>
+              </div>
             </div>
           {/if}
         </div>
@@ -266,10 +325,27 @@
         <button class="ai-history-new" onclick={newConversation}>+ New Conversation</button>
         {#each conversations as convo}
           <div class="ai-history-item" class:active={activeConvoId === convo.id}>
-            <button class="ai-history-btn" onclick={() => switchConvo(convo.id)}>
-              <span class="ai-history-title">{convo.title}</span>
-              <span class="ai-history-meta">{convo.messages.length} messages</span>
-            </button>
+            {#if renamingId === convo.id}
+              <input
+                class="ai-rename-input"
+                type="text"
+                bind:value={renameInput}
+                onkeydown={(e) => {
+                  if (e.key === 'Enter') finishRename();
+                  if (e.key === 'Escape') renamingId = null;
+                }}
+                onblur={finishRename}
+              />
+            {:else}
+              <button
+                class="ai-history-btn"
+                onclick={() => switchConvo(convo.id)}
+                ondblclick={() => startRename(convo.id)}
+              >
+                <span class="ai-history-title">{convo.title}</span>
+                <span class="ai-history-meta">{convo.messages.length} messages</span>
+              </button>
+            {/if}
             <button class="ai-history-delete" onclick={() => deleteConvo(convo.id)} title="Delete">✕</button>
           </div>
         {/each}
@@ -345,6 +421,30 @@
     background: var(--danger);
     color: white;
     border-color: var(--danger);
+  }
+
+  .fab-gradient {
+    background: linear-gradient(135deg, var(--purple), var(--accent));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: fabShimmer 3s ease-in-out infinite;
+  }
+
+  @keyframes fabShimmer {
+    0%,
+    100% {
+      filter: brightness(1);
+    }
+    50% {
+      filter: brightness(1.3);
+    }
+  }
+
+  .fab-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   /* ── Floating Panel ────────────────────────────────────── */
@@ -546,8 +646,15 @@
   .ai-msg {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 4px;
   }
+
+  .ai-msg-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
   .ai-role {
     font-size: 0.6rem;
     font-weight: 600;
@@ -558,6 +665,30 @@
   .ai-user .ai-role {
     color: var(--accent);
   }
+
+  .ai-copy-btn {
+    background: none;
+    border: none;
+    color: var(--text-faint);
+    font-size: 0.7rem;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 3px;
+    opacity: 0;
+    transition:
+      opacity 0.15s,
+      color 0.15s;
+  }
+
+  .ai-msg:hover .ai-copy-btn {
+    opacity: 1;
+  }
+
+  .ai-copy-btn:hover {
+    color: var(--accent);
+    background: var(--bg-hover);
+  }
+
   .ai-content {
     font-size: 0.8rem;
     line-height: 1.5;
@@ -565,25 +696,68 @@
     white-space: pre-wrap;
     word-break: break-word;
   }
-  .ai-assistant .ai-content {
-    background: var(--bg-inset);
-    padding: 8px 10px;
-    border-radius: 8px;
+
+  .ai-user .ai-content {
+    background: var(--accent-bg);
+    padding: 8px 12px;
+    border-radius: 12px 12px 2px 12px;
     border: 1px solid var(--border-subtle);
   }
-  .ai-thinking {
-    color: var(--text-muted);
-    font-style: italic;
-    animation: pulse 1s ease-in-out infinite alternate;
+
+  .ai-assistant .ai-content {
+    background: var(--bg-inset);
+    padding: 8px 12px;
+    border-radius: 12px 12px 12px 2px;
+    border: 1px solid var(--border-subtle);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   }
 
-  @keyframes pulse {
-    from {
-      opacity: 0.5;
+  .ai-thinking {
+    color: var(--text-muted);
+    display: flex;
+    gap: 4px;
+    padding: 10px 12px;
+  }
+
+  .typing-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    animation: typingBounce 1.4s ease-in-out infinite;
+  }
+
+  .typing-dot:nth-child(2) {
+    animation-delay: 0.2s;
+  }
+
+  .typing-dot:nth-child(3) {
+    animation-delay: 0.4s;
+  }
+
+  @keyframes typingBounce {
+    0%,
+    80%,
+    100% {
+      transform: translateY(0);
+      opacity: 0.4;
     }
-    to {
+    40% {
+      transform: translateY(-6px);
       opacity: 1;
     }
+  }
+
+  /* Rename input */
+  .ai-rename-input {
+    width: 100%;
+    font-size: 0.78rem;
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--accent);
+    background: var(--input-bg);
+    color: var(--text-primary);
+    font-family: inherit;
   }
 
   /* ── Input ─────────────────────────────────────────────── */

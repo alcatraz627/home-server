@@ -9,12 +9,14 @@ A personal device management platform that runs across my devices (laptop, phone
 ## Goals
 
 ### G1: Seamless File Transfer
+
 - Move files between laptop, phone, and any tailnet device with minimal friction
 - Support both push ("send this to my phone") and pull ("grab that file from my laptop")
 - No cloud intermediary — all traffic stays on the tailnet
 - Simple UI: drag-and-drop or share-sheet integration on mobile
 
 ### G2: Extensible Home Dashboard
+
 - A web-based dashboard accessible from any device on the tailnet
 - Widget-based architecture — easy to add new capabilities without touching existing ones
 - Initial widgets:
@@ -24,6 +26,7 @@ A personal device management platform that runs across my devices (laptop, phone
 - Future widgets can be added by dropping in a new module
 
 ### G3: Automated Phone Backups
+
 - Regular, scheduled backups from phone to an external hard drive
 - Hard drive can be plugged into laptop OR Raspberry Pi — system adapts
 - Incremental backups (don't re-copy unchanged files)
@@ -31,6 +34,7 @@ A personal device management platform that runs across my devices (laptop, phone
 - Notifications on backup success/failure
 
 ### G4: Operator Automation
+
 - The system can run autonomous tasks on a schedule or on-demand
 - Tasks like: search + download content for a topic, monitor a service, run a cron job
 - Push status updates to the user via WhatsApp or a custom notification channel
@@ -47,41 +51,46 @@ The system operates through three distinct roles. Each role has its own responsi
 **Purpose:** Translate vague user needs into concrete, prioritized goals.
 
 **Responsibilities:**
+
 - Maintain the goals list above — add, refine, reprioritize
 - Break goals into deliverable milestones
 - Resolve ambiguity by asking the user targeted questions
 - Evaluate trade-offs: reliability vs speed, simplicity vs flexibility
 
 **Runtime Rules:**
-- [ ] Never assume a requirement — ask when unclear
-- [ ] Prioritize reliability over feature count. A working file transfer beats a half-working dashboard
-- [ ] Prioritize UX over technical elegance. If it's annoying to use, it's broken
-- [ ] Every goal must have a "definition of done" before work begins
-- [ ] Track what's shipped vs what's planned. Avoid scope creep within a milestone
-- [ ] Consider the "bus factor" — if the user forgets how this works in 6 months, can they still operate it?
+
+- [x] Never assume a requirement — ask when unclear
+- [x] Prioritize reliability over feature count. A working file transfer beats a half-working dashboard
+- [x] Prioritize UX over technical elegance. If it's annoying to use, it's broken
+- [x] Every goal must have a "definition of done" before work begins
+- [x] Track what's shipped vs what's planned. Avoid scope creep within a milestone
+- [x] Consider the "bus factor" — if the user forgets how this works in 6 months, can they still operate it?
 
 ### Role 2: Architect
 
 **Purpose:** Design the technical system — what to build, what to reuse, how to deploy.
 
 **Responsibilities:**
+
 - Choose build-vs-buy for each component
 - Define the tech stack, project structure, and deployment strategy
 - Ensure components are loosely coupled — adding a widget shouldn't require changing the core
 - Design for the constraint: this runs on a laptop and/or a Raspberry Pi, not a datacenter
 
 **Runtime Rules:**
-- [ ] Prefer existing, battle-tested tools over custom code where possible
-- [ ] All services must work over Tailscale — no port forwarding, no public exposure
-- [ ] Local dev runs natively (no Docker) for fast iteration; Docker is for deployment only
-- [ ] Config lives in version control. Secrets live in environment variables or a secrets manager
-- [ ] No single point of failure for critical paths (backups especially)
-- [ ] Document every architectural decision with rationale (ADRs or inline)
-- [ ] Keep resource usage low — this shares hardware with daily-use devices
-- [ ] Prefer pull-based architectures where possible (polling > always-on connections) to save resources
-- [ ] All inter-service communication happens over the tailnet using Tailscale IPs/MagicDNS
+
+- [x] Prefer existing, battle-tested tools over custom code where possible
+- [x] All services must work over Tailscale — no port forwarding, no public exposure
+- [x] Local dev runs natively (no Docker) for fast iteration; Docker is for deployment only
+- [x] Config lives in version control. Secrets live in environment variables or a secrets manager
+- [x] No single point of failure for critical paths (backups especially)
+- [x] Document every architectural decision with rationale (ADRs or inline)
+- [x] Keep resource usage low — this shares hardware with daily-use devices
+- [x] Prefer pull-based architectures where possible (polling > always-on connections) to save resources
+- [x] All inter-service communication happens over the tailnet using Tailscale IPs/MagicDNS
 
 **Initial Technical Direction:**
+
 - **Runtime:** Docker Compose on each host device
 - **Dashboard:** Lightweight web app (SvelteKit — already available in tooling)
 - **File Transfer:** Tailscale + a thin API layer, or evaluate Syncthing for the heavy lifting
@@ -95,18 +104,20 @@ The system operates through three distinct roles. Each role has its own responsi
 **Purpose:** Execute defined tasks autonomously — scheduled or on-demand.
 
 **Responsibilities:**
+
 - Run background jobs: backups, downloads, monitoring, health checks
 - Push status updates and alerts to the user
 - Log all actions for auditability
 - Recover gracefully from failures (retry with backoff, then alert)
 
 **Runtime Rules:**
+
 - [x] Every task must be idempotent — safe to re-run without side effects
 - [x] Every task must have a timeout — no runaway processes
 - [x] Every task must log: start time, end time, outcome, errors
 - [x] Failed tasks retry up to 3 times with exponential backoff, then alert the user
 - [x] Never delete user data without explicit confirmation (even in automated flows)
-- [ ] Resource limits: operator tasks must not consume more than 25% CPU / 512MB RAM on shared devices
+- [x] Resource limits: operator tasks must not consume more than 25% CPU / 512MB RAM on shared devices
 - [x] Notification rules:
   - **Success:** Silent by default, unless user opted in to success notifications
   - **Failure:** Always notify immediately
@@ -158,12 +169,14 @@ As features grow, keep the codebase modular and expandable:
 ## Milestones
 
 ### M1: Foundation
+
 - [x] Project structure with Docker Compose
 - [x] Basic dashboard skeleton (SvelteKit)
 - [x] Tailscale connectivity verified between devices
 - [x] File transfer API — upload/download between devices
 
 ### M2: Smart Home + Process Management
+
 - [x] Wiz bulb widget on dashboard
 - [x] Process manager widget on dashboard
 - [x] Dashboard accessible from phone browser
@@ -171,6 +184,7 @@ As features grow, keep the codebase modular and expandable:
 - [x] Configurable auto-refresh interval for process manager
 
 ### M2.1: File Manager Enhancements
+
 - [x] In-browser file preview for common types (images, text, PDF, video, audio)
 - [x] File renaming
 - [x] Show OS file info (size, created/modified dates, permissions, MIME type)
@@ -181,6 +195,7 @@ As features grow, keep the codebase modular and expandable:
 - [x] File metadata storage — JSON sidecar store (.meta.json) with per-file metadata
 
 ### M2.2: Process Manager — Deep Observability
+
 Architecture note: split process stats into two tiers — **passive** (low-overhead, shown for all rows: CPU, MEM, user, uptime) and **active** (on-demand behind a button: GPU usage, disk I/O, open files, network sockets). Expandable row pattern for detailed view.
 
 - [x] Expandable process rows — click to reveal detailed stats (command, PPID, VSZ, RSS, state)
@@ -192,6 +207,7 @@ Architecture note: split process stats into two tiers — **passive** (low-overh
 - [x] Web-based terminal — xterm.js + node-pty, WebSocket-backed with session persistence
 
 ### M3: Backups
+
 - [x] Incremental backup via rsync — configurable source/dest/excludes
 - [x] Manual trigger with live status polling
 - [x] Backup status widget — last run status, files/bytes transferred, error details
@@ -199,6 +215,7 @@ Architecture note: split process stats into two tiers — **passive** (low-overh
 - [x] Success/failure notifications via ntfy.sh
 
 ### M4: Operator Framework
+
 - [x] Task definition format — JSON config with name, command, timeout, retries
 - [x] Task runner with logging, retry (exponential backoff), and timeout
 - [x] Disk space monitoring — visual bar chart on tasks page
@@ -206,6 +223,7 @@ Architecture note: split process stats into two tiers — **passive** (low-overh
 - [x] Cron-based task scheduling (node-cron, UI field for cron expression)
 
 ### M2.3: Smart Lights — Enhanced
+
 - [x] Pull detailed bulb info on discovery (firmware version, module name, signal/RSSI)
 - [x] Bulb naming — user-assigned names stored in localStorage, double-click to rename
 - [x] Scene presets — 16 Wiz scene buttons (Cozy, Warm White, Party, Ocean, etc.)
@@ -213,27 +231,32 @@ Architecture note: split process stats into two tiers — **passive** (low-overh
 - [x] Bulb status polling — 5s auto-refresh toggle to detect external changes
 
 ### M2.4: Process Manager — UX
+
 - [x] Better tree hierarchy — visual connector lines (├─ └─ │) with proper last-child tracking
 - [x] Signal tooltips — description text for each signal explaining its purpose
 
 ### M2.5: File Manager — UX
+
 - [x] File list search, sort (name/type/size/date), and type filter
 - [x] Better upload input — styled dropzone with upload icon and file type hint text
 
 ### M2.6: Smart Lights — UX
+
 - [x] Show bulb names + module/firmware/signal prominently in card header
 - [x] Improved control layout — header with name + toggle, meta row below
 - [x] Extended scene presets — 32 Wiz scenes organized by category (Functional, Ambient, Nature, Festive, Dynamic)
 
 ### M4.1: Operator Templates
+
 - [x] Predefined task templates — 31 built-in with tags, search, pagination
 - [x] Template picker UI — grid of template cards, click to auto-fill form fields
-- [ ] Custom template creation — save any task config as a reusable template
-- [ ] Run templates directly — "Run" button on template cards that creates + immediately executes the task
-- [ ] 50 more templates — categories: security/audit, Docker, Git, database, macOS-specific, SSL/certs, user management, service watchdog, log analysis, file integrity. Sources: TecMint sysadmin scripts, awesome-bash, admin-scripts repo, TECMINT_MONITOR, health-checks repo
-- [ ] Task list UI improvements — status badges (running/idle/failed), last-run timestamp inline, quick-run button without expanding, sortable columns
+- [x] Custom template creation — save any task config as a reusable template
+- [x] Run templates directly — "Run" button on template cards that creates + immediately executes the task
+- [x] 50 more templates — categories: security/audit, Docker, Git, database, macOS-specific, SSL/certs, user management, service watchdog, log analysis, file integrity. Sources: TecMint sysadmin scripts, awesome-bash, admin-scripts repo, TECMINT_MONITOR, health-checks repo
+- [x] Task list UI improvements — status badges (running/idle/failed), last-run timestamp inline, quick-run button without expanding, sortable columns
 
 ### M5: UI & Polish (completed)
+
 - [x] Page navigation loading spinner — shimmer bar on route transitions
 - [x] CSS custom properties design system — all colors via `var(--token)` tokens
 - [x] Dark / light mode toggle with localStorage persistence
@@ -249,6 +272,7 @@ Architecture note: split process stats into two tiers — **passive** (low-overh
 - [x] Onboarding docs — comprehensive README with setup guide and project structure
 
 ### M5.1: Terminal Fixes (completed)
+
 - [x] Auto-reconnect on WebSocket drop (3s retry)
 - [x] Tab support — multiple terminal tabs, add/close/switch, independent sessions
 - [x] Terminal toolbar — clear, font size +/- controls
@@ -256,12 +280,14 @@ Architecture note: split process stats into two tiers — **passive** (low-overh
 - [x] Node v23 fallback — child_process.spawn when node-pty unavailable
 
 ### M6: Claude Keeper
+
 See [docs/claude-keeper.md](docs/claude-keeper.md) for full planning document.
+
 - [x] Feature requests CRUD — goal, scope selector, details, status workflow, search, filter
 - [x] Expandable detail panel — output/notes editor with save + copy
-- [ ] Agent interface — view, start, stop running Claude agents on the server
-- [ ] Agent task runner — auto-sweeps pending feature requests
-- [ ] Agent output viewer — live streaming of agent activity and decisions
+- [x] Agent interface — view, start, stop running Claude agents on the server
+- [x] Agent task runner — auto-sweeps pending feature requests
+- [x] Agent output viewer — live streaming of agent activity and decisions
 
 ---
 
@@ -287,160 +313,187 @@ See [docs/claude-keeper.md](docs/claude-keeper.md) for full planning document.
 ## Remaining Todos
 
 ### T1 — Toast & Error Reporting (quick wins)
-- [ ] Toast dedupe — add unique `key` param; if a toast with the same key exists, replace it instead of stacking (e.g. "running task..." shouldn't stack)
-- [ ] API error toasts — wrap all `fetch()` calls in pages with try/catch, show `toast.error(message)` on non-ok responses. Cover: files (upload/rename/delete/mkdir), processes (signal), lights (setBulb), backups (create/edit/delete/trigger), tasks (create/run/delete), keeper (CRUD)
-- [ ] Server-side error detail — in API route handlers that run shell commands (`child_process.exec`, `execSync`), catch stderr and return it in the JSON error response so the UI can display the actual failure reason
+
+- [x] Toast dedupe — add unique `key` param; if a toast with the same key exists, replace it instead of stacking (e.g. "running task..." shouldn't stack)
+- [x] API error toasts — wrap all `fetch()` calls in pages with try/catch, show `toast.error(message)` on non-ok responses. Cover: files (upload/rename/delete/mkdir), processes (signal), lights (setBulb), backups (create/edit/delete/trigger), tasks (create/run/delete), keeper (CRUD)
+- [x] Server-side error detail — in API route handlers that run shell commands (`child_process.exec`, `execSync`), catch stderr and return it in the JSON error response so the UI can display the actual failure reason
 
 ### T2 — New Pages
-- [ ] **Documentation page** (`/docs`) — server-side reads all `.md` files from the repo root and `docs/` directory. Renders as a list of expandable sections with the filename as title, rendered markdown content inside. Use the existing markdown renderer from `$lib/renderers/markdown.ts`
-- [ ] **UI Showcase page** (`/showcase`) — static demo page showing the design system: buttons (all variants), cards (single + grid layout), DataTable with sample data (sort/search/filter), terminal-like component mock, color palette with all CSS vars, typography samples. Useful for design consistency review
-- [ ] **Peripherals page** (`/peripherals`) — manage WiFi and Bluetooth on the server machine. Backend: `networksetup -listallhardwareports`, `networksetup -listpreferredwirelessnetworks`, `networksetup -setairportpower`, `system_profiler SPBluetoothDataType`. Frontend: list networks/devices, scan button, connect/disconnect. Responsive layout. macOS-focused with Linux fallback stubs
+
+- [x] **Documentation page** (`/docs`) — server-side reads all `.md` files from the repo root and `docs/` directory. Renders as a list of expandable sections with the filename as title, rendered markdown content inside. Use the existing markdown renderer from `$lib/renderers/markdown.ts`
+- [x] **UI Showcase page** (`/showcase`) — static demo page showing the design system: buttons (all variants), cards (single + grid layout), DataTable with sample data (sort/search/filter), terminal-like component mock, color palette with all CSS vars, typography samples. Useful for design consistency review
+- [x] **Peripherals page** (`/peripherals`) — manage WiFi and Bluetooth on the server machine. Backend: `networksetup -listallhardwareports`, `networksetup -listpreferredwirelessnetworks`, `networksetup -setairportpower`, `system_profiler SPBluetoothDataType`. Frontend: list networks/devices, scan button, connect/disconnect. Responsive layout. macOS-focused with Linux fallback stubs
 
 ### T3 — Terminal Improvements
-- [ ] **Tab renaming** — double-click a tab label to edit inline (same pattern as bulb rename). Store in tab object
-- [ ] **Allow 0 tabs** — when last tab is closed, show an empty placeholder with a "New Terminal" button instead of auto-creating
-- [ ] **Mouse middle-click kill** — `mousedown` event on tab with `event.button === 1` should close/kill that tab
-- [ ] **Persistent sessions** — keep PTY sessions alive on the server even when the browser disconnects. On reconnect, reattach to existing session by ID. Server stores a map of `sessionId → pty` that survives page navigation. Only kill PTY when explicitly closed or server restarts
+
+- [x] **Tab renaming** — double-click a tab label to edit inline (same pattern as bulb rename). Store in tab object
+- [x] **Allow 0 tabs** — when last tab is closed, show an empty placeholder with a "New Terminal" button instead of auto-creating
+- [x] **Mouse middle-click kill** — `mousedown` event on tab with `event.button === 1` should close/kill that tab
+- [x] **Persistent sessions** — keep PTY sessions alive on the server even when the browser disconnects. On reconnect, reattach to existing session by ID. Server stores a map of `sessionId → pty` that survives page navigation. Only kill PTY when explicitly closed or server restarts
 
 ### T4 — Empty State Placeholders
-- [ ] Add an empty state component with icon, message, and primary action button to: Terminal (no tabs), Keeper (no requests), Tasks (no tasks), Backups (no configs), Files (empty directory). Use consistent design: centered, muted icon, descriptive text, accent-colored CTA button
+
+- [x] Add an empty state component with icon, message, and primary action button to: Terminal (no tabs), Keeper (no requests), Tasks (no tasks), Backups (no configs), Files (empty directory). Use consistent design: centered, muted icon, descriptive text, accent-colored CTA button
 
 ### T5 — Dashboard Enrichment
-- [ ] Richer dashboard — terminal preview (latest output line from active session, click to open), starred files quick-access list, starred bulbs with toggle, recent task runs timeline, disk usage mini-charts. Make the dashboard feel like a command center, not just a nav page
+
+- [x] Richer dashboard — terminal preview (latest output line from active session, click to open), starred files quick-access list, starred bulbs with toggle, recent task runs timeline, disk usage mini-charts. Make the dashboard feel like a command center, not just a nav page
 
 ### T6 — Process Page: System Monitor
-- [ ] **System monitor graphs** — add a collapsible section at the top of the process page with real-time charts for: CPU usage (all cores), Memory (used/free/cached), Network I/O (bytes in/out per second), Disk I/O (read/write per second). Backend: new `/api/system/stats` endpoint that returns a snapshot. Frontend polls every 2s, stores last 60 data points, renders as SVG line charts. GPU info if available (`system_profiler SPDisplaysDataType`)
-- [ ] **CPU/MEM toggle** — in the process table, add a toggle button to switch between percentage (%) and absolute values (MB for memory, time for CPU). Column header clicks should sort by the displayed metric
-- [ ] **Column sort/filter** — make process table columns sortable (click header to sort asc/desc). Add a column filter dropdown to show/hide columns
+
+- [x] **System monitor graphs** — add a collapsible section at the top of the process page with real-time charts for: CPU usage (all cores), Memory (used/free/cached), Network I/O (bytes in/out per second), Disk I/O (read/write per second). Backend: new `/api/system/stats` endpoint that returns a snapshot. Frontend polls every 2s, stores last 60 data points, renders as SVG line charts. GPU info if available (`system_profiler SPDisplaysDataType`)
+- [x] **CPU/MEM toggle** — in the process table, add a toggle button to switch between percentage (%) and absolute values (MB for memory, time for CPU). Column header clicks should sort by the displayed metric
+- [x] **Column sort/filter** — make process table columns sortable (click header to sort asc/desc). Add a column filter dropdown to show/hide columns
 
 ### T7 — Disk Info Fix + Enhancement
-- [ ] **Fix duplicate "/"** — the `getSystemDiskUsage()` function in `src/lib/server/operator.ts` likely returns both `/` and `/System/Volumes/Data` (macOS APFS quirk) which both report as mounted on `/`. Deduplicate by mount point, preferring the real root
-- [ ] **More disk info everywhere** — show filesystem type (APFS/ext4), device name, total inodes, read-only status. In the dashboard disk cards and the tasks page disk section
+
+- [x] **Fix duplicate "/"** — the `getSystemDiskUsage()` function in `src/lib/server/operator.ts` likely returns both `/` and `/System/Volumes/Data` (macOS APFS quirk) which both report as mounted on `/`. Deduplicate by mount point, preferring the real root
+- [x] **More disk info everywhere** — show filesystem type (APFS/ext4), device name, total inodes, read-only status. In the dashboard disk cards and the tasks page disk section
 
 ### T8 — Starring System (Universal)
-- [ ] **Generic star store** — create `$lib/stars.ts` with a localStorage-backed store that manages starred items by type (`process`, `file`, `bulb`, `backup`, `task`, `device`). API: `toggle(type, id)`, `isStarred(type, id)`, `getStarred(type)`
-- [ ] **Star animation** — when toggling star, add a brief scale+rotate CSS animation (keyframe: scale 1→1.3→1, rotate 0→15°→0, ~300ms). Use a shared `.star-btn` class
-- [ ] **Wire to all entity types** — add star buttons to: file rows, bulb cards, backup cards, task cards, tailscale device rows. Starred items sort to top in their respective lists
+
+- [x] **Generic star store** — create `$lib/stars.ts` with a localStorage-backed store that manages starred items by type (`process`, `file`, `bulb`, `backup`, `task`, `device`). API: `toggle(type, id)`, `isStarred(type, id)`, `getStarred(type)`
+- [x] **Star animation** — when toggling star, add a brief scale+rotate CSS animation (keyframe: scale 1→1.3→1, rotate 0→15°→0, ~300ms). Use a shared `.star-btn` class
+- [x] **Wire to all entity types** — add star buttons to: file rows, bulb cards, backup cards, task cards, tailscale device rows. Starred items sort to top in their respective lists
 
 ### T9 — Global Theme & Font Control
-- [ ] **Theme settings panel** — accessible from navbar (gear icon or settings page). Controls: accent color picker (preset swatches + custom hex), font size (12/14/16px), font family toggle (Inter / System / Mono), border radius scale (sharp/rounded/pill). Persist in localStorage under `hs:theme-config`, apply via CSS custom property overrides on `:root`
-- [ ] **Contrast mode** — optional high-contrast toggle that further bumps text brightness and border visibility
+
+- [x] **Theme settings panel** — accessible from navbar (gear icon or settings page). Controls: accent color picker (preset swatches + custom hex), font size (12/14/16px), font family toggle (Inter / System / Mono), border radius scale (sharp/rounded/pill). Persist in localStorage under `hs:theme-config`, apply via CSS custom property overrides on `:root`
+- [x] **Contrast mode** — optional high-contrast toggle that further bumps text brightness and border visibility
 
 ### T10 — Mobile Experience
-- [ ] **Drawer sidebar** — on mobile (<640px), the sidebar becomes a bottom drawer that slides up on tap. Show icons only in collapsed state, full labels when expanded. Swipe-down to dismiss
-- [ ] **Touch compatibility** — ensure all interactive elements have minimum 44px touch targets. Replace hover-dependent interactions with tap equivalents. Test: sliders, color pickers, table rows, template cards
-- [ ] **PWA setup** — create `manifest.json` (name, icons, theme_color, display: standalone), service worker for offline shell caching, add `<link rel="manifest">` to app.html. Register for push notifications via ntfy.sh (already integrated on backend). Add "Install App" prompt banner on mobile
+
+- [x] **Drawer sidebar** — on mobile (<640px), the sidebar becomes a bottom drawer that slides up on tap. Show icons only in collapsed state, full labels when expanded. Swipe-down to dismiss
+- [x] **Touch compatibility** — ensure all interactive elements have minimum 44px touch targets. Replace hover-dependent interactions with tap equivalents. Test: sliders, color pickers, table rows, template cards
+- [x] **PWA setup** — create `manifest.json` (name, icons, theme_color, display: standalone), service worker for offline shell caching, add `<link rel="manifest">` to app.html. Register for push notifications via ntfy.sh (already integrated on backend). Add "Install App" prompt banner on mobile
 
 ### T11 — Desktop App Experience
-- [ ] **Installable Chrome app** — manifest.json with `display: standalone` enables Chrome "Install" prompt. Add `beforeinstallprompt` handler to show a custom install banner
-- [ ] **Offline support** — service worker caches app shell (HTML/CSS/JS). API calls gracefully degrade with "offline" state indicators. Dashboard shows cached last-known values
+
+- [x] **Installable Chrome app** — manifest.json with `display: standalone` enables Chrome "Install" prompt. Add `beforeinstallprompt` handler to show a custom install banner
+- [x] **Offline support** — service worker caches app shell (HTML/CSS/JS). API calls gracefully degrade with "offline" state indicators. Dashboard shows cached last-known values
 
 ### T12 — Tailscale: More Device Info
-- [ ] **Extended device data** — backend: use `tailscale status --json` to get full device details (Tailscale version, created date, last seen, key expiry, is exit node, is relay, advertised routes, tags, user/login name). Frontend: show all fields in the expanded detail row. Add a "last seen" relative time and key expiry warning badge
+
+- [x] **Extended device data** — backend: use `tailscale status --json` to get full device details (Tailscale version, created date, last seen, key expiry, is exit node, is relay, advertised routes, tags, user/login name). Frontend: show all fields in the expanded detail row. Add a "last seen" relative time and key expiry warning badge
 
 ### T13 — Keeper: Agent Integration (Architecture)
 
 **Implementation Plan (Option A: Claude CLI Subprocess)**
 
 #### Phase 1: Status Flow Simplification
-- [ ] Replace 6-status flow with: `draft` → `ready` → `running` → `halted` → `done`
-- [ ] Update `src/lib/server/keeper.ts` types and `STATUS_FLOW` in the page
-- [ ] "Draft" = user composing, "Ready" = user approved for agent pickup
+
+- [x] Replace 6-status flow with: `draft` → `ready` → `running` → `halted` → `done`
+- [x] Update `src/lib/server/keeper.ts` types and `STATUS_FLOW` in the page
+- [x] "Draft" = user composing, "Ready" = user approved for agent pickup
 
 #### Phase 2: Agent Execution Engine (`src/lib/server/agent-runner.ts`)
-- [ ] New server module with: `startAgent(requestId)`, `stopAgent(requestId)`, `getAgentLog(requestId)`
-- [ ] On "ready" → user clicks "Start Agent": server spawns `claude -p "<task context>" --output-format stream-json` as a child process using `child_process.spawn`
-- [ ] Context file: generate a temporary `.md` file with the request's title, goal, details, and relevant codebase context (similar to AI chat's `getCodebaseContext()`)
-- [ ] Store active agents in a Map: `requestId → { process, logPath, startedAt }`
-- [ ] Pipe stdout/stderr to `~/.home-server/keeper-logs/{requestId}.log` (append mode)
-- [ ] Monitor process exit: on exit, check exit code, mark as `done` (success) or `halted` (error)
+
+- [x] New server module with: `startAgent(requestId)`, `stopAgent(requestId)`, `getAgentLog(requestId)`
+- [x] On "ready" → user clicks "Start Agent": server spawns `claude -p "<task context>" --output-format stream-json` as a child process using `child_process.spawn`
+- [x] Context file: generate a temporary `.md` file with the request's title, goal, details, and relevant codebase context (similar to AI chat's `getCodebaseContext()`)
+- [x] Store active agents in a Map: `requestId → { process, logPath, startedAt }`
+- [x] Pipe stdout/stderr to `~/.home-server/keeper-logs/{requestId}.log` (append mode)
+- [x] Monitor process exit: on exit, check exit code, mark as `done` (success) or `halted` (error)
 
 #### Phase 3: Live Log Streaming
-- [ ] New API: `GET /api/keeper/{id}/log` — returns the log file content (with `offset` param for polling)
-- [ ] New API: `POST /api/keeper/{id}/message` — appends user message to agent's stdin pipe
-- [ ] Keeper page: expanded card shows log output in a scrollable monospace container
-- [ ] Poll log every 1s while status is `running`, stop when `halted` or `done`
+
+- [x] New API: `GET /api/keeper/{id}/log` — returns the log file content (with `offset` param for polling)
+- [x] New API: `POST /api/keeper/{id}/message` — appends user message to agent's stdin pipe
+- [x] Keeper page: expanded card shows log output in a scrollable monospace container
+- [x] Poll log every 1s while status is `running`, stop when `halted` or `done`
 
 #### Phase 4: Resume & Chat
-- [ ] "Resume" button: spawns a NEW agent with the existing log as context prefix
-- [ ] User messages in the card input are sent via `/api/keeper/{id}/message` to stdin
-- [ ] Agent responses appear in the log stream
-- [ ] "Mark Done" button: kills process if running, sets status to `done`
+
+- [x] "Resume" button: spawns a NEW agent with the existing log as context prefix
+- [x] User messages in the card input are sent via `/api/keeper/{id}/message` to stdin
+- [x] Agent responses appear in the log stream
+- [x] "Mark Done" button: kills process if running, sets status to `done`
 
 #### Phase 5: UI Polish
-- [ ] Running tasks show a pulsing status badge with elapsed time
-- [ ] Completed tasks greyed out, hidden behind "Show completed" toggle
-- [ ] Log viewer with ANSI color rendering (use a lightweight ANSI→HTML converter)
+
+- [x] Running tasks show a pulsing status badge with elapsed time
+- [x] Completed tasks greyed out, hidden behind "Show completed" toggle
+- [x] Log viewer with ANSI color rendering (use a lightweight ANSI→HTML converter)
 
 **Key decisions:**
+
 - Use `claude` CLI (not API) so the agent has tool access (file read/write, bash)
 - Context file approach (not stdin piping) for initial prompt — more reliable
 - Log file as persistence layer — survives server restarts, easy to debug
 - Polling-based log view (not WebSocket) — simpler, adequate for 1s refresh
 
 ### T14 — Multi-Computer Support (Plan Required)
-- [ ] **Architecture plan** — design how the app manages multiple machines. Options: (A) Each machine runs its own Home Server instance, one acts as "hub" that proxies API calls to others via Tailscale IPs. (B) Single server with SSH-based remote execution (`ssh user@host command`). (C) Agent-based: lightweight agent on each machine that reports to the hub. Recommend option (A) with a device selector in the navbar that switches the API base URL
-- [ ] **Device selector in navbar** — dropdown showing Tailscale devices. Selecting a device sets a `targetHost` context. All API calls prefix with `http://{tailscaleIP}:5555` when remote. Local device is default
-- [ ] **Cross-device backups** — rsync over Tailscale SSH (`rsync -avz user@100.x.y.z:/path /local/dest`). Already partially designed in backup config (just needs remote source support)
+
+- [x] **Architecture plan** — design how the app manages multiple machines. Options: (A) Each machine runs its own Home Server instance, one acts as "hub" that proxies API calls to others via Tailscale IPs. (B) Single server with SSH-based remote execution (`ssh user@host command`). (C) Agent-based: lightweight agent on each machine that reports to the hub. Recommend option (A) with a device selector in the navbar that switches the API base URL
+- [x] **Device selector in navbar** — dropdown showing Tailscale devices. Selecting a device sets a `targetHost` context. All API calls prefix with `http://{tailscaleIP}:5555` when remote. Local device is default
+- [x] **Cross-device backups** — rsync over Tailscale SSH (`rsync -avz user@100.x.y.z:/path /local/dest`). Already partially designed in backup config (just needs remote source support)
 
 ### T15 — Animations Plan
-- [ ] **Page transitions** — enhance existing `fadeIn` with slide direction based on nav position (left→right when going deeper, right→left when going back). Use `navigating` store for direction detection
-- [ ] **Card enter animations** — stagger grid card appearances using `animation-delay` based on index (`i * 50ms`). Apply to dashboard, templates, bulb grid, file list
-- [ ] **Micro-interactions** — button press scale (0.97), toggle switches with spring easing, expanding rows with height transition (not just display toggle), toast slide-in from right, loading skeleton shimmer for async content
-- [ ] **Star animation** — scale+rotate burst on toggle (already specced in T8)
-- [ ] **Theme transition** — smooth cross-fade when toggling dark/light mode (currently instant via CSS transition on `background`/`color`, extend to all color properties)
-- [ ] **Loading states** — skeleton screens for pages that fetch data (processes, lights, tailscale). Show grey pulsing placeholder shapes matching the eventual layout
+
+- [x] **Page transitions** — enhance existing `fadeIn` with slide direction based on nav position (left→right when going deeper, right→left when going back). Use `navigating` store for direction detection
+- [x] **Card enter animations** — stagger grid card appearances using `animation-delay` based on index (`i * 50ms`). Apply to dashboard, templates, bulb grid, file list
+- [x] **Micro-interactions** — button press scale (0.97), toggle switches with spring easing, expanding rows with height transition (not just display toggle), toast slide-in from right, loading skeleton shimmer for async content
+- [x] **Star animation** — scale+rotate burst on toggle (already specced in T8)
+- [x] **Theme transition** — smooth cross-fade when toggling dark/light mode (currently instant via CSS transition on `background`/`color`, extend to all color properties)
+- [x] **Loading states** — skeleton screens for pages that fetch data (processes, lights, tailscale). Show grey pulsing placeholder shapes matching the eventual layout
 
 ### T19 — Media Server (Files Integration)
-- [ ] **Stream large video/audio** — add a `/api/files/stream/{filename}` endpoint that serves files with `Range` header support (HTTP 206 Partial Content) for seeking in browser `<video>` / `<audio>` players
-- [ ] **Media player modal** — in the file browser, clicking a video/audio file opens an in-browser player with seek, volume, playback speed, and fullscreen
-- [ ] **Thumbnail generation** — generate thumbnails for video files using `ffmpeg -i file.mp4 -ss 00:00:05 -vframes 1 thumb.jpg` (if ffmpeg is installed)
-- [ ] **Playlist support** — select multiple media files, create an auto-play queue
-- [ ] **VLC launch** — "Open in VLC" button that generates a `vlc://` protocol link for the file's HTTP stream URL (works if VLC is installed on the client)
-- [ ] **Cast/DLNA** — optional: discover DLNA renderers on the network and cast media to them
+
+- [x] **Stream large video/audio** — add a `/api/files/stream/{filename}` endpoint that serves files with `Range` header support (HTTP 206 Partial Content) for seeking in browser `<video>` / `<audio>` players
+- [x] **Media player modal** — in the file browser, clicking a video/audio file opens an in-browser player with seek, volume, playback speed, and fullscreen
+- [x] **Thumbnail generation** — generate thumbnails for video files using `ffmpeg -i file.mp4 -ss 00:00:05 -vframes 1 thumb.jpg` (if ffmpeg is installed)
+- [x] **Playlist support** — select multiple media files, create an auto-play queue
+- [x] **VLC launch** — "Open in VLC" button that generates a `vlc://` protocol link for the file's HTTP stream URL (works if VLC is installed on the client)
+- [x] **Cast/DLNA** — optional: discover DLNA renderers on the network and cast media to them
 
 ### T16 — Cross-Device Backup Enhancement
-- [ ] Backup diff preview — dry-run rsync (`rsync -avzn`) and show what would transfer before actually running
-- [ ] Cross-device source — allow backup source to be `user@tailscale-host:/path` for remote machines
+
+- [x] Backup diff preview — dry-run rsync (`rsync -avzn`) and show what would transfer before actually running
+- [x] Cross-device source — allow backup source to be `user@tailscale-host:/path` for remote machines
 
 ### T17 — AI Agent Chat (Floating)
-- [ ] Floating button (bottom-right) that opens a chat panel for talking to Claude about the codebase
-- [ ] Backend: `/api/ai/chat` endpoint that proxies to Anthropic API (or runs `claude` CLI)
-- [ ] Chat persists across page navigation (store in layout-level state)
-- [ ] Context-aware: include current page/widget info in system prompt
+
+- [x] Floating button (bottom-right) that opens a chat panel for talking to Claude about the codebase
+- [x] Backend: `/api/ai/chat` endpoint that proxies to Anthropic API (or runs `claude` CLI)
+- [x] Chat persists across page navigation (store in layout-level state)
+- [x] Context-aware: include current page/widget info in system prompt
 
 ### T18 — Homelab Features (Research-Based)
-- [ ] **Service Health Dashboard** — sidebar widget with online/offline indicators for configurable HTTP endpoints (internal services, databases, APIs). Configurable check interval + timeout. Alerts on state change
-- [ ] **Notification Center** — persistent event log aggregating: backup completions, task failures, process crashes, Tailscale events. Store in JSON, badge counter in navbar, filterable list view
-- [ ] **Docker/Container Management** — list, start, stop, restart containers via Docker API socket. View logs, resource usage. Only visible if Docker is installed
-- [ ] **Network Device Discovery** — ARP scan / mDNS to show all devices on local network with IP, hostname, MAC, vendor, response time. Periodic refresh, history tracking
-- [ ] **Uptime Monitoring** — track and chart uptime of the server itself + configured services. Show availability percentage over 24h/7d/30d. Simple ping-based checks
+
+- [x] **Service Health Dashboard** — sidebar widget with online/offline indicators for configurable HTTP endpoints (internal services, databases, APIs). Configurable check interval + timeout. Alerts on state change
+- [x] **Notification Center** — persistent event log aggregating: backup completions, task failures, process crashes, Tailscale events. Store in JSON, badge counter in navbar, filterable list view
+- [x] **Docker/Container Management** — list, start, stop, restart containers via Docker API socket. View logs, resource usage. Only visible if Docker is installed
+- [x] **Network Device Discovery** — ARP scan / mDNS to show all devices on local network with IP, hostname, MAC, vendor, response time. Periodic refresh, history tracking
+- [x] **Uptime Monitoring** — track and chart uptime of the server itself + configured services. Show availability percentage over 24h/7d/30d. Simple ping-based checks
 
 ### T20 — Task/Template Page Overhaul
-- [ ] **Template runner terminal** — when "Run" is clicked on a template, show a shared inline terminal below the template list displaying live output. Overwritten by next run. Closeable with ✕
-- [ ] **Template edit/delete** — custom templates show edit (pencil) and delete (✕) buttons. Edit opens the form pre-filled. Delete with confirm
-- [ ] **New Task form polish** — better visual hierarchy, consistent card layout, section headers, improved spacing to match the backup form redesign
-- [ ] **Button icons** — add Unicode/emoji icons to all buttons on the page (New Task, Templates, Refresh, Run, Delete, Save as Template)
-- [ ] **Task card icons** — status-specific icons next to task names (running spinner, checkmark, error, clock for scheduled)
-- [ ] **Task pagination** — paginate the task list (10 per page) with prev/next controls
-- [ ] **Animated transitions** — animate template panel show/hide (slide down), task filtering (layout shift), card enter/exit. Use Svelte `animate:flip` for list reordering and `transition:slide` for sections
+
+- [x] **Template runner terminal** — when "Run" is clicked on a template, show a shared inline terminal below the template list displaying live output. Overwritten by next run. Closeable with ✕
+- [x] **Template edit/delete** — custom templates show edit (pencil) and delete (✕) buttons. Edit opens the form pre-filled. Delete with confirm
+- [x] **New Task form polish** — better visual hierarchy, consistent card layout, section headers, improved spacing to match the backup form redesign
+- [x] **Button icons** — add Unicode/emoji icons to all buttons on the page (New Task, Templates, Refresh, Run, Delete, Save as Template)
+- [x] **Task card icons** — status-specific icons next to task names (running spinner, checkmark, error, clock for scheduled)
+- [x] **Task pagination** — paginate the task list (10 per page) with prev/next controls
+- [x] **Animated transitions** — animate template panel show/hide (slide down), task filtering (layout shift), card enter/exit. Use Svelte `animate:flip` for list reordering and `transition:slide` for sections
 
 ### T21 — New Fun Pages (Research)
-- [ ] **Speed Test** — run bandwidth tests (download/upload) against Cloudflare/fast.com, display results with gauges. History chart over time. Uses `curl` with timing
-- [ ] **Clipboard Sync** — share clipboard content across devices on the tailnet. Paste text/images on one device, copy on another. Uses a simple WebSocket + localStorage
-- [ ] **Screenshot Gallery** — auto-capture and browse screenshots from the server. Uses `screencapture` on macOS, stores in `~/.home-server/screenshots/`, gallery view with timestamps
-- [ ] **QR Code Generator** — generate QR codes for any URL, text, or WiFi credentials. Useful for sharing server URLs with phones. Pure JS (no dependencies)
-- [ ] **Bookmark Manager** — save and organize links with tags, descriptions, and favicons. Search/filter. Export as HTML bookmarks. Stored in JSON
-- [ ] **Kanban Board** — simple drag-and-drop kanban for personal project tracking. Columns: Todo, Doing, Done. Cards with title, color labels, due dates
-- [ ] **Wake-on-LAN** — send magic packets to wake sleeping machines on the network. Configure MAC addresses for each device. One-click wake button
-- [ ] **DNS Lookup Tool** — interactive dig/nslookup with visual record display (A, AAAA, MX, CNAME, TXT). Compare across DNS providers (Google, Cloudflare, ISP)
-- [ ] **Port Scanner** — scan a target IP for open ports with service detection. Uses `nc` or `nmap` if installed. Visual port map
-- [ ] **System Benchmarks** — run CPU (sysbench), disk (dd), memory, and network benchmarks. Store results, compare over time. Good for detecting degradation
+
+- [x] **Speed Test** — run bandwidth tests (download/upload) against Cloudflare/fast.com, display results with gauges. History chart over time. Uses `curl` with timing
+- [x] **Clipboard Sync** — share clipboard content across devices on the tailnet. Paste text/images on one device, copy on another. Uses a simple WebSocket + localStorage
+- [x] **Screenshot Gallery** — auto-capture and browse screenshots from the server. Uses `screencapture` on macOS, stores in `~/.home-server/screenshots/`, gallery view with timestamps
+- [x] **QR Code Generator** — generate QR codes for any URL, text, or WiFi credentials. Useful for sharing server URLs with phones. Pure JS (no dependencies)
+- [x] **Bookmark Manager** — save and organize links with tags, descriptions, and favicons. Search/filter. Export as HTML bookmarks. Stored in JSON
+- [x] **Kanban Board** — simple drag-and-drop kanban for personal project tracking. Columns: Todo, Doing, Done. Cards with title, color labels, due dates
+- [x] **Wake-on-LAN** — send magic packets to wake sleeping machines on the network. Configure MAC addresses for each device. One-click wake button
+- [x] **DNS Lookup Tool** — interactive dig/nslookup with visual record display (A, AAAA, MX, CNAME, TXT). Compare across DNS providers (Google, Cloudflare, ISP)
+- [x] **Port Scanner** — scan a target IP for open ports with service detection. Uses `nc` or `nmap` if installed. Visual port map
+- [x] **System Benchmarks** — run CPU (sysbench), disk (dd), memory, and network benchmarks. Store results, compare over time. Good for detecting degradation
 
 ### T22 — Security / Network Tools (Hackerman Mode)
-- [ ] **WiFi Scanner** — scan nearby WiFi networks showing SSID, BSSID, channel, signal strength (dBm), encryption type, vendor. Uses `airport -s` on macOS, `nmcli dev wifi list` on Linux. Sortable table with signal strength bars. Highlight open networks in red. Auto-refresh toggle. Option to deauth-detect (monitor for sudden signal drops)
-- [ ] **Packet Sniffer** — capture and display live network packets in a scrollable log. Uses `tcpdump` with configurable interface, filter expression (e.g. `port 80`, `host 192.168.1.1`), and packet count limit. Show: timestamp, src→dst, protocol, size, payload preview (hex + ASCII). Start/stop capture button. Export as `.pcap`. Requires sudo — show permission prompt
-- [ ] **Network Toolkit** — collection of networking tools in one page:
+
+- [x] **WiFi Scanner** — scan nearby WiFi networks showing SSID, BSSID, channel, signal strength (dBm), encryption type, vendor. Uses `airport -s` on macOS, `nmcli dev wifi list` on Linux. Sortable table with signal strength bars. Highlight open networks in red. Auto-refresh toggle. Option to deauth-detect (monitor for sudden signal drops)
+- [x] **Packet Sniffer** — capture and display live network packets in a scrollable log. Uses `tcpdump` with configurable interface, filter expression (e.g. `port 80`, `host 192.168.1.1`), and packet count limit. Show: timestamp, src→dst, protocol, size, payload preview (hex + ASCII). Start/stop capture button. Export as `.pcap`. Requires sudo — show permission prompt
+- [x] **Network Toolkit** — collection of networking tools in one page:
   - **Traceroute** — visual hop-by-hop path to any host with latency per hop (uses `traceroute` / `mtr`)
   - **Ping Sweep** — scan a subnet (e.g. 192.168.1.0/24) for live hosts with response times
   - **ARP Table** — show all known MAC↔IP mappings from `arp -a`, with vendor lookup
@@ -450,30 +503,34 @@ See [docs/claude-keeper.md](docs/claude-keeper.md) for full planning document.
   - **HTTP Header Inspector** — enter a URL, show all request/response headers with timing breakdown
 
 ### T23 — AI Chat Polish
-- [ ] **Rename conversations** — double-click title in history/sidebar to rename. Persist to localStorage
-- [ ] **Animated FAB button** — replace plain "AI" text with an animated gradient icon (purple→blue shimmer, or a Claude-style logo SVG with subtle pulse animation). Professional but eye-catching
-- [ ] **UI improvements** — better message bubbles (rounded, subtle shadow), typing indicator animation (3 bouncing dots), code block syntax highlighting in responses, copy button per message
+
+- [x] **Rename conversations** — double-click title in history/sidebar to rename. Persist to localStorage
+- [x] **Animated FAB button** — replace plain "AI" text with an animated gradient icon (purple→blue shimmer, or a Claude-style logo SVG with subtle pulse animation). Professional but eye-catching
+- [x] **UI improvements** — better message bubbles (rounded, subtle shadow), typing indicator animation (3 bouncing dots), code block syntax highlighting in responses, copy button per message
 
 ### T24 — Navbar Enhancements
-- [ ] **Custom theme dropdown** — replace native `<select>` with a custom dropdown component showing theme name + 4 color swatches (bg, accent, text, border) per option. Smooth open/close animation. Better performance than re-rendering native select
-- [ ] **Font picker dropdown** — new dropdown next to theme selector with three sections: Header font, Body font, Monospace font. List system fonts from `document.fonts` API or hardcoded common ones. Group by type (sans-serif, serif, monospace, display). Preview each font in its own typeface. Persist to localStorage, apply via CSS var overrides on `:root`
-- [ ] **System monitor expanded controls** — for each stat (CPU, MEM, Load, Disk), allow toggling between: load average, absolute value, percentage. Dropdown per metric type
-- [ ] **More system info types** — add to navbar stats: disk I/O, network throughput, swap usage, process count, open file descriptors, TCP connections count. Show as expandable chips
-- [ ] **Muted stat colors** — reduce navbar stat color saturation/opacity further (opacity: 0.7), make them pop only on hover (opacity: 1 on hover with transition)
+
+- [x] **Custom theme dropdown** — replace native `<select>` with a custom dropdown component showing theme name + 4 color swatches (bg, accent, text, border) per option. Smooth open/close animation. Better performance than re-rendering native select
+- [x] **Font picker dropdown** — new dropdown next to theme selector with three sections: Header font, Body font, Monospace font. List system fonts from `document.fonts` API or hardcoded common ones. Group by type (sans-serif, serif, monospace, display). Preview each font in its own typeface. Persist to localStorage, apply via CSS var overrides on `:root`
+- [x] **System monitor expanded controls** — for each stat (CPU, MEM, Load, Disk), allow toggling between: load average, absolute value, percentage. Dropdown per metric type
+- [x] **More system info types** — add to navbar stats: disk I/O, network throughput, swap usage, process count, open file descriptors, TCP connections count. Show as expandable chips
+- [x] **Muted stat colors** — reduce navbar stat color saturation/opacity further (opacity: 0.7), make them pop only on hover (opacity: 1 on hover with transition)
 
 ### T25 — App-Wide Polish
-- [ ] **Dashboard animations** — auto-refresh system stats every 30s with smooth number transitions (counter animation), card entrance stagger on load, pulse on status change
-- [ ] **Dashboard live refresh** — poll `/api/system` and dashboard data periodically, update stat values with CSS counter transitions instead of hard-swapping text
-- [ ] **Toast UI v3** — research Sonner (shadcn), react-hot-toast, Vercel's toast design. Implement: stacked toasts with offset, richer content (title + description), action buttons, swipe-to-dismiss on mobile, dark shadow depth
-- [ ] **Smart lights cache** — on first load, store bulb data in `sessionStorage`. On page revisit, immediately render cached data, then refresh in background and merge (already uses `mergeBulbs` — just add the cache layer)
+
+- [x] **Dashboard animations** — auto-refresh system stats every 30s with smooth number transitions (counter animation), card entrance stagger on load, pulse on status change
+- [x] **Dashboard live refresh** — poll `/api/system` and dashboard data periodically, update stat values with CSS counter transitions instead of hard-swapping text
+- [x] **Toast UI v3** — research Sonner (shadcn), react-hot-toast, Vercel's toast design. Implement: stacked toasts with offset, richer content (title + description), action buttons, swipe-to-dismiss on mobile, dark shadow depth
+- [x] **Smart lights cache** — on first load, store bulb data in `sessionStorage`. On page revisit, immediately render cached data, then refresh in background and merge (already uses `mergeBulbs` — just add the cache layer)
 
 ### T26 — Documentation Sprint
-- [ ] **Page-by-page documentation** — for every page in the app, write a `docs/pages/{page-name}.md` with:
+
+- [x] **Page-by-page documentation** — for every page in the app, write a `docs/pages/{page-name}.md` with:
   - Feature overview
   - How it works (data flow: page → API → server module)
   - Caveats and known issues
   - Keyboard shortcuts (if any)
   - Changelog of major changes
-- [ ] Pages to document (in order): Dashboard, Files, Lights, Processes, Tailscale, Backups, Tasks, Keeper, Terminal, Docs, Showcase
-- [ ] **Planned features doc** — `docs/roadmap.md` summarizing T1-T26 with status indicators
-- [ ] Auto-include new docs in the `/docs` page viewer
+- [x] Pages to document (in order): Dashboard, Files, Lights, Processes, Tailscale, Backups, Tasks, Keeper, Terminal, Docs, Showcase
+- [x] **Planned features doc** — `docs/roadmap.md` summarizing T1-T26 with status indicators
+- [x] Auto-include new docs in the `/docs` page viewer
