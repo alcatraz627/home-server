@@ -473,7 +473,8 @@
 </script>
 
 <div class="page">
-  <h1>QR Code Generator</h1>
+  <h2 class="page-title">QR Code Generator</h2>
+  <p class="page-desc">Generate QR codes from text, URLs, or WiFi credentials. Download as PNG or share directly.</p>
 
   <div class="layout">
     <div class="controls card">

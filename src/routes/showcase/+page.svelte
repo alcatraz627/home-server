@@ -59,7 +59,7 @@
 </svelte:head>
 
 <h2 class="page-title">UI Showcase</h2>
-<p class="page-subtitle">Design system reference — colors, type, components, and interactions.</p>
+<p class="page-desc">Design system reference — colors, type, components, and interactions.</p>
 
 <!-- ════════════════════════════ 1. COLOR PALETTE ══════════════════════════ -->
 <section class="section">

@@ -1652,7 +1652,7 @@
 </svelte:head>
 
 <div class="header">
-  <h2>
+  <h2 class="page-title">
     Operator Tasks{#if scheduledCount > 0}
       <span class="scheduled-count">({scheduledCount} scheduled)</span>{/if}
   </h2>
@@ -1681,6 +1681,9 @@
     </button>
   </div>
 </div>
+<p class="page-desc">
+  Schedule, monitor, and manage shell tasks with cron support, templates, and live output streaming.
+</p>
 
 <!-- Disk usage -->
 {#if disk.length > 0}

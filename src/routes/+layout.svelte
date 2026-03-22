@@ -406,11 +406,19 @@
             </div>
             <div class="dropdown-section">
               <span class="dropdown-label">Visible stats</span>
-              <div class="dropdown-options">
+              <div class="dropdown-stats-list">
                 {#each ALL_STATS as s}
-                  <button class:selected={isStatVisible(s.key)} onclick={() => toggleStatVisibility(s.key)}
-                    >{s.label}</button
-                  >
+                  <label class="stat-toggle-item">
+                    <input
+                      type="checkbox"
+                      checked={isStatVisible(s.key)}
+                      onchange={() => toggleStatVisibility(s.key)}
+                    />
+                    <span class="stat-toggle-text">
+                      <span class="stat-toggle-label">{s.label}</span>
+                      <span class="stat-toggle-desc">{s.desc}</span>
+                    </span>
+                  </label>
                 {/each}
               </div>
             </div>
@@ -803,6 +811,42 @@
     background: var(--accent-bg);
     border-color: var(--accent);
     color: var(--accent);
+  }
+
+  .dropdown-stats-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .stat-toggle-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    cursor: pointer;
+    padding: 2px 0;
+  }
+
+  .stat-toggle-item input[type='checkbox'] {
+    accent-color: var(--accent);
+    margin-top: 2px;
+  }
+
+  .stat-toggle-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .stat-toggle-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+  }
+
+  .stat-toggle-desc {
+    font-size: 0.6rem;
+    color: var(--text-faint);
+    line-height: 1.3;
   }
 
   /* ── Theme indicator ────────────────────────────────────────────────────────── */

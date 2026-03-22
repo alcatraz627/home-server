@@ -107,11 +107,12 @@
 </svelte:head>
 
 <div class="header">
-  <h2>Tailscale Devices</h2>
+  <h2 class="page-title">Tailscale Devices</h2>
   <button class="btn" onclick={refresh} disabled={refreshing}>
     {refreshing ? 'Refreshing...' : 'Refresh'}
   </button>
 </div>
+<p class="page-desc">Monitor your Tailscale mesh network. See connected devices, IPs, and connection status.</p>
 
 {#if error}
   <p class="error">{error}</p>

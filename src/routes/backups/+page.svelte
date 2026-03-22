@@ -314,7 +314,7 @@
 </svelte:head>
 
 <div class="header">
-  <h2>Backups</h2>
+  <h2 class="page-title">Backups</h2>
   <div class="controls">
     <button class="btn" onclick={refresh}>Refresh</button>
     <button class="btn" onclick={() => (showForm ? cancelForm() : openNewForm())}>
@@ -322,6 +322,9 @@
     </button>
   </div>
 </div>
+<p class="page-desc">
+  Manage your rsync backup configurations. Create, edit, or trigger backups with live progress tracking.
+</p>
 
 {#if !rsyncAvailable}
   <div class="warning">rsync is not installed. Backups require rsync to be available on this machine.</div>

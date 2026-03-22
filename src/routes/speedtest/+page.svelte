@@ -160,8 +160,10 @@
 </script>
 
 <div class="page">
-  <h1>Speed Test</h1>
-  <p class="subtitle">Measures throughput between your browser and this server (LAN speed)</p>
+  <h2 class="page-title">Speed Test</h2>
+  <p class="page-desc">
+    Measure LAN throughput between your browser and this server. Tests latency, download, and upload speeds.
+  </p>
 
   <div class="phases-info card">
     <div class="phase-step">

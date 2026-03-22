@@ -460,7 +460,7 @@
 </svelte:head>
 
 <div class="header">
-  <h2>Claude Keeper</h2>
+  <h2 class="page-title">Claude Keeper</h2>
   <div class="controls">
     <label class="toggle-completed">
       <input type="checkbox" bind:checked={showCompleted} />
@@ -478,6 +478,7 @@
     </button>
   </div>
 </div>
+<p class="page-desc">Queue and track Claude AI agent requests. Monitor progress from backlog through completion.</p>
 
 <!-- Stats bar -->
 <div class="stats-bar">

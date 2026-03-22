@@ -512,7 +512,7 @@
 </svelte:head>
 
 <div class="header">
-  <h2>Smart Lights</h2>
+  <h2 class="page-title">Smart Lights</h2>
   {#if bulbs.length > 0}
     <span class="bulb-count">{bulbs.length} {bulbs.length === 1 ? 'Bulb' : 'Bulbs'} Online</span>
   {/if}
@@ -531,6 +531,9 @@
     </button>
   </div>
 </div>
+<p class="page-desc">
+  Discover and control smart bulbs on your network. Adjust brightness, color temperature, and scenes.
+</p>
 
 <!-- Quick Presets -->
 {#if bulbs.length > 0}

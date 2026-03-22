@@ -594,12 +594,13 @@
 </svelte:head>
 
 <div class="page-header">
-  <h2>Files</h2>
+  <h2 class="page-title">Files</h2>
   <div class="page-actions">
     <button class="btn btn-sm" onclick={() => (showNewDir = !showNewDir)}>New Folder</button>
     <span class="file-count">{filtered.length} of {files.length} items</span>
   </div>
 </div>
+<p class="page-desc">Browse, upload, and manage files on your server. Star files for quick dashboard access.</p>
 
 <!-- Editable path bar -->
 <nav class="path-bar">

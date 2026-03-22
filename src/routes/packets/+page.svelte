@@ -164,7 +164,7 @@
 </svelte:head>
 
 <div class="header">
-  <h2>Packet Sniffer</h2>
+  <h2 class="page-title">Packet Sniffer</h2>
   <div class="header-actions">
     {#if capturing}
       <span class="live-dot"></span>
@@ -172,6 +172,7 @@
     {/if}
   </div>
 </div>
+<p class="page-desc">Capture and inspect network packets in real time. Filter by interface, protocol, and port.</p>
 
 <div class="card sudo-warning">
   <strong>Note:</strong> Packet capture typically requires root/sudo privileges. If capture fails, run the server with elevated

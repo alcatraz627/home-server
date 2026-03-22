@@ -142,7 +142,8 @@
 </script>
 
 <div class="page">
-  <h1>Kanban Board</h1>
+  <h2 class="page-title">Kanban Board</h2>
+  <p class="page-desc">Organize tasks visually with drag-and-drop cards across customizable columns.</p>
 
   <div class="board">
     {#each COLUMNS as col}

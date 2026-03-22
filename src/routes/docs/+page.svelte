@@ -78,7 +78,7 @@
 
 <div class="docs-page">
   <div class="docs-header">
-    <h2>Documentation</h2>
+    <h2 class="page-title">Documentation</h2>
     <input
       class="search-input"
       type="text"
@@ -87,6 +87,9 @@
       aria-label="Search documentation files"
     />
   </div>
+  <p class="page-desc">
+    Browse project documentation files organized by category. Search and expand sections to read inline.
+  </p>
 
   {#if filteredCategories.length === 0}
     <p class="empty">No files match your search.</p>

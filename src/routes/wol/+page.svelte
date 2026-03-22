@@ -134,7 +134,7 @@
 
 <div class="page">
   <div class="header">
-    <h1>Wake-on-LAN</h1>
+    <h2 class="page-title">Wake-on-LAN</h2>
     <button
       class="btn-primary"
       onclick={() => {
@@ -143,6 +143,9 @@
       }}>Add Device</button
     >
   </div>
+  <p class="page-desc">
+    Wake devices on your network by sending magic packets. Manage saved devices and check online status.
+  </p>
 
   {#if showForm}
     <div class="card form-card">

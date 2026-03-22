@@ -122,11 +122,12 @@
 
 <div class="page">
   <div class="header">
-    <h1>System Benchmarks</h1>
+    <h2 class="page-title">System Benchmarks</h2>
     <button class="btn-primary" onclick={runAll} disabled={running}>
       {running ? 'Running...' : 'Run Benchmarks'}
     </button>
   </div>
+  <p class="page-desc">Run CPU, memory, and disk benchmarks. Compare results over time to track server performance.</p>
 
   {#if running}
     <div class="card progress-card">

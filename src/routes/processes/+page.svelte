@@ -592,7 +592,7 @@
 {/if}
 
 <div class="header">
-  <h2>Process Manager</h2>
+  <h2 class="page-title">Process Manager</h2>
   <div class="controls">
     <input type="text" placeholder="Filter..." bind:value={filter} class="filter-input" />
     <div class="view-toggle">
@@ -614,6 +614,7 @@
     </div>
   </div>
 </div>
+<p class="page-desc">View, filter, and manage running processes. Kill or signal processes in list or tree view.</p>
 
 <div class="process-list">
   <div class="process-header">

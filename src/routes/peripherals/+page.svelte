@@ -179,11 +179,14 @@
 </svelte:head>
 
 <div class="header">
-  <h2>Peripherals</h2>
+  <h2 class="page-title">Peripherals</h2>
   <button class="btn" onclick={refresh} disabled={loading}>
     {loading ? 'Scanning...' : 'Refresh'}
   </button>
 </div>
+<p class="page-desc">
+  Scan and inspect connected peripherals including WiFi adapters, Bluetooth devices, and USB hardware.
+</p>
 
 <!-- Tabs -->
 <div class="tabs">

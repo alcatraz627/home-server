@@ -207,6 +207,9 @@
 </script>
 
 <div class="page">
+  <h2 class="page-title">Clipboard</h2>
+  <p class="page-desc">Share text and content between devices on your network. Entries sync automatically.</p>
+
   <!-- Device identity card -->
   <div class="device-card card">
     <div class="device-top">

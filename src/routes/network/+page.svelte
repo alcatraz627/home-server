@@ -344,8 +344,9 @@
 </svelte:head>
 
 <div class="header">
-  <h2>Network Toolkit</h2>
+  <h2 class="page-title">Network Toolkit</h2>
 </div>
+<p class="page-desc">Run traceroute, ping, whois, and other network diagnostic tools from your server.</p>
 
 <div class="tab-bar">
   {#each tabs as tab (tab.id)}

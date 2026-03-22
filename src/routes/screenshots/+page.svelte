@@ -76,11 +76,12 @@
 
 <div class="page">
   <div class="header">
-    <h1>Screenshots</h1>
+    <h2 class="page-title">Screenshots</h2>
     <button class="btn-primary" onclick={capture} disabled={capturing}>
       {capturing ? 'Capturing...' : 'Take Screenshot'}
     </button>
   </div>
+  <p class="page-desc">Capture and browse server screenshots. View full-size images or delete old captures.</p>
 
   {#if screenshots.length === 0}
     <div class="card empty">

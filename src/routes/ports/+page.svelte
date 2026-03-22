@@ -56,7 +56,8 @@
 </script>
 
 <div class="page">
-  <h1>Port Scanner</h1>
+  <h2 class="page-title">Port Scanner</h2>
+  <p class="page-desc">Scan open ports on any host. Choose common ports or specify a custom range.</p>
 
   <div class="card config-card">
     <div class="form-row">

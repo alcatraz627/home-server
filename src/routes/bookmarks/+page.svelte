@@ -157,7 +157,7 @@
 
 <div class="page">
   <div class="header">
-    <h1>Bookmarks</h1>
+    <h2 class="page-title">Bookmarks</h2>
     <div class="header-actions">
       <button
         class="btn-primary"
@@ -169,6 +169,7 @@
       <button class="btn-secondary" onclick={exportHTML}>Export HTML</button>
     </div>
   </div>
+  <p class="page-desc">Save and organize your bookmarks with tags. Search, edit, and export as HTML.</p>
 
   {#if showForm}
     <div class="card form-card">

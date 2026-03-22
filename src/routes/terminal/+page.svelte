@@ -300,6 +300,8 @@
 </svelte:head>
 
 <div class="terminal-page">
+  <h2 class="page-title">Terminal</h2>
+  <p class="page-desc">Interactive shell sessions with tabbed terminals, font controls, and persistent sessions.</p>
   <div class="terminal-header">
     <div class="tab-bar">
       <!-- svelte-ignore a11y_click_events_have_key_events -->

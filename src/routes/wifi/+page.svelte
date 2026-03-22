@@ -122,7 +122,7 @@
 </svelte:head>
 
 <div class="header">
-  <h2>WiFi Scanner</h2>
+  <h2 class="page-title">WiFi Scanner</h2>
   <div class="header-actions">
     <label class="auto-toggle">
       <input type="checkbox" checked={autoRefresh} onchange={toggleAutoRefresh} />
@@ -133,6 +133,7 @@
     </button>
   </div>
 </div>
+<p class="page-desc">Scan nearby WiFi networks. View signal strength, channels, and encryption details.</p>
 
 {#if current}
   <div class="card current-info">

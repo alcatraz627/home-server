@@ -82,7 +82,8 @@
 </script>
 
 <div class="page">
-  <h1>DNS Lookup</h1>
+  <h2 class="page-title">DNS Lookup</h2>
+  <p class="page-desc">Query DNS records for any domain. Supports A, AAAA, MX, CNAME, TXT, NS, and more.</p>
 
   <div class="card query-card">
     <div class="query-row">
