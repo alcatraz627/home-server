@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { errorMessage } from '$lib/server/errors';
 import fs from 'node:fs/promises';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -131,10 +132,11 @@ export async function checkService(
     const responseTime = Date.now() - start;
     clearTimeout(timer);
     return { status: res.status, responseTime };
-  } catch (err: any) {
+  } catch (err: unknown) {
     const responseTime = Date.now() - start;
     clearTimeout(timer);
-    const error = err.name === 'AbortError' ? 'Timeout' : err.message || 'Connection failed';
+    const error =
+      err instanceof Error && err.name === 'AbortError' ? 'Timeout' : errorMessage(err, 'Connection failed');
     return { status: null, responseTime, error };
   }
 }
@@ -174,8 +176,8 @@ export async function checkAllServices(): Promise<void> {
   for (const svc of services) {
     try {
       await checkAndRecord(svc.id);
-    } catch (err: any) {
-      log.error('Failed to check service', { id: svc.id, error: err.message });
+    } catch (err: unknown) {
+      log.error('Failed to check service', { id: svc.id, error: errorMessage(err) });
     }
   }
 }

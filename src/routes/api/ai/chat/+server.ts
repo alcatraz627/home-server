@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { errorMessage, errorCode } from '$lib/server/errors';
 import { env } from '$env/dynamic/private';
 import fs from 'fs';
 import path from 'path';
@@ -130,7 +131,7 @@ export const POST: RequestHandler = async ({ request }) => {
     const reply = data.content?.[0]?.text || 'No response';
 
     return json({ reply });
-  } catch (e: any) {
-    return json({ reply: `Error: ${e.message}` }, { status: 200 });
+  } catch (e: unknown) {
+    return json({ reply: `Error: ${errorMessage(e)}` }, { status: 200 });
   }
 };

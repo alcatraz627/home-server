@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { errorMessage, errorCode } from '$lib/server/errors';
 import type { RequestHandler } from './$types';
 import { execSync, exec, spawnSync } from 'child_process';
 import os from 'os';
@@ -325,8 +326,8 @@ function runTraceroute(target: string): { hops: TracerouteHop[]; raw: string } {
     }
 
     return { hops, raw: output };
-  } catch (e: any) {
-    return { hops: [], raw: e.message || 'Traceroute failed' };
+  } catch (e: unknown) {
+    return { hops: [], raw: errorMessage(e) || 'Traceroute failed' };
   }
 }
 
@@ -335,8 +336,8 @@ function runWhois(target: string): string {
   try {
     const result = spawnSync('whois', [target], { timeout: 15000, encoding: 'utf-8' });
     return (result.stdout || '') + (result.stderr || '') || 'No whois data';
-  } catch (e: any) {
-    return e.message || 'Whois lookup failed';
+  } catch (e: unknown) {
+    return errorMessage(e) || 'Whois lookup failed';
   }
 }
 
@@ -450,8 +451,8 @@ function inspectSSLCert(domain: string): SSLCertInfo | string {
     const isExpired = daysRemaining < 0;
 
     return { subject, issuer, validFrom, validTo, sans, serial, signatureAlgo, isExpired, daysRemaining };
-  } catch (e: any) {
-    return `SSL inspection failed: ${e.message}`;
+  } catch (e: unknown) {
+    return `SSL inspection failed: ${errorMessage(e)}`;
   }
 }
 
@@ -549,8 +550,8 @@ async function inspectHttpHeaders(url: string): Promise<HttpInspection | string>
       headers,
       timing: { total },
     };
-  } catch (e: any) {
-    return `HTTP inspection failed: ${e.message}`;
+  } catch (e: unknown) {
+    return `HTTP inspection failed: ${errorMessage(e)}`;
   }
 }
 

@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { errorMessage, errorCode } from '$lib/server/errors';
 import { getServiceStatuses, addService, removeService, checkAndRecord, checkAllServices } from '$lib/server/services';
 import type { RequestHandler } from './$types';
 
@@ -34,8 +35,8 @@ export const POST: RequestHandler = async ({ request }) => {
       try {
         const check = await checkAndRecord(body.id);
         return json(check);
-      } catch (err: any) {
-        return json({ error: err.message }, { status: 400 });
+      } catch (err: unknown) {
+        return json({ error: errorMessage(err) }, { status: 400 });
       }
     }
     await checkAllServices();

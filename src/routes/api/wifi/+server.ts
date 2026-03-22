@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { errorMessage, errorCode } from '$lib/server/errors';
 import type { RequestHandler } from './$types';
 import { execSync } from 'child_process';
 import os from 'os';
@@ -335,8 +336,8 @@ export const GET: RequestHandler = async () => {
       }).toString();
       networks = parseLinuxNmcli(output);
     }
-  } catch (e: any) {
-    error = `WiFi scan failed: ${e.message || 'Unknown error'}`;
+  } catch (e: unknown) {
+    error = `WiFi scan failed: ${errorMessage(e) || 'Unknown error'}`;
   }
 
   const current = getCurrentConnection();

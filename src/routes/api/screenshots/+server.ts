@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { errorMessage, errorCode } from '$lib/server/errors';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -161,8 +162,8 @@ export const POST: RequestHandler = async ({ request }) => {
         },
         { status: 201 },
       );
-    } catch (err: any) {
-      return json({ error: `Capture failed: ${err.message}` }, { status: 500 });
+    } catch (err: unknown) {
+      return json({ error: `Capture failed: ${errorMessage(err)}` }, { status: 500 });
     }
   }
 

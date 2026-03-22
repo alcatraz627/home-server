@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { errorMessage, errorCode } from '$lib/server/errors';
 import dns from 'node:dns';
 import { promisify } from 'node:util';
 import type { RequestHandler } from './$types';
@@ -39,8 +40,8 @@ async function resolveRecord(domain: string, type: string): Promise<any[]> {
       default:
         return [];
     }
-  } catch (err: any) {
-    return [`Error: ${err.code || err.message}`];
+  } catch (err: unknown) {
+    return [`Error: ${errorCode(err) || errorMessage(err)}`];
   }
 }
 
@@ -95,8 +96,8 @@ async function resolveWithDNS(
       default:
         records = [];
     }
-  } catch (err: any) {
-    records = [`Error: ${err.code || err.message}`];
+  } catch (err: unknown) {
+    records = [`Error: ${errorCode(err) || errorMessage(err)}`];
   }
 
   const time = Math.round(performance.now() - start);

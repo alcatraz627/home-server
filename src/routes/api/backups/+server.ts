@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { errorMessage, errorCode } from '$lib/server/errors';
 import { json } from '@sveltejs/kit';
 import {
   getBackupStatuses,
@@ -39,8 +40,8 @@ export const PUT: RequestHandler = async ({ request }) => {
   try {
     const run = await runBackup(configId);
     return json(run);
-  } catch (err: any) {
-    return json({ error: err.message }, { status: 400 });
+  } catch (err: unknown) {
+    return json({ error: errorMessage(err) }, { status: 400 });
   }
 };
 

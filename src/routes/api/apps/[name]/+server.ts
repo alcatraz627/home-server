@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { errorMessage, errorCode } from '$lib/server/errors';
 import type { RequestHandler } from './$types';
 import { execSync } from 'node:child_process';
 import os from 'node:os';
@@ -143,7 +144,7 @@ export const GET: RequestHandler = async ({ params }) => {
     };
 
     return json(detail);
-  } catch (e: any) {
-    return json({ error: e.message || 'Failed to get app details' }, { status: 500 });
+  } catch (e: unknown) {
+    return json({ error: errorMessage(e) || 'Failed to get app details' }, { status: 500 });
   }
 };

@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { errorMessage, errorCode } from '$lib/server/errors';
 import { dryRunBackup } from '$lib/server/backups';
 import type { RequestHandler } from './$types';
 
@@ -8,7 +9,7 @@ export const POST: RequestHandler = async ({ request }) => {
   try {
     const result = await dryRunBackup(configId);
     return json(result);
-  } catch (err: any) {
-    return json({ error: err.message }, { status: 400 });
+  } catch (err: unknown) {
+    return json({ error: errorMessage(err) }, { status: 400 });
   }
 };

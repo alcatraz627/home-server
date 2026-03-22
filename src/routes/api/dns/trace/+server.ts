@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { errorMessage, errorCode } from '$lib/server/errors';
 import { json } from '@sveltejs/kit';
 import { execSync } from 'node:child_process';
 import os from 'node:os';
@@ -170,7 +171,7 @@ export const POST: RequestHandler = async ({ request }) => {
       raw: traceOutput,
       hopCount: hops.length,
     });
-  } catch (e: any) {
-    return json({ error: e.message || 'DNS trace failed' }, { status: 500 });
+  } catch (e: unknown) {
+    return json({ error: errorMessage(e) || 'DNS trace failed' }, { status: 500 });
   }
 };

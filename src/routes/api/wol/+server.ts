@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { errorMessage, errorCode } from '$lib/server/errors';
 import { json } from '@sveltejs/kit';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -55,8 +56,8 @@ export const POST: RequestHandler = async ({ request }) => {
     try {
       await sendMagicPacket(body.mac);
       return json({ ok: true, message: `Magic packet sent to ${body.mac}` });
-    } catch (err: any) {
-      return json({ error: err.message }, { status: 500 });
+    } catch (err: unknown) {
+      return json({ error: errorMessage(err) }, { status: 500 });
     }
   }
 

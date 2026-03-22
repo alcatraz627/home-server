@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { errorMessage, errorCode } from '$lib/server/errors';
 import type { RequestHandler } from './$types';
 
 /**
@@ -77,8 +78,8 @@ export const GET: RequestHandler = async ({ url, fetch: serverFetch }) => {
         ok: res.ok,
         contentType: res.headers.get('content-type'),
       });
-    } catch (e: any) {
-      return json({ page: targetPage, status: 500, ok: false, error: e.message });
+    } catch (e: unknown) {
+      return json({ page: targetPage, status: 500, ok: false, error: errorMessage(e) });
     }
   }
 
@@ -95,13 +96,13 @@ export const GET: RequestHandler = async ({ url, fetch: serverFetch }) => {
         ok: res.ok,
         responseTime: Date.now() - start,
       });
-    } catch (e: any) {
+    } catch (e: unknown) {
       results.push({
         endpoint,
         status: 0,
         ok: false,
         responseTime: Date.now() - start,
-        error: e.message,
+        error: errorMessage(e),
       });
     }
   }

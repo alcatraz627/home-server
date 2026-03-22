@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { errorMessage, errorCode } from '$lib/server/errors';
 import { execSync } from 'node:child_process';
 import type { RequestHandler } from './$types';
 
@@ -72,7 +73,7 @@ export const POST: RequestHandler = async ({ request }) => {
   try {
     execSync(`docker ${action} ${id}`, { encoding: 'utf-8', timeout: 30000 });
     return json({ ok: true });
-  } catch (err: any) {
-    return json({ error: err.stderr || err.message }, { status: 500 });
+  } catch (err: unknown) {
+    return json({ error: errorMessage(err) }, { status: 500 });
   }
 };

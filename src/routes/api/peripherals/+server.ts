@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { errorMessage, errorCode } from '$lib/server/errors';
 import { execSync, spawnSync } from 'node:child_process';
 import type { RequestHandler } from './$types';
 import { sanitizeShellArg } from '$lib/server/security';
@@ -793,8 +794,8 @@ function bluetoothAction(action: 'connect' | 'disconnect', address: string): { o
       });
       return { ok: true };
     }
-  } catch (e: any) {
-    return { ok: false, error: e.message || `Failed to ${action}` };
+  } catch (e: unknown) {
+    return { ok: false, error: errorMessage(e) || `Failed to ${action}` };
   }
 }
 

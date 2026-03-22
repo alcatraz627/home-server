@@ -1,4 +1,5 @@
 import cron, { type ScheduledTask } from 'node-cron';
+import { errorMessage, errorCode } from '$lib/server/errors';
 import { getTaskConfigs, runTask } from './operator';
 import { getBackupConfigs, runBackup } from './backups';
 import { notifyTaskComplete, notifyBackupComplete, isNotifyConfigured } from './notify';
@@ -32,8 +33,8 @@ export async function scheduleAll(): Promise<void> {
           const run = await runTask(task.id);
           // Wait for completion by polling
           await waitForCompletion(task.id, 'task');
-        } catch (err: any) {
-          log.error('Scheduled task failed to start', { taskId: task.id, name: task.name, error: err.message });
+        } catch (err: unknown) {
+          log.error('Scheduled task failed to start', { taskId: task.id, name: task.name, error: errorMessage(err) });
         }
       });
       scheduledJobs.set(`task:${task.id}`, job);
@@ -49,8 +50,12 @@ export async function scheduleAll(): Promise<void> {
         try {
           await runBackup(backup.id);
           await waitForCompletion(backup.id, 'backup');
-        } catch (err: any) {
-          log.error('Scheduled backup failed to start', { backupId: backup.id, name: backup.name, error: err.message });
+        } catch (err: unknown) {
+          log.error('Scheduled backup failed to start', {
+            backupId: backup.id,
+            name: backup.name,
+            error: errorMessage(err),
+          });
         }
       });
       scheduledJobs.set(`backup:${backup.id}`, job);
@@ -71,8 +76,8 @@ export async function scheduleAll(): Promise<void> {
           const job = cron.schedule(cronExpr, async () => {
             try {
               await checkAndRecord(svc.id);
-            } catch (err: any) {
-              log.error('Service check failed', { serviceId: svc.id, error: err.message });
+            } catch (err: unknown) {
+              log.error('Service check failed', { serviceId: svc.id, error: errorMessage(err) });
             }
           });
           scheduledJobs.set(`service:${svc.id}`, job);

@@ -1,4 +1,5 @@
 import { execSync } from 'node:child_process';
+import { errorMessage, errorCode } from '$lib/server/errors';
 import { createLogger } from './logger';
 
 const log = createLogger('processes');
@@ -63,9 +64,9 @@ export function sendSignal(pid: number, signal: string = 'TERM'): { ok: boolean;
     execSync(`kill -${sig} ${pid}`, { encoding: 'utf-8', timeout: 3000 });
     log.info('Signal sent', { pid, signal: sig });
     return { ok: true };
-  } catch (err: any) {
-    log.error('Signal send failed', { pid, signal: sig, error: err.message });
-    return { ok: false, error: err.message || 'Failed to send signal' };
+  } catch (err: unknown) {
+    log.error('Signal send failed', { pid, signal: sig, error: errorMessage(err) });
+    return { ok: false, error: errorMessage(err) || 'Failed to send signal' };
   }
 }
 

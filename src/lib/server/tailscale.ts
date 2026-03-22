@@ -1,4 +1,5 @@
 import { execSync } from 'node:child_process';
+import { errorMessage, errorCode } from '$lib/server/errors';
 import { createLogger } from './logger';
 
 const log = createLogger('tailscale');
@@ -53,8 +54,8 @@ export function getTailscaleStatus(): { devices: TailscaleDevice[]; error?: stri
     }
 
     return { devices };
-  } catch (err: any) {
-    return { devices: [], error: err.message || 'Failed to get Tailscale status' };
+  } catch (err: unknown) {
+    return { devices: [], error: errorMessage(err) || 'Failed to get Tailscale status' };
   }
 }
 

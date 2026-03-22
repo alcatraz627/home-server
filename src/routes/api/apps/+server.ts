@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { errorMessage, errorCode } from '$lib/server/errors';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -270,7 +271,7 @@ export const DELETE: RequestHandler = async ({ request }) => {
         });
       });
     }
-  } catch (e: any) {
-    return json({ error: e.message || 'Kill failed' }, { status: 500 });
+  } catch (e: unknown) {
+    return json({ error: errorMessage(e) || 'Kill failed' }, { status: 500 });
   }
 };

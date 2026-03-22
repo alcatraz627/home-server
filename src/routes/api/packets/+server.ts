@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { errorMessage, errorCode } from '$lib/server/errors';
 import type { RequestHandler } from './$types';
 import { spawn, execSync } from 'child_process';
 import os from 'os';
@@ -186,9 +187,9 @@ export const POST: RequestHandler = async ({ request }) => {
       });
 
       return json({ success: true, message: `Capture started on ${iface}` });
-    } catch (e: any) {
+    } catch (e: unknown) {
       captureRunning = false;
-      return json({ error: `Failed to start capture: ${e.message}` }, { status: 500 });
+      return json({ error: `Failed to start capture: ${errorMessage(e)}` }, { status: 500 });
     }
   }
 

@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { errorMessage, errorCode } from '$lib/server/errors';
 import { queryLogs, getLogFiles, getLogStats, type LogLevel } from '$lib/server/logger';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -28,8 +29,8 @@ export const GET: RequestHandler = async ({ url }) => {
       const lines = content.trim().split('\n');
       // Return last 500 lines (most recent)
       return json({ content: lines.slice(-500).join('\n'), totalLines: lines.length, filename: safeName });
-    } catch (e: any) {
-      return json({ error: e.message }, { status: 500 });
+    } catch (e: unknown) {
+      return json({ error: errorMessage(e) }, { status: 500 });
     }
   }
 
@@ -48,8 +49,8 @@ export const GET: RequestHandler = async ({ url }) => {
           'Content-Disposition': `attachment; filename="${safeName}"`,
         },
       });
-    } catch (e: any) {
-      return json({ error: e.message }, { status: 500 });
+    } catch (e: unknown) {
+      return json({ error: errorMessage(e) }, { status: 500 });
     }
   }
 

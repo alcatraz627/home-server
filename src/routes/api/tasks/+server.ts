@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { errorMessage, errorCode } from '$lib/server/errors';
 import { json } from '@sveltejs/kit';
 import { getTaskStatuses, saveTaskConfig, deleteTaskConfig, runTask, getSystemDiskUsage } from '$lib/server/operator';
 import { unscheduleTask, getScheduledTaskCount } from '$lib/server/scheduler';
@@ -42,9 +43,9 @@ export const PUT: RequestHandler = async ({ request }) => {
     const run = await runTask(taskId);
     log.info('Task run triggered', { taskId });
     return json(run);
-  } catch (err: any) {
-    log.error('Task run failed', { taskId, error: err.message });
-    return json({ error: err.message }, { status: 400 });
+  } catch (err: unknown) {
+    log.error('Task run failed', { taskId, error: errorMessage(err) });
+    return json({ error: errorMessage(err) }, { status: 400 });
   }
 };
 

@@ -1,4 +1,5 @@
 import { execSync, spawn } from 'node:child_process';
+import { errorMessage, errorCode } from '$lib/server/errors';
 import fs from 'node:fs/promises';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -244,9 +245,9 @@ export async function dryRunBackup(configId: string): Promise<{ files: string[];
     );
     const summary = lines.slice(-5).join('\n');
     return { files, summary };
-  } catch (err: any) {
-    log.error('Dry-run backup failed', err);
-    throw new Error(err.stderr || err.message);
+  } catch (err: unknown) {
+    log.error('Dry-run backup failed', { error: errorMessage(err) });
+    throw new Error(errorMessage(err));
   }
 }
 

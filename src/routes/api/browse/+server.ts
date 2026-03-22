@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { errorMessage, errorCode } from '$lib/server/errors';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
@@ -89,8 +90,8 @@ export const GET: RequestHandler = async ({ url }) => {
     }
 
     return json({ current: resolved, entries: items });
-  } catch (e: any) {
-    const code = e.code || '';
+  } catch (e: unknown) {
+    const code = errorCode(e) || '';
     const safeError =
       code === 'ENOENT'
         ? 'Directory not found'

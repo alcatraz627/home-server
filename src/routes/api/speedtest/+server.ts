@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { errorMessage, errorCode } from '$lib/server/errors';
 import crypto from 'node:crypto';
 import { execSync } from 'node:child_process';
 import type { RequestHandler } from './$types';
@@ -65,8 +66,8 @@ export const GET: RequestHandler = async ({ url }) => {
         downloadTime: dlTime,
         uploadTime: ulTime,
       });
-    } catch (e: any) {
-      return json({ error: e.message || 'External speed test failed' }, { status: 500 });
+    } catch (e: unknown) {
+      return json({ error: errorMessage(e) || 'External speed test failed' }, { status: 500 });
     }
   }
 

@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { errorMessage, errorCode } from '$lib/server/errors';
 import type { RequestHandler } from './$types';
 import os from 'node:os';
 
@@ -60,12 +61,12 @@ export const GET: RequestHandler = async ({ url }) => {
       status,
       latency,
     });
-  } catch (e: any) {
+  } catch (e: unknown) {
     const latency = Date.now() - start;
     return json({
       status: 'red' as const,
       latency,
-      error: e.name === 'AbortError' ? 'Timeout' : e.message || 'Unreachable',
+      error: (e as Error).name === 'AbortError' ? 'Timeout' : errorMessage(e) || 'Unreachable',
     });
   }
 };
