@@ -10,5 +10,5 @@
  */
 export const APP = {
   title: 'Home Server',
-  version: '2.4.0-solar-wind-28',
+  version: '2.5.0-nova-spark-13',
 } as const;
