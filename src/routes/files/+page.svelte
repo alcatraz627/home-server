@@ -12,6 +12,8 @@
   import { toast } from '$lib/toast';
   import { stars } from '$lib/stars';
   import { browser } from '$app/environment';
+  import { goto } from '$app/navigation';
+  import { page } from '$app/stores';
   import { onMount, onDestroy } from 'svelte';
   import { fetchApi } from '$lib/api';
 
@@ -101,6 +103,27 @@
   const { files: initialFiles, currentPath: initialPath } = data;
   let files = $state<EnrichedFile[]>(initialFiles);
   let currentPath = $state(initialPath || '');
+
+  // Sync URL when path changes
+  $effect(() => {
+    if (!browser) return;
+    const params = currentPath ? `?path=${encodeURIComponent(currentPath)}` : '';
+    const newUrl = `/files${params}`;
+    if (window.location.pathname + window.location.search !== newUrl) {
+      history.replaceState(null, '', newUrl);
+    }
+  });
+
+  // Read initial path from URL on mount (for deep links like /files?path=somefile.mp4)
+  $effect(() => {
+    if (!browser) return;
+    const urlPath = new URL(window.location.href).searchParams.get('path');
+    if (urlPath && urlPath !== currentPath && !urlPath.includes('.')) {
+      // Only navigate if it looks like a directory path (no extension)
+      navigateTo(urlPath);
+    }
+  });
+
   let dragOver = $state(false);
   let uploading = $state(false);
   let uploadProgress = $state(0);
@@ -116,8 +139,18 @@
   }
 
   // --- Starred files (via shared stars store) ---
+  // Subscribe to stars store for reactivity
+  let starredFiles = $state<string[]>([]);
+  stars.subscribe((items) => {
+    starredFiles = items['file'] ?? [];
+  });
+
   function toggleStar(filename: string) {
     stars.toggle('file', filename);
+  }
+
+  function isFileStarred(name: string): boolean {
+    return starredFiles.includes(name);
   }
 
   // --- Bulk selection ---
@@ -246,8 +279,8 @@
     const dir = sortAsc ? 1 : -1;
     return [...result].sort((a, b) => {
       // Starred files always sort to the top
-      const aStarred = stars.isStarred('file', a.name) ? 0 : 1;
-      const bStarred = stars.isStarred('file', b.name) ? 0 : 1;
+      const aStarred = isFileStarred(a.name) ? 0 : 1;
+      const bStarred = isFileStarred(b.name) ? 0 : 1;
       if (aStarred !== bStarred) return aStarred - bStarred;
       if (sortField === 'name') return a.name.localeCompare(b.name) * dir;
       if (sortField === 'size') return (a.size - b.size) * dir;
@@ -1075,20 +1108,16 @@
   <!-- Grid view -->
   <div class="file-grid">
     {#each filtered as file}
-      <div
-        class="grid-card"
-        class:selected={selectedFiles.has(file.name)}
-        class:starred={stars.isStarred('file', file.name)}
-      >
+      <div class="grid-card" class:selected={selectedFiles.has(file.name)} class:starred={isFileStarred(file.name)}>
         <div class="grid-card-top">
           {#if !file.isDirectory}
             <input type="checkbox" checked={selectedFiles.has(file.name)} onchange={() => toggleSelect(file.name)} />
           {/if}
           <button
             class="star-btn"
-            class:starred={stars.isStarred('file', file.name)}
-            title={stars.isStarred('file', file.name) ? 'Unstar' : 'Star'}
-            onclick={() => toggleStar(file.name)}>{stars.isStarred('file', file.name) ? '\u2605' : '\u2606'}</button
+            class:starred={isFileStarred(file.name)}
+            title={isFileStarred(file.name) ? 'Unstar' : 'Star'}
+            onclick={() => toggleStar(file.name)}>{isFileStarred(file.name) ? '\u2605' : '\u2606'}</button
           >
         </div>
         <button
@@ -1162,11 +1191,7 @@
       <span class="col-actions"></span>
     </div>
     {#each filtered as file}
-      <div
-        class="file-row"
-        class:selected={selectedFiles.has(file.name)}
-        class:starred={stars.isStarred('file', file.name)}
-      >
+      <div class="file-row" class:selected={selectedFiles.has(file.name)} class:starred={isFileStarred(file.name)}>
         <span class="col-check">
           {#if !file.isDirectory}
             <input type="checkbox" checked={selectedFiles.has(file.name)} onchange={() => toggleSelect(file.name)} />
@@ -1175,9 +1200,9 @@
         <span class="col-star">
           <button
             class="star-btn"
-            class:starred={stars.isStarred('file', file.name)}
-            title={stars.isStarred('file', file.name) ? 'Unstar' : 'Star'}
-            onclick={() => toggleStar(file.name)}>{stars.isStarred('file', file.name) ? '\u2605' : '\u2606'}</button
+            class:starred={isFileStarred(file.name)}
+            title={isFileStarred(file.name) ? 'Unstar' : 'Star'}
+            onclick={() => toggleStar(file.name)}>{isFileStarred(file.name) ? '\u2605' : '\u2606'}</button
           >
         </span>
         <span class="col-name" title={file.name}>

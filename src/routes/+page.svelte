@@ -625,11 +625,9 @@
           {@const sectionSize = section.size}
           <div class="status-grid">
             <a href="/tasks" class="status-card card-stagger" style="animation-delay: 0ms">
-              {#if sectionSize !== 'small'}
-                <div class="status-icon"><Icon name="settings" size={18} /></div>
-              {/if}
+              <div class="status-icon"><Icon name="settings" size={sectionSize === 'small' ? 14 : 18} /></div>
               <div class="status-body">
-                {#if sectionSize !== 'small'}<h3>Tasks</h3>{/if}
+                <h3>{sectionSize === 'small' ? 'Tasks' : 'Tasks'}</h3>
                 <div class="status-metrics">
                   {#if dashboard.tasks.running > 0}
                     <span class="metric running">{dashboard.tasks.running} running</span>
@@ -649,11 +647,9 @@
           {@const sectionSize = section.size}
           <div class="status-grid">
             <a href="/backups" class="status-card card-stagger" style="animation-delay: 0ms">
-              {#if sectionSize !== 'small'}
-                <div class="status-icon"><Icon name="rotate" size={18} /></div>
-              {/if}
+              <div class="status-icon"><Icon name="rotate" size={sectionSize === 'small' ? 14 : 18} /></div>
               <div class="status-body">
-                {#if sectionSize !== 'small'}<h3>Backups</h3>{/if}
+                <h3>Backups</h3>
                 <div class="status-metrics">
                   <span class="metric muted">{dashboard.backups.total} configs</span>
                   {#if dashboard.backups.lastRun}
@@ -662,8 +658,8 @@
                       class:success={dashboard.backups.lastRun.status === 'success'}
                       class:failed={dashboard.backups.lastRun.status === 'failed'}
                     >
-                      {#if sectionSize !== 'small'}{dashboard.backups.lastRun.name}:
-                      {/if}{dashboard.backups.lastRun.status}
+                      {#if sectionSize !== 'small'}{dashboard.backups.lastRun.name}:{/if}
+                      {dashboard.backups.lastRun.status}
                     </span>
                     {#if sectionSize !== 'small'}
                       <span class="metric muted">{formatRelativeTime(dashboard.backups.lastRun.time)}</span>
@@ -679,11 +675,9 @@
           {@const sectionSize = section.size}
           <div class="status-grid">
             <a href="/keeper" class="status-card card-stagger" style="animation-delay: 0ms">
-              {#if sectionSize !== 'small'}
-                <div class="status-icon"><Icon name="bookmark" size={18} /></div>
-              {/if}
+              <div class="status-icon"><Icon name="bookmark" size={sectionSize === 'small' ? 14 : 18} /></div>
               <div class="status-body">
-                {#if sectionSize !== 'small'}<h3>Keeper</h3>{/if}
+                <h3>Keeper</h3>
                 <div class="status-metrics">
                   {#if dashboard.keeper['in-progress']}
                     <span class="metric running">{dashboard.keeper['in-progress']} in progress</span>
@@ -691,13 +685,11 @@
                   {#if dashboard.keeper.ready}
                     <span class="metric accent">{dashboard.keeper.ready} ready</span>
                   {/if}
-                  {#if sectionSize !== 'small'}
-                    {#if dashboard.keeper.backlog}
-                      <span class="metric muted">{dashboard.keeper.backlog} backlog</span>
-                    {/if}
-                    {#if dashboard.keeper.done}
-                      <span class="metric success">{dashboard.keeper.done} done</span>
-                    {/if}
+                  {#if dashboard.keeper.backlog}
+                    <span class="metric muted">{dashboard.keeper.backlog} backlog</span>
+                  {/if}
+                  {#if sectionSize !== 'small' && dashboard.keeper.done}
+                    <span class="metric success">{dashboard.keeper.done} done</span>
                   {/if}
                 </div>
               </div>

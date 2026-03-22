@@ -10,5 +10,5 @@
  */
 export const APP = {
   title: 'Home Server',
-  version: '4.6.2-swift-brook-71',
+  version: '4.6.3-calm-dusk-55',
 } as const;
