@@ -10,5 +10,5 @@
  */
 export const APP = {
   title: 'Home Server',
-  version: '2.0.0-aurora-peak-01',
+  version: '2.1.0-deep-flux-22',
 } as const;
