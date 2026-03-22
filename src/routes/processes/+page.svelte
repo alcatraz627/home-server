@@ -17,7 +17,7 @@
   }
 
   let monitorHistory = $state<SystemSnapshot[]>([]);
-  let monitorOpen = $state(true);
+  let monitorOpen = $state(false);
   let monitorInterval: ReturnType<typeof setInterval> | null = null;
   const MONITOR_MAX = 60;
 
@@ -108,24 +108,26 @@
   }
 
   // CPU/MEM history for sparklines (per PID)
-  let history = $state<Map<number, { cpu: number[]; mem: number[] }>>(new Map());
+  // Using a plain object to avoid reactive loops
+  const historyMap = new Map<number, { cpu: number[]; mem: number[] }>();
+  let historyVersion = $state(0);
   const MAX_HISTORY = 20;
 
   function recordHistory() {
     for (const p of processes) {
-      const entry = history.get(p.pid) || { cpu: [], mem: [] };
+      const entry = historyMap.get(p.pid) || { cpu: [], mem: [] };
       entry.cpu = [...entry.cpu.slice(-(MAX_HISTORY - 1)), p.cpu];
       entry.mem = [...entry.mem.slice(-(MAX_HISTORY - 1)), p.mem];
-      history.set(p.pid, entry);
+      historyMap.set(p.pid, entry);
     }
-    history = new Map(history);
+    historyVersion++;
   }
 
-  // Record on each refresh
-  $effect(() => {
-    processes.length; // dependency
-    recordHistory();
-  });
+  function getHistory(pid: number) {
+    // Access historyVersion to make this reactive
+    void historyVersion;
+    return historyMap.get(pid);
+  }
 
   function sparklinePath(values: number[], width: number, height: number): string {
     if (values.length < 2) return '';
@@ -234,6 +236,7 @@
   async function refresh() {
     const res = await fetch('/api/processes');
     processes = await res.json();
+    recordHistory();
   }
 
   function toggleAutoRefresh() {
@@ -528,12 +531,12 @@
             <span class="detail-label">State</span><span>{proc.state}</span>
             <span class="detail-label">Started</span><span>{proc.startTime}</span>
           </div>
-          {#if history.get(proc.pid)?.cpu && history.get(proc.pid)!.cpu.length > 1}
+          {#if getHistory(proc.pid)?.cpu && getHistory(proc.pid)!.cpu.length > 1}
             <div class="sparkline-row">
               <span class="detail-label">CPU</span>
               <svg class="sparkline" viewBox="0 0 80 20" preserveAspectRatio="none">
                 <path
-                  d={sparklinePath(history.get(proc.pid)!.cpu, 80, 20)}
+                  d={sparklinePath(getHistory(proc.pid)!.cpu, 80, 20)}
                   fill="none"
                   stroke="var(--accent)"
                   stroke-width="1.5"
@@ -542,7 +545,7 @@
               <span class="detail-label">MEM</span>
               <svg class="sparkline" viewBox="0 0 80 20" preserveAspectRatio="none">
                 <path
-                  d={sparklinePath(history.get(proc.pid)!.mem, 80, 20)}
+                  d={sparklinePath(getHistory(proc.pid)!.mem, 80, 20)}
                   fill="none"
                   stroke="var(--purple)"
                   stroke-width="1.5"
