@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { toast } from '$lib/toast';
+  import Button from '$lib/components/Button.svelte';
+  import Badge from '$lib/components/Badge.svelte';
 
   interface WifiNetwork {
     ssid: string;
@@ -128,9 +130,9 @@
       <input type="checkbox" checked={autoRefresh} onchange={toggleAutoRefresh} />
       Auto-refresh
     </label>
-    <button class="btn" onclick={scan} disabled={loading}>
+    <Button onclick={scan} disabled={loading} {loading}>
       {loading ? 'Scanning...' : 'Scan'}
-    </button>
+    </Button>
   </div>
 </div>
 <p class="page-desc">Scan nearby WiFi networks. View signal strength, channels, and encryption details.</p>
@@ -199,7 +201,7 @@
             <td class="ssid-col">
               {net.ssid}
               {#if current && net.ssid === current.ssid && net.bssid === current.bssid}
-                <span class="tag connected">Connected</span>
+                <Badge variant="accent">Connected</Badge>
               {/if}
             </td>
             <td><code>{net.bssid}</code></td>
@@ -213,9 +215,9 @@
               </div>
             </td>
             <td>
-              <span class="security-badge" class:danger={net.isInsecure}>
+              <Badge variant={net.isInsecure ? 'danger' : 'default'}>
                 {net.security}
-              </span>
+              </Badge>
             </td>
           </tr>
         {/each}
@@ -254,26 +256,6 @@
 
   .auto-toggle input {
     cursor: pointer;
-  }
-
-  .btn {
-    padding: 6px 14px;
-    font-size: 0.8rem;
-    border-radius: 6px;
-    border: 1px solid var(--border);
-    background: var(--btn-bg);
-    color: var(--text-secondary);
-    cursor: pointer;
-    font-family: inherit;
-  }
-
-  .btn:hover:not(:disabled) {
-    border-color: var(--accent);
-  }
-
-  .btn:disabled {
-    opacity: 0.5;
-    cursor: default;
   }
 
   .current-info {
@@ -394,15 +376,6 @@
     color: var(--text-muted);
   }
 
-  .tag.connected {
-    font-size: 0.6rem;
-    padding: 2px 6px;
-    border-radius: 10px;
-    background: var(--accent-bg, color-mix(in srgb, var(--accent) 15%, transparent));
-    color: var(--accent);
-    white-space: nowrap;
-  }
-
   .signal-bars {
     display: inline-flex;
     align-items: flex-end;
@@ -419,21 +392,6 @@
 
   .bar.active {
     background: var(--success);
-  }
-
-  .security-badge {
-    font-size: 0.72rem;
-    padding: 2px 8px;
-    border-radius: 10px;
-    background: var(--bg-secondary);
-    color: var(--text-secondary);
-    white-space: nowrap;
-  }
-
-  .security-badge.danger {
-    background: color-mix(in srgb, var(--danger) 15%, transparent);
-    color: var(--danger);
-    font-weight: 600;
   }
 
   .count {

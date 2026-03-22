@@ -2,6 +2,34 @@
 
 Append-only log of skill run insights. Newest entries at top.
 
+## session: Migrate 3 high-traffic pages to shared component library — 2026-03-22
+
+**Purpose:** Replaced inline button/badge/search/collapsible patterns in tasks, keeper, and layout pages with shared Button, Badge, SearchInput, and Collapsible components.
+
+**Insights:**
+
+1. The tasks page template section used a CSS max-height transition wrapper for expand/collapse -- replaced with the Collapsible component which uses if-blocks and animation instead. Watch for visual regression if users expected the smooth height animation.
+2. Keeper page had a custom confirm-delete pattern (confirmingDelete state + 3s timeout) that was replaced by Button's built-in `confirm` prop -- allowed removing ~15 lines of dead state/function code.
+3. Badge component maps: running=warning (pulse), success=success, failed/timeout=danger, scheduled=accent, idle=default. Keeper status mapping: draft=default, ready=accent, running=success (with dot+pulse), halted=danger, done=success.
+4. The `class` prop on Button allows passing through custom CSS classes (used for terminal-close styling), which is important when shared components need page-specific overrides.
+5. SearchInput has a bindable `value` prop -- no need for separate oninput handlers, just `bind:value` works directly with existing reactive state.
+
+---
+
+## session: Component library audit + standardization — 2026-03-22
+
+**Purpose:** Audited 18 UI patterns across 37 Svelte files, wrote 7 component specs, built 7 shared components, and started migrating 12 pages.
+
+**Insights:**
+
+1. 88 distinct button class variants was the biggest fragmentation source — a 5-variant Button component covers all cases
+2. Badge/status patterns (50+ instances) all reduce to a 7-variant Badge with optional dot+pulse
+3. `hs-` CSS prefix on component classes prevents conflicts during incremental migration
+4. Patterns that DON'T need components: cards (CSS class sufficient), checkboxes, forms, toasts, clipboard copy
+5. Showcase page as a live component demo is essential for verifying visual consistency
+
+---
+
 ## session: Dashboard config, stats dropdown, page-desc, title audit — 2026-03-22
 
 **Purpose:** Added customizable dashboard sections, expanded stats gear dropdown, and added page descriptions and consistent titles across all pages.

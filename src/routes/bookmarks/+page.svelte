@@ -1,6 +1,9 @@
 <script lang="ts">
   import type { PageData } from './$types';
   import { toast } from '$lib/toast';
+  import Button from '$lib/components/Button.svelte';
+  import Badge from '$lib/components/Badge.svelte';
+  import SearchInput from '$lib/components/SearchInput.svelte';
 
   interface Bookmark {
     id: string;
@@ -22,7 +25,6 @@
   let formTags = $state('');
   let search = $state('');
   let activeTag = $state<string | null>(null);
-  let confirmDeleteId = $state<string | null>(null);
 
   const allTags = $derived.by(() => {
     const tags = new Set<string>();
@@ -114,7 +116,6 @@
       });
       if (!res.ok) throw new Error('Failed');
       bookmarks = bookmarks.filter((b) => b.id !== id);
-      confirmDeleteId = null;
       toast.success('Bookmark deleted');
     } catch {
       toast.error('Failed to delete bookmark');
@@ -159,14 +160,14 @@
   <div class="header">
     <h2 class="page-title">Bookmarks</h2>
     <div class="header-actions">
-      <button
-        class="btn-primary"
+      <Button
+        variant="primary"
         onclick={() => {
           resetForm();
           showForm = true;
-        }}>Add Bookmark</button
+        }}>Add Bookmark</Button
       >
-      <button class="btn-secondary" onclick={exportHTML}>Export HTML</button>
+      <Button onclick={exportHTML}>Export HTML</Button>
     </div>
   </div>
   <p class="page-desc">Save and organize your bookmarks with tags. Search, edit, and export as HTML.</p>
@@ -193,14 +194,14 @@
         </label>
       </div>
       <div class="form-actions">
-        <button class="btn-primary" onclick={saveBookmark}>Save</button>
-        <button class="btn-secondary" onclick={resetForm}>Cancel</button>
+        <Button variant="primary" onclick={saveBookmark}>Save</Button>
+        <Button onclick={resetForm}>Cancel</Button>
       </div>
     </div>
   {/if}
 
   <div class="search-bar">
-    <input type="text" bind:value={search} placeholder="Search bookmarks..." />
+    <SearchInput bind:value={search} placeholder="Search bookmarks..." />
   </div>
 
   {#if allTags.length > 0}
@@ -242,20 +243,15 @@
               {#if bm.tags.length > 0}
                 <div class="bookmark-tags">
                   {#each bm.tags as tag}
-                    <span class="tag">{tag}</span>
+                    <Badge variant="default">{tag}</Badge>
                   {/each}
                 </div>
               {/if}
             </div>
           </div>
           <div class="bookmark-actions">
-            <button class="btn-sm" onclick={() => startEdit(bm)}>Edit</button>
-            {#if confirmDeleteId === bm.id}
-              <button class="btn-sm btn-danger" onclick={() => deleteBookmark(bm.id)}>Confirm</button>
-              <button class="btn-sm" onclick={() => (confirmDeleteId = null)}>Cancel</button>
-            {:else}
-              <button class="btn-sm btn-danger" onclick={() => (confirmDeleteId = bm.id)}>Delete</button>
-            {/if}
+            <Button size="sm" onclick={() => startEdit(bm)}>Edit</Button>
+            <Button size="sm" variant="danger" confirm onclick={() => deleteBookmark(bm.id)}>Delete</Button>
           </div>
         </div>
       {/each}
@@ -327,10 +323,6 @@
   }
   .search-bar {
     margin-bottom: 1rem;
-  }
-  .search-bar input {
-    width: 100%;
-    box-sizing: border-box;
   }
   .tag-pills {
     display: flex;
@@ -409,13 +401,6 @@
     gap: 0.3rem;
     margin-top: 0.25rem;
   }
-  .tag {
-    padding: 0.15rem 0.5rem;
-    background: var(--bg-secondary);
-    border-radius: 10px;
-    font-size: 0.7rem;
-    color: var(--text-muted);
-  }
   .bookmark-actions {
     display: flex;
     gap: 0.35rem;
@@ -425,39 +410,5 @@
     padding: 2rem;
     text-align: center;
     color: var(--text-muted);
-  }
-  .btn-primary,
-  .btn-secondary {
-    padding: 0.5rem 1rem;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    font-weight: 600;
-    font-size: 0.85rem;
-  }
-  .btn-primary {
-    background: var(--accent);
-    color: #fff;
-  }
-  .btn-secondary {
-    background: var(--bg-secondary);
-    color: var(--text-primary);
-    border: 1px solid var(--border);
-  }
-  .btn-sm {
-    padding: 0.3rem 0.6rem;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    background: var(--bg-secondary);
-    color: var(--text-secondary);
-    cursor: pointer;
-    font-size: 0.75rem;
-  }
-  .btn-danger {
-    color: var(--danger);
-    border-color: var(--danger);
-  }
-  .btn-primary:hover {
-    opacity: 0.9;
   }
 </style>

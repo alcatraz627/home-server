@@ -2,6 +2,9 @@
   import type { PageData } from './$types';
   import type { TailscaleDevice } from '$lib/server/tailscale';
   import { toast } from '$lib/toast';
+  import Button from '$lib/components/Button.svelte';
+  import Badge from '$lib/components/Badge.svelte';
+  import Loading from '$lib/components/Loading.svelte';
 
   let { data } = $props<{ data: PageData }>();
   // svelte-ignore state_referenced_locally
@@ -108,9 +111,9 @@
 
 <div class="header">
   <h2 class="page-title">Tailscale Devices</h2>
-  <button class="btn" onclick={refresh} disabled={refreshing}>
+  <Button onclick={refresh} disabled={refreshing} loading={refreshing}>
     {refreshing ? 'Refreshing...' : 'Refresh'}
-  </button>
+  </Button>
 </div>
 <p class="page-desc">Monitor your Tailscale mesh network. See connected devices, IPs, and connection status.</p>
 
@@ -119,26 +122,7 @@
 {/if}
 
 {#if devices.length === 0 && !error}
-  <div class="device-list">
-    <div class="device-header">
-      <span class="col-status"></span>
-      <span class="col-host">Hostname</span>
-      <span class="col-ip">IP Address</span>
-      <span class="col-os">OS</span>
-      <span class="col-chevron"></span>
-    </div>
-    {#each Array(3) as _, i}
-      <div class="device-row" style="animation-delay: {i * 40}ms">
-        <span class="col-status"
-          ><div class="skeleton" style="width: 10px; height: 10px; border-radius: 50%;"></div></span
-        >
-        <span class="col-host"><div class="skeleton" style="width: 100px; height: 14px;"></div></span>
-        <span class="col-ip"><div class="skeleton" style="width: 90px; height: 14px;"></div></span>
-        <span class="col-os"><div class="skeleton" style="width: 60px; height: 14px;"></div></span>
-        <span class="col-chevron"></span>
-      </div>
-    {/each}
-  </div>
+  <Loading count={3} height="44px" />
 {:else if devices.length === 0}
   <p class="empty">No devices found on the tailnet.</p>
 {:else}
@@ -163,7 +147,7 @@
         aria-expanded={isExpanded}
       >
         <span class="col-status">
-          <span class="dot" class:online={device.online}></span>
+          <Badge variant={device.online ? 'success' : 'default'} dot pulse={device.online}>{''}</Badge>
         </span>
         <span class="col-host">
           {device.hostname.split('.')[0]}
@@ -258,9 +242,9 @@
 
             <div class="detail-item">
               <span class="detail-label">Status</span>
-              <span class="detail-value" class:online-text={device.online}>
+              <Badge variant={device.online ? 'success' : 'danger'} dot pulse={device.online}>
                 {device.online ? 'Online' : 'Offline'}
-              </span>
+              </Badge>
             </div>
 
             {#if device.tailscaleVersion}
@@ -361,26 +345,6 @@
     font-size: 1.3rem;
   }
 
-  .btn {
-    padding: 6px 14px;
-    font-size: 0.8rem;
-    border-radius: 6px;
-    border: 1px solid var(--border);
-    background: var(--btn-bg);
-    color: var(--text-secondary);
-    cursor: pointer;
-    font-family: inherit;
-  }
-
-  .btn:hover:not(:disabled) {
-    border-color: var(--accent);
-  }
-
-  .btn:disabled {
-    opacity: 0.5;
-    cursor: default;
-  }
-
   .error {
     color: var(--danger);
     margin-bottom: 12px;
@@ -477,10 +441,6 @@
     color: var(--text-secondary);
   }
 
-  .detail-value.online-text {
-    color: var(--success);
-  }
-
   .detail-value.expiry-warn {
     color: var(--warning);
   }
@@ -493,18 +453,6 @@
     display: flex;
     gap: 4px;
     flex-wrap: wrap;
-  }
-
-  .dot {
-    display: inline-block;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--text-faint);
-  }
-
-  .dot.online {
-    background: var(--success);
   }
 
   .tag {

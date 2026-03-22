@@ -3,6 +3,10 @@
   import type { TaskStatus } from '$lib/server/operator';
   import { toast } from '$lib/toast';
   import EmptyState from '$lib/components/EmptyState.svelte';
+  import Button from '$lib/components/Button.svelte';
+  import Badge from '$lib/components/Badge.svelte';
+  import SearchInput from '$lib/components/SearchInput.svelte';
+  import Collapsible from '$lib/components/Collapsible.svelte';
 
   let { data } = $props<{ data: PageData }>();
   // svelte-ignore state_referenced_locally
@@ -1657,18 +1661,16 @@
       <span class="scheduled-count">({scheduledCount} scheduled)</span>{/if}
   </h2>
   <div class="controls">
-    <button class="btn" onclick={refresh}>&#x21bb; Refresh</button>
-    <button
-      class="btn"
+    <Button onclick={refresh}>&#x21bb; Refresh</Button>
+    <Button
       onclick={() => {
         showTemplates = !showTemplates;
         if (showTemplates) showForm = false;
       }}
     >
       &#x2630; Templates
-    </button>
-    <button
-      class="btn"
+    </Button>
+    <Button
       onclick={() => {
         showForm = !showForm;
         if (showForm) {
@@ -1678,7 +1680,7 @@
       }}
     >
       {showForm ? 'Cancel' : '\uFF0B New Task'}
-    </button>
+    </Button>
   </div>
 </div>
 <p class="page-desc">
@@ -1714,86 +1716,84 @@
   </div>
 {/if}
 
-<!-- Template panel with slide transition -->
-<div class="template-section-wrapper" class:template-section-open={showTemplates}>
-  {#if showTemplates}
-    <div class="template-section">
-      <div class="template-filters">
-        <input type="text" class="template-search" placeholder="Search templates..." bind:value={templateSearch} />
-        <div class="tag-bar">
-          <button class="tag-btn" class:active={templateTag === ''} onclick={() => (templateTag = '')}
-            >All ({allTemplates.length})</button
+<!-- Template panel -->
+<Collapsible bind:open={showTemplates} title="Templates">
+  <div class="template-section">
+    <div class="template-filters">
+      <SearchInput bind:value={templateSearch} placeholder="Search templates..." clearable />
+      <div class="tag-bar">
+        <button class="tag-btn" class:active={templateTag === ''} onclick={() => (templateTag = '')}
+          >All ({allTemplates.length})</button
+        >
+        {#each allTags as tag}
+          <button
+            class="tag-btn"
+            class:active={templateTag === tag}
+            onclick={() => (templateTag = templateTag === tag ? '' : tag)}>{tag}</button
           >
-          {#each allTags as tag}
-            <button
-              class="tag-btn"
-              class:active={templateTag === tag}
-              onclick={() => (templateTag = templateTag === tag ? '' : tag)}>{tag}</button
-            >
-          {/each}
-        </div>
-      </div>
-      <div class="template-grid">
-        {#each pagedTemplates as t}
-          {@const isCustom = t.tags.includes('custom')}
-          {@const customIdx = isCustom
-            ? customTemplates.findIndex((c) => c.name === t.name && c.command === t.command)
-            : -1}
-          <div class="template-card" class:template-card-custom={isCustom}>
-            {#if isCustom}
-              <div class="template-custom-actions">
-                <button
-                  class="template-edit-btn"
-                  title="Edit custom template"
-                  onclick={(e) => {
-                    e.stopPropagation();
-                    if (customIdx >= 0) editCustomTemplate(customIdx);
-                  }}>&#x270E;</button
-                >
-                <button
-                  class="template-delete-btn"
-                  title="Delete custom template"
-                  onclick={(e) => {
-                    e.stopPropagation();
-                    if (customIdx >= 0) deleteCustomTemplate(customIdx);
-                  }}>&#x2715;</button
-                >
-              </div>
-            {/if}
-            <button class="template-body" onclick={() => applyTemplate(t)}>
-              <strong>{t.name}</strong>
-              <span class="template-desc">{t.desc}</span>
-              <code class="template-cmd">{t.command.slice(0, 70)}{t.command.length > 70 ? '...' : ''}</code>
-              <div class="template-footer">
-                <div class="template-tags">
-                  {#each t.tags as tag}
-                    <span class="template-tag" class:template-tag-custom={tag === 'custom'}>{tag}</span>
-                  {/each}
-                </div>
-                {#if t.schedule}<span class="template-schedule">{t.schedule}</span>{/if}
-              </div>
-            </button>
-            <button class="template-run-btn" onclick={() => runTemplate(t)} title="Create and run immediately"
-              >▶ Run</button
-            >
-          </div>
         {/each}
       </div>
-      {#if filteredTemplates.length === 0}
-        <p class="template-empty">No templates match your search.</p>
-      {/if}
-      {#if templateTotalPages > 1}
-        <div class="template-pagination">
-          <button class="tool-btn" disabled={templatePage === 0} onclick={() => templatePage--}>‹ Prev</button>
-          <span class="page-info">{templatePage + 1} / {templateTotalPages}</span>
-          <button class="tool-btn" disabled={templatePage >= templateTotalPages - 1} onclick={() => templatePage++}
-            >Next ›</button
+    </div>
+    <div class="template-grid">
+      {#each pagedTemplates as t}
+        {@const isCustom = t.tags.includes('custom')}
+        {@const customIdx = isCustom
+          ? customTemplates.findIndex((c) => c.name === t.name && c.command === t.command)
+          : -1}
+        <div class="template-card" class:template-card-custom={isCustom}>
+          {#if isCustom}
+            <div class="template-custom-actions">
+              <button
+                class="template-edit-btn"
+                title="Edit custom template"
+                onclick={(e) => {
+                  e.stopPropagation();
+                  if (customIdx >= 0) editCustomTemplate(customIdx);
+                }}>&#x270E;</button
+              >
+              <button
+                class="template-delete-btn"
+                title="Delete custom template"
+                onclick={(e) => {
+                  e.stopPropagation();
+                  if (customIdx >= 0) deleteCustomTemplate(customIdx);
+                }}>&#x2715;</button
+              >
+            </div>
+          {/if}
+          <button class="template-body" onclick={() => applyTemplate(t)}>
+            <strong>{t.name}</strong>
+            <span class="template-desc">{t.desc}</span>
+            <code class="template-cmd">{t.command.slice(0, 70)}{t.command.length > 70 ? '...' : ''}</code>
+            <div class="template-footer">
+              <div class="template-tags">
+                {#each t.tags as tag}
+                  <span class="template-tag" class:template-tag-custom={tag === 'custom'}>{tag}</span>
+                {/each}
+              </div>
+              {#if t.schedule}<span class="template-schedule">{t.schedule}</span>{/if}
+            </div>
+          </button>
+          <button class="template-run-btn" onclick={() => runTemplate(t)} title="Create and run immediately"
+            >▶ Run</button
           >
         </div>
-      {/if}
+      {/each}
     </div>
-  {/if}
-</div>
+    {#if filteredTemplates.length === 0}
+      <p class="template-empty">No templates match your search.</p>
+    {/if}
+    {#if templateTotalPages > 1}
+      <div class="template-pagination">
+        <Button size="sm" disabled={templatePage === 0} onclick={() => templatePage--}>&#x2039; Prev</Button>
+        <span class="page-info">{templatePage + 1} / {templateTotalPages}</span>
+        <Button size="sm" disabled={templatePage >= templateTotalPages - 1} onclick={() => templatePage++}
+          >Next &#x203A;</Button
+        >
+      </div>
+    {/if}
+  </div>
+</Collapsible>
 
 <!-- Template Runner Terminal -->
 {#if terminalVisible}
@@ -1804,7 +1804,7 @@
         {terminalTaskName}
         {#if terminalRunning}<span class="terminal-spinner"></span>{/if}
       </span>
-      <button class="terminal-close" onclick={closeTerminal} title="Close terminal">&#x2715;</button>
+      <Button size="xs" variant="ghost" onclick={closeTerminal} class="terminal-close">&#x2715;</Button>
     </div>
     <pre class="terminal-output" bind:this={terminalEl}>{terminalOutput || 'Waiting for output...'}</pre>
   </div>
@@ -1851,9 +1851,9 @@
       </div>
 
       <div class="form-section form-advanced-toggle">
-        <button class="btn btn-sm" onclick={() => (showAdvanced = !showAdvanced)}>
+        <Button size="sm" onclick={() => (showAdvanced = !showAdvanced)}>
           {showAdvanced ? '&#x25B2; Hide' : '&#x25BC; Show'} Advanced
-        </button>
+        </Button>
       </div>
 
       {#if showAdvanced}
@@ -1875,11 +1875,10 @@
     </div>
     <div class="form-actions">
       {#if editingTemplateIdx !== null}
-        <button class="btn btn-primary" onclick={saveEditedTemplate} disabled={!formName || !formCommand}
-          >&#x1F4BE; Save Template</button
+        <Button variant="primary" onclick={saveEditedTemplate} disabled={!formName || !formCommand}
+          >&#x1F4BE; Save Template</Button
         >
-        <button
-          class="btn"
+        <Button
           onclick={() => {
             editingTemplateIdx = null;
             showForm = false;
@@ -1888,21 +1887,20 @@
             formTimeout = 300;
             formRetries = 3;
             formSchedule = '';
-          }}>Cancel</button
+          }}>Cancel</Button
         >
       {:else}
-        <button class="btn btn-primary" onclick={createTask} disabled={!formName || !formCommand}
-          >{'\uFF0B'} Create Task</button
+        <Button variant="primary" onclick={createTask} disabled={!formName || !formCommand}
+          >{'\uFF0B'} Create Task</Button
         >
-        {#if formName || formCommand}<button
-            class="btn"
+        {#if formName || formCommand}<Button
             onclick={() => {
               formName = '';
               formCommand = '';
               formTimeout = 300;
               formRetries = 3;
               formSchedule = '';
-            }}>Clear</button
+            }}>Clear</Button
           >{/if}
       {/if}
     </div>
@@ -1920,7 +1918,7 @@
 {:else}
   {#if statuses.length > 3}
     <div class="task-search-bar">
-      <input type="text" class="task-search" placeholder="Search tasks..." bind:value={taskSearch} />
+      <SearchInput bind:value={taskSearch} placeholder="Search tasks..." clearable />
       <span class="task-count">{filteredStatuses.length} of {statuses.length} tasks</span>
     </div>
   {/if}
@@ -1943,15 +1941,15 @@
               {/if}
               <h3>{status.config.name}</h3>
               {#if status.isRunning}
-                <span class="status-badge badge-running">running</span>
+                <Badge variant="warning" pulse>running</Badge>
               {:else if status.lastRun?.status === 'success'}
-                <span class="status-badge badge-success">success</span>
+                <Badge variant="success">success</Badge>
               {:else if status.lastRun?.status === 'failed' || status.lastRun?.status === 'timeout'}
-                <span class="status-badge badge-failed">{status.lastRun.status}</span>
+                <Badge variant="danger">{status.lastRun.status}</Badge>
               {:else if status.config.schedule}
-                <span class="status-badge badge-scheduled">scheduled</span>
+                <Badge variant="accent">scheduled</Badge>
               {:else}
-                <span class="status-badge badge-idle">idle</span>
+                <Badge variant="default">idle</Badge>
               {/if}
             </div>
             <code class="task-command">{status.config.command}</code>
@@ -1966,27 +1964,22 @@
             </div>
           </div>
           <div class="task-actions">
-            <button
-              class="btn btn-sm btn-run"
-              onclick={() => runTask(status.config.id)}
-              disabled={status.isRunning}
-              title="Run task"
-            >
+            <Button size="sm" onclick={() => runTask(status.config.id)} disabled={status.isRunning}>
               {status.isRunning ? '&#x23F3;' : '&#x25B6;'} Run
-            </button>
-            <button
-              class="btn btn-sm"
+            </Button>
+            <Button
+              size="sm"
               onclick={() => (expandedTask = expandedTask === status.config.id ? null : status.config.id)}
             >
               {expandedTask === status.config.id ? '&#x25B2;' : '&#x25BC;'}
-            </button>
-            <button class="btn btn-sm" onclick={() => saveAsTemplate(status)} title="Save as template"
-              >&#x1F4BE; Save</button
-            >
-            <button
-              class="btn btn-sm btn-danger"
-              onclick={() => requestDeleteTask(status.config.id)}
-              title="Delete task">&#x2715;</button
+            </Button>
+            <Button size="sm" onclick={() => saveAsTemplate(status)}>&#x1F4BE; Save</Button>
+            <Button
+              size="sm"
+              variant="danger"
+              confirm
+              confirmText="Delete?"
+              onclick={() => requestDeleteTask(status.config.id)}>&#x2715;</Button
             >
           </div>
         </div>
@@ -2021,9 +2014,9 @@
                 {#if status.isRunning}<span class="output-spinner"></span>{/if}
               </span>
               {#if status.lastRun.output}
-                <button class="copy-btn" onclick={() => copyOutput(status.config.id, status.lastRun?.output || '')}>
+                <Button size="xs" onclick={() => copyOutput(status.config.id, status.lastRun?.output || '')}>
                   {copied === status.config.id ? 'Copied!' : 'Copy'}
-                </button>
+                </Button>
               {/if}
             </div>
             <pre>{status.lastRun.output || '(no output)'}</pre>
@@ -2034,11 +2027,9 @@
   </div>
   {#if taskTotalPages > 1}
     <div class="template-pagination">
-      <button class="tool-btn" disabled={taskPage === 0} onclick={() => taskPage--}>&#x2039; Prev</button>
+      <Button size="sm" disabled={taskPage === 0} onclick={() => taskPage--}>&#x2039; Prev</Button>
       <span class="page-info">Page {taskPage + 1} of {taskTotalPages}</span>
-      <button class="tool-btn" disabled={taskPage >= taskTotalPages - 1} onclick={() => taskPage++}
-        >Next &#x203A;</button
-      >
+      <Button size="sm" disabled={taskPage >= taskTotalPages - 1} onclick={() => taskPage++}>Next &#x203A;</Button>
     </div>
   {/if}
 {/if}
@@ -2058,10 +2049,10 @@
         Deleting it will stop the scheduled runs.
       </p>
       <div class="cron-dialog-actions">
-        <button class="btn" onclick={() => (cronDeleteTarget = null)}>Cancel</button>
-        <button class="btn btn-danger" onclick={() => confirmDeleteTask(cronDeleteTarget!.id)}>
+        <Button onclick={() => (cronDeleteTarget = null)}>Cancel</Button>
+        <Button variant="danger" onclick={() => confirmDeleteTask(cronDeleteTarget!.id)}>
           Delete &amp; Unschedule
-        </button>
+        </Button>
       </div>
     </div>
   </div>
@@ -2080,39 +2071,6 @@
   .controls {
     display: flex;
     gap: 8px;
-  }
-  .btn {
-    padding: 6px 14px;
-    font-size: 0.8rem;
-    border-radius: 6px;
-    border: 1px solid var(--border);
-    background: var(--btn-bg);
-    color: var(--text-secondary);
-    cursor: pointer;
-    font-family: inherit;
-  }
-  .btn:hover:not(:disabled) {
-    border-color: var(--accent);
-  }
-  .btn:disabled {
-    opacity: 0.5;
-    cursor: default;
-  }
-  .btn-sm {
-    padding: 4px 10px;
-    font-size: 0.75rem;
-  }
-  .btn-primary {
-    background: var(--success);
-    border-color: var(--success);
-    color: #fff;
-  }
-  .btn-primary:hover:not(:disabled) {
-    filter: brightness(1.15);
-  }
-  .btn-danger:hover {
-    border-color: var(--danger);
-    color: var(--danger);
   }
 
   /* Form improvements */
@@ -2185,20 +2143,6 @@
     align-items: center;
     gap: 10px;
     margin-bottom: 12px;
-  }
-  .task-search {
-    flex: 1;
-    padding: 7px 12px;
-    font-size: 0.8rem;
-    border-radius: 6px;
-    border: 1px solid var(--border);
-    background: var(--input-bg);
-    color: var(--text-primary);
-    font-family: inherit;
-  }
-  .task-search:focus {
-    outline: none;
-    border-color: var(--accent);
   }
   .task-count {
     font-size: 0.75rem;
@@ -2375,52 +2319,6 @@
     color: var(--text-faint);
   }
 
-  .status-badge {
-    font-size: 0.6rem;
-    padding: 2px 8px;
-    border-radius: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-  }
-  .badge-running {
-    background: var(--warning-bg);
-    color: var(--warning);
-    animation: pulse 1s ease-in-out infinite alternate;
-  }
-  .badge-success {
-    background: var(--success-bg);
-    color: var(--success);
-  }
-  .badge-failed {
-    background: var(--danger-bg);
-    color: var(--danger);
-  }
-  .badge-scheduled {
-    background: var(--accent-bg);
-    color: var(--accent);
-  }
-  .badge-idle {
-    background: var(--bg-hover);
-    color: var(--text-faint);
-  }
-  @keyframes pulse {
-    from {
-      opacity: 0.7;
-    }
-    to {
-      opacity: 1;
-    }
-  }
-
-  .btn-run {
-    font-size: 0.75rem;
-  }
-  .btn-run:not(:disabled):hover {
-    border-color: var(--success);
-    color: var(--success);
-  }
-
   /* Template card with run button */
   .template-body {
     text-align: left;
@@ -2461,19 +2359,6 @@
     flex-direction: column;
     gap: 8px;
     margin-bottom: 12px;
-  }
-  .template-search {
-    padding: 7px 12px;
-    font-size: 0.8rem;
-    border-radius: 6px;
-    border: 1px solid var(--border);
-    background: var(--input-bg);
-    color: var(--text-primary);
-    font-family: inherit;
-  }
-  .template-search:focus {
-    outline: none;
-    border-color: var(--accent);
   }
 
   .tag-bar {
@@ -2576,23 +2461,6 @@
     gap: 12px;
     margin-top: 12px;
   }
-  .tool-btn {
-    padding: 4px 12px;
-    font-size: 0.75rem;
-    border-radius: 6px;
-    border: 1px solid var(--border);
-    background: var(--btn-bg);
-    color: var(--text-muted);
-    cursor: pointer;
-    font-family: inherit;
-  }
-  .tool-btn:hover:not(:disabled) {
-    border-color: var(--accent);
-  }
-  .tool-btn:disabled {
-    opacity: 0.4;
-    cursor: default;
-  }
   .page-info {
     font-size: 0.7rem;
     color: var(--text-faint);
@@ -2656,20 +2524,6 @@
     to {
       transform: rotate(360deg);
     }
-  }
-  .copy-btn {
-    padding: 2px 8px;
-    font-size: 0.65rem;
-    border-radius: 4px;
-    border: 1px solid var(--border);
-    background: var(--btn-bg);
-    color: var(--text-muted);
-    cursor: pointer;
-    font-family: inherit;
-  }
-  .copy-btn:hover {
-    border-color: var(--accent);
-    color: var(--text-primary);
   }
   .task-output pre {
     background: var(--code-bg);
@@ -2744,23 +2598,6 @@
     color: var(--accent);
   }
 
-  /* Template section slide transition */
-  .template-section-wrapper {
-    overflow: hidden;
-    max-height: 0;
-    opacity: 0;
-    transition:
-      max-height 0.35s ease-out,
-      opacity 0.25s ease-out;
-  }
-  .template-section-wrapper.template-section-open {
-    max-height: 2000px;
-    opacity: 1;
-    transition:
-      max-height 0.45s ease-in,
-      opacity 0.3s ease-in;
-  }
-
   /* Custom template edit button */
   .template-custom-actions {
     position: absolute;
@@ -2828,27 +2665,6 @@
     border-top-color: #a0e0a0;
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
-  }
-  .terminal-close {
-    width: 22px;
-    height: 22px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.7rem;
-    border-radius: 4px;
-    border: 1px solid #333;
-    background: transparent;
-    color: #888;
-    cursor: pointer;
-    font-family: inherit;
-    padding: 0;
-    transition: all 0.15s;
-  }
-  .terminal-close:hover {
-    background: #333;
-    color: #e88;
-    border-color: #e88;
   }
   .terminal-output {
     background: #0d0d1a;

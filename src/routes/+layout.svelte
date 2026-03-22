@@ -16,6 +16,7 @@
   import { NAV_GROUPS } from '$lib/constants/nav';
   import type { NavItem } from '$lib/constants/nav';
   import Icon from '$lib/components/Icon.svelte';
+  import SearchInput from '$lib/components/SearchInput.svelte';
 
   let { data, children } = $props<{ data: LayoutData; children: any }>();
   let sidebarOpen = $state(false);
@@ -485,7 +486,7 @@
     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <nav class:open={sidebarOpen}>
       <div class="nav-search">
-        <input type="text" placeholder="Search..." bind:value={navSearch} class="nav-search-input" />
+        <SearchInput bind:value={navSearch} placeholder="Search..." size="sm" clearable />
       </div>
       {#if pinnedItems.length > 0 && !navSearch}
         <div class="nav-group">
@@ -958,31 +959,6 @@
   .nav-search {
     padding: 8px 12px;
     border-bottom: 1px solid var(--border-subtle);
-  }
-
-  .nav-search-input {
-    width: 100%;
-    padding: 4px 8px;
-    font-size: 0.7rem;
-    border-radius: 4px;
-    border: 1px solid transparent;
-    background: var(--bg-hover);
-    color: var(--text-secondary);
-    font-family: inherit;
-    transition: all 0.15s;
-  }
-
-  .nav-search-input:hover {
-    border-color: var(--border);
-  }
-
-  .nav-search-input::placeholder {
-    color: var(--text-faint);
-  }
-
-  .nav-search-input:focus {
-    outline: none;
-    border-color: var(--accent);
   }
 
   .nav-group-header {

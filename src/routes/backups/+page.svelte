@@ -5,6 +5,8 @@
   import EmptyState from '$lib/components/EmptyState.svelte';
   import CronBuilder from '$lib/components/CronBuilder.svelte';
   import FileBrowser from '$lib/components/FileBrowser.svelte';
+  import Button from '$lib/components/Button.svelte';
+  import Badge from '$lib/components/Badge.svelte';
 
   let { data } = $props<{ data: PageData }>();
   // svelte-ignore state_referenced_locally
@@ -64,10 +66,6 @@
 
   // Running state
   let runningIds = $state<Set<string>>(new Set());
-
-  // Delete confirm state: maps configId -> timeout handle
-  let deleteConfirm = $state<Set<string>>(new Set());
-  let deleteTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
   // Dry-run preview state
   let previewId = $state<string | null>(null);
@@ -247,33 +245,7 @@
     }
   }
 
-  function requestDelete(configId: string) {
-    if (deleteConfirm.has(configId)) {
-      // Second click — confirmed
-      confirmDelete(configId);
-    } else {
-      // First click — arm the confirm state
-      deleteConfirm.add(configId);
-      deleteConfirm = new Set(deleteConfirm);
-      const timer = setTimeout(() => {
-        deleteConfirm.delete(configId);
-        deleteConfirm = new Set(deleteConfirm);
-        deleteTimers.delete(configId);
-      }, 3000);
-      deleteTimers.set(configId, timer);
-    }
-  }
-
   async function confirmDelete(configId: string) {
-    // Clear dismiss timer
-    const timer = deleteTimers.get(configId);
-    if (timer) {
-      clearTimeout(timer);
-      deleteTimers.delete(configId);
-    }
-    deleteConfirm.delete(configId);
-    deleteConfirm = new Set(deleteConfirm);
-
     const name = statuses.find((s) => s.config.id === configId)?.config.name ?? configId;
     try {
       const res = await fetch('/api/backups', {
@@ -316,10 +288,10 @@
 <div class="header">
   <h2 class="page-title">Backups</h2>
   <div class="controls">
-    <button class="btn" onclick={refresh}>Refresh</button>
-    <button class="btn" onclick={() => (showForm ? cancelForm() : openNewForm())}>
+    <Button onclick={refresh}>Refresh</Button>
+    <Button variant={showForm ? 'default' : 'primary'} onclick={() => (showForm ? cancelForm() : openNewForm())}>
       {showForm ? 'Cancel' : 'New Backup'}
-    </button>
+    </Button>
   </div>
 </div>
 <p class="page-desc">
@@ -450,10 +422,10 @@
 
     <!-- Actions -->
     <div class="form-actions">
-      <button class="btn btn-primary" onclick={submitForm} disabled={!formName || !formSource || !formDest}>
+      <Button variant="primary" onclick={submitForm} disabled={!formName || !formSource || !formDest}>
         {editingId ? 'Save Changes' : 'Create Backup'}
-      </button>
-      <button class="btn" onclick={cancelForm}>Cancel</button>
+      </Button>
+      <Button onclick={cancelForm}>Cancel</Button>
     </div>
   </div>
 {/if}
@@ -489,35 +461,40 @@
             {/if}
           </div>
           <div class="card-actions">
-            <button
-              class="btn btn-preview"
+            <Button
+              size="sm"
               onclick={() => dryRunPreview(status.config.id)}
               disabled={runningIds.has(status.config.id) || previewLoading}
+              loading={previewId === status.config.id && previewLoading}
             >
-              {previewId === status.config.id && previewLoading ? 'Previewing...' : 'Preview'}
-            </button>
-            <button
-              class="btn"
+              Preview
+            </Button>
+            <Button
+              size="sm"
+              variant="primary"
               onclick={() => triggerBackup(status.config.id)}
               disabled={runningIds.has(status.config.id)}
+              loading={runningIds.has(status.config.id)}
             >
               {runningIds.has(status.config.id) ? 'Running...' : 'Run Now'}
-            </button>
-            <button
-              class="btn btn-edit"
+            </Button>
+            <Button
+              size="sm"
+              variant="accent"
               onclick={() => openEditForm(status.config)}
               disabled={runningIds.has(status.config.id)}
             >
               Edit
-            </button>
-            <button
-              class="btn btn-delete"
-              class:btn-delete-confirm={deleteConfirm.has(status.config.id)}
-              onclick={() => requestDelete(status.config.id)}
+            </Button>
+            <Button
+              size="sm"
+              variant="danger"
+              confirm
+              onclick={() => confirmDelete(status.config.id)}
               disabled={runningIds.has(status.config.id)}
             >
-              {deleteConfirm.has(status.config.id) ? 'Sure?' : 'Delete'}
-            </button>
+              Delete
+            </Button>
           </div>
         </div>
 
@@ -543,9 +520,16 @@
 
         {#if status.lastRun}
           <div class="last-run">
-            <span class="run-status" style="color: {statusColor(status.lastRun.status)}">
-              ● {status.lastRun.status}
-            </span>
+            <Badge
+              variant={status.lastRun.status === 'success'
+                ? 'success'
+                : status.lastRun.status === 'failed'
+                  ? 'danger'
+                  : 'warning'}
+              dot
+            >
+              {status.lastRun.status}
+            </Badge>
             <span class="run-time">{formatDate(status.lastRun.startedAt)}</span>
             {#if status.lastRun.status === 'success'}
               <span class="run-stats">
@@ -561,7 +545,7 @@
           </div>
         {:else}
           <div class="last-run">
-            <span class="run-status" style="color: var(--text-muted)">Never run</span>
+            <Badge variant="default" dot>Never run</Badge>
           </div>
         {/if}
       </div>
@@ -583,58 +567,6 @@
     display: flex;
     gap: 8px;
   }
-  .btn {
-    padding: 6px 14px;
-    font-size: 0.8rem;
-    border-radius: 6px;
-    border: 1px solid var(--border);
-    background: var(--btn-bg);
-    color: var(--text-secondary);
-    cursor: pointer;
-    font-family: inherit;
-  }
-  .btn:hover:not(:disabled) {
-    border-color: var(--accent);
-  }
-  .btn:disabled {
-    opacity: 0.5;
-    cursor: default;
-  }
-  .btn-primary {
-    background: var(--success);
-    border-color: var(--success);
-    color: var(--bg-primary);
-    margin-top: 12px;
-  }
-  .btn-primary:hover:not(:disabled) {
-    filter: brightness(1.15);
-  }
-
-  .btn-edit {
-    color: var(--accent);
-    border-color: var(--border);
-  }
-  .btn-edit:hover:not(:disabled) {
-    border-color: var(--accent);
-    background: var(--accent-subtle, var(--bg-tertiary));
-  }
-
-  .btn-delete {
-    color: var(--danger);
-    border-color: var(--border);
-  }
-  .btn-delete:hover:not(:disabled) {
-    border-color: var(--danger);
-  }
-  .btn-delete-confirm {
-    background: var(--danger);
-    border-color: var(--danger);
-    color: var(--bg-primary);
-  }
-  .btn-delete-confirm:hover:not(:disabled) {
-    filter: brightness(1.1);
-  }
-
   .warning {
     background: var(--warning-bg);
     border: 1px solid var(--warning);

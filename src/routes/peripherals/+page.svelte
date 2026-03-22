@@ -2,6 +2,10 @@
   import { onMount } from 'svelte';
   import { browser } from '$app/environment';
   import { toast } from '$lib/toast';
+  import Button from '$lib/components/Button.svelte';
+  import Badge from '$lib/components/Badge.svelte';
+  import Tabs from '$lib/components/Tabs.svelte';
+  import Loading from '$lib/components/Loading.svelte';
 
   interface WifiNetwork {
     ssid: string;
@@ -97,6 +101,17 @@
   let systemInfo = $state<SystemInfo | null>(cached?.systemInfo || null);
   let loading = $state(!cached);
   let activeTab = $state<TabKey>('wifi');
+
+  const tabItems = $derived([
+    { id: 'wifi', label: 'WiFi', count: wifi.length },
+    { id: 'bluetooth', label: 'Bluetooth', count: bluetooth.length },
+    { id: 'usb', label: 'USB', count: usb.length },
+    { id: 'audio', label: 'Audio', count: audio.length },
+    { id: 'battery', label: battery ? `Battery (${battery.percentage}%)` : 'Battery' },
+    { id: 'displays', label: 'Displays', count: displays.length },
+    { id: 'network', label: 'Network', count: networkInterfaces.length },
+    { id: 'system', label: 'System Info' },
+  ]);
   let wifiSort = $state<'rssi' | 'ssid' | 'channel'>('rssi');
   let btToggling = $state<string | null>(null);
 
@@ -180,41 +195,15 @@
 
 <div class="header">
   <h2 class="page-title">Peripherals</h2>
-  <button class="btn" onclick={refresh} disabled={loading}>
+  <Button onclick={refresh} disabled={loading} {loading}>
     {loading ? 'Scanning...' : 'Refresh'}
-  </button>
+  </Button>
 </div>
 <p class="page-desc">
   Scan and inspect connected peripherals including WiFi adapters, Bluetooth devices, and USB hardware.
 </p>
 
-<!-- Tabs -->
-<div class="tabs">
-  <button class="tab" class:active={activeTab === 'wifi'} onclick={() => (activeTab = 'wifi')}>
-    WiFi ({wifi.length})
-  </button>
-  <button class="tab" class:active={activeTab === 'bluetooth'} onclick={() => (activeTab = 'bluetooth')}>
-    Bluetooth ({bluetooth.length})
-  </button>
-  <button class="tab" class:active={activeTab === 'usb'} onclick={() => (activeTab = 'usb')}>
-    USB ({usb.length})
-  </button>
-  <button class="tab" class:active={activeTab === 'audio'} onclick={() => (activeTab = 'audio')}>
-    Audio ({audio.length})
-  </button>
-  <button class="tab" class:active={activeTab === 'battery'} onclick={() => (activeTab = 'battery')}>
-    Battery {battery ? `(${battery.percentage}%)` : ''}
-  </button>
-  <button class="tab" class:active={activeTab === 'displays'} onclick={() => (activeTab = 'displays')}>
-    Displays ({displays.length})
-  </button>
-  <button class="tab" class:active={activeTab === 'network'} onclick={() => (activeTab = 'network')}>
-    Network ({networkInterfaces.length})
-  </button>
-  <button class="tab" class:active={activeTab === 'system'} onclick={() => (activeTab = 'system')}>
-    System Info
-  </button>
-</div>
+<Tabs tabs={tabItems} bind:active={activeTab} />
 
 {#if activeTab === 'wifi'}
   <!-- Current connection -->
@@ -239,11 +228,7 @@
   </div>
 
   {#if loading && wifi.length === 0}
-    <div class="skeleton-list">
-      {#each Array(4) as _, i}
-        <div class="skeleton-card" style="animation-delay: {i * 60}ms; height: 52px; border-radius: 8px;"></div>
-      {/each}
-    </div>
+    <Loading count={4} height="52px" />
   {:else if sortedWifi.length === 0}
     <div class="empty">No WiFi networks found</div>
   {:else}
@@ -269,20 +254,16 @@
             <span class="net-ssid">{net.ssid}</span>
             <span class="net-meta">{net.bssid} | Ch {net.channel} | {net.rssi} dBm</span>
           </div>
-          <div class="net-security" class:insecure={isOpenNetwork(net.security)}>
+          <Badge variant={isOpenNetwork(net.security) ? 'danger' : 'success'}>
             {isOpenNetwork(net.security) ? 'Open' : net.security}
-          </div>
+          </Badge>
         </div>
       {/each}
     </div>
   {/if}
 {:else if activeTab === 'bluetooth'}
   {#if loading && bluetooth.length === 0}
-    <div class="skeleton-list">
-      {#each Array(3) as _, i}
-        <div class="skeleton-card" style="animation-delay: {i * 60}ms; height: 52px; border-radius: 8px;"></div>
-      {/each}
-    </div>
+    <Loading count={3} height="52px" />
   {:else if bluetooth.length === 0}
     <div class="empty">No Bluetooth devices found</div>
   {:else}
@@ -296,30 +277,23 @@
             <span class="bt-name">{dev.name}</span>
             <span class="bt-meta">{dev.address} | {dev.type}</span>
           </div>
-          <span class="bt-state">{dev.connected ? 'Connected' : 'Paired'}</span>
-          <button
-            class="btn btn-bt-toggle"
-            class:connected={dev.connected}
+          <Badge variant={dev.connected ? 'success' : 'default'}>{dev.connected ? 'Connected' : 'Paired'}</Badge>
+          <Button
+            variant={dev.connected ? 'danger' : 'accent'}
+            size="sm"
             onclick={() => toggleBtConnection(dev)}
             disabled={btToggling === dev.address}
+            loading={btToggling === dev.address}
           >
-            {#if btToggling === dev.address}
-              ...
-            {:else}
-              {dev.connected ? 'Disconnect' : 'Connect'}
-            {/if}
-          </button>
+            {dev.connected ? 'Disconnect' : 'Connect'}
+          </Button>
         </div>
       {/each}
     </div>
   {/if}
 {:else if activeTab === 'usb'}
   {#if loading && usb.length === 0}
-    <div class="skeleton-list">
-      {#each Array(3) as _, i}
-        <div class="skeleton-card" style="animation-delay: {i * 60}ms; height: 52px; border-radius: 8px;"></div>
-      {/each}
-    </div>
+    <Loading count={3} height="52px" />
   {:else if usb.length === 0}
     <div class="empty">No USB devices found</div>
   {:else}
@@ -344,11 +318,7 @@
   {/if}
 {:else if activeTab === 'audio'}
   {#if loading && audio.length === 0}
-    <div class="skeleton-list">
-      {#each Array(3) as _, i}
-        <div class="skeleton-card" style="animation-delay: {i * 60}ms; height: 52px; border-radius: 8px;"></div>
-      {/each}
-    </div>
+    <Loading count={3} height="52px" />
   {:else if audio.length === 0}
     <div class="empty">No audio devices found</div>
   {:else}
@@ -373,9 +343,7 @@
   {/if}
 {:else if activeTab === 'battery'}
   {#if loading && !battery}
-    <div class="skeleton-list">
-      <div class="skeleton-card" style="height: 140px; border-radius: 8px; max-width: 400px;"></div>
-    </div>
+    <Loading count={1} height="140px" />
   {:else if !battery}
     <div class="empty">No battery detected (desktop Mac or unavailable)</div>
   {:else}
@@ -417,11 +385,7 @@
   {/if}
 {:else if activeTab === 'displays'}
   {#if loading && displays.length === 0}
-    <div class="skeleton-list">
-      {#each Array(2) as _, i}
-        <div class="skeleton-card" style="animation-delay: {i * 60}ms; height: 52px; border-radius: 8px;"></div>
-      {/each}
-    </div>
+    <Loading count={2} height="52px" />
   {:else if displays.length === 0}
     <div class="empty">No displays detected</div>
   {:else}
@@ -452,11 +416,7 @@
   {/if}
 {:else if activeTab === 'network'}
   {#if loading && networkInterfaces.length === 0}
-    <div class="skeleton-list">
-      {#each Array(3) as _, i}
-        <div class="skeleton-card" style="animation-delay: {i * 60}ms; height: 52px; border-radius: 8px;"></div>
-      {/each}
-    </div>
+    <Loading count={3} height="52px" />
   {:else if networkInterfaces.length === 0}
     <div class="empty">No network interfaces found</div>
   {:else}
@@ -472,22 +432,16 @@
                 | IP: {iface.ip}{/if}
             </span>
           </div>
-          <span
-            class="device-badge"
-            class:active-badge={iface.status === 'active'}
-            class:inactive-badge={iface.status !== 'active'}
-          >
+          <Badge variant={iface.status === 'active' ? 'success' : 'default'}>
             {iface.status}
-          </span>
+          </Badge>
         </div>
       {/each}
     </div>
   {/if}
 {:else if activeTab === 'system'}
   {#if loading && !systemInfo}
-    <div class="skeleton-list">
-      <div class="skeleton-card" style="height: 200px; border-radius: 8px; max-width: 500px;"></div>
-    </div>
+    <Loading count={1} height="200px" />
   {:else if !systemInfo}
     <div class="empty">System info unavailable</div>
   {:else}
@@ -532,48 +486,6 @@
   h2 {
     font-size: 1.3rem;
   }
-  .btn {
-    padding: 6px 14px;
-    font-size: 0.8rem;
-    border-radius: 6px;
-    border: 1px solid var(--border);
-    background: var(--btn-bg);
-    color: var(--text-secondary);
-    cursor: pointer;
-  }
-  .btn:hover:not(:disabled) {
-    border-color: var(--accent);
-  }
-  .btn:disabled {
-    opacity: 0.5;
-  }
-
-  .tabs {
-    display: flex;
-    gap: 4px;
-    margin-bottom: 16px;
-    flex-wrap: wrap;
-  }
-  .tab {
-    padding: 8px 16px;
-    border-radius: 6px;
-    border: 1px solid var(--border);
-    background: var(--btn-bg);
-    color: var(--text-muted);
-    cursor: pointer;
-    font-size: 0.82rem;
-    font-family: inherit;
-    transition: all 0.15s;
-  }
-  .tab:hover {
-    color: var(--text-primary);
-  }
-  .tab.active {
-    background: var(--accent-bg);
-    border-color: var(--accent);
-    color: var(--accent);
-  }
-
   .current-connection {
     display: flex;
     align-items: center;
@@ -691,18 +603,6 @@
     color: var(--text-faint);
     font-family: 'JetBrains Mono', monospace;
   }
-  .net-security {
-    font-size: 0.72rem;
-    padding: 2px 8px;
-    border-radius: 10px;
-    background: var(--success-bg);
-    color: var(--success);
-  }
-  .net-security.insecure {
-    background: var(--danger-bg);
-    color: var(--danger);
-  }
-
   .bt-row {
     display: flex;
     align-items: center;
@@ -738,25 +638,6 @@
     color: var(--text-faint);
     font-family: 'JetBrains Mono', monospace;
   }
-  .bt-state {
-    font-size: 0.72rem;
-    color: var(--text-muted);
-  }
-
-  .btn-bt-toggle {
-    padding: 4px 10px;
-    font-size: 0.72rem;
-    border-radius: 4px;
-  }
-  .btn-bt-toggle.connected {
-    border-color: var(--danger);
-    color: var(--danger);
-  }
-  .btn-bt-toggle:not(.connected) {
-    border-color: var(--success);
-    color: var(--success);
-  }
-
   /* USB / Audio / Display / Network device list */
   .device-list {
     display: flex;
@@ -807,14 +688,6 @@
   .device-badge.input-badge {
     background: var(--warning-bg, rgba(255, 180, 0, 0.1));
     color: var(--warning);
-  }
-  .device-badge.active-badge {
-    background: var(--success-bg, rgba(0, 200, 100, 0.1));
-    color: var(--success);
-  }
-  .device-badge.inactive-badge {
-    background: var(--bg-secondary);
-    color: var(--text-faint);
   }
 
   .built-in-tag {
@@ -932,12 +805,6 @@
     font-family: 'JetBrains Mono', monospace;
     text-align: right;
     word-break: break-word;
-  }
-
-  .skeleton-list {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
   }
 
   @media (max-width: 640px) {

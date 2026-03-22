@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { toast } from '$lib/toast';
+  import Button from '$lib/components/Button.svelte';
+  import Tabs from '$lib/components/Tabs.svelte';
 
   // ---- Types ----
   interface TracerouteHop {
@@ -348,13 +350,7 @@
 </div>
 <p class="page-desc">Run traceroute, ping, whois, and other network diagnostic tools from your server.</p>
 
-<div class="tab-bar">
-  {#each tabs as tab (tab.id)}
-    <button class="tab-btn" class:active={activeTab === tab.id} onclick={() => (activeTab = tab.id)}>
-      {tab.label}
-    </button>
-  {/each}
-</div>
+<Tabs {tabs} bind:active={activeTab} />
 
 <div class="tab-content">
   <!-- Traceroute -->
@@ -368,9 +364,9 @@
           onkeydown={(e) => e.key === 'Enter' && runTraceroute()}
           class="input-field"
         />
-        <button class="btn btn-accent" onclick={runTraceroute} disabled={trLoading}>
+        <Button variant="accent" onclick={runTraceroute} disabled={trLoading} loading={trLoading}>
           {trLoading ? 'Tracing...' : 'Trace'}
-        </button>
+        </Button>
       </div>
 
       {#if trHops.length > 0}
@@ -410,9 +406,9 @@
           onkeydown={(e) => e.key === 'Enter' && runPingSweep()}
           class="input-field"
         />
-        <button class="btn btn-accent" onclick={runPingSweep} disabled={pingLoading}>
+        <Button variant="accent" onclick={runPingSweep} disabled={pingLoading} loading={pingLoading}>
           {pingLoading ? 'Scanning...' : 'Sweep'}
-        </button>
+        </Button>
       </div>
       <p class="hint">Only /24 subnets are supported. Scan may take 30-60 seconds.</p>
 
@@ -446,9 +442,9 @@
   {:else if activeTab === 'arp'}
     <div class="tool-section">
       <div class="input-row">
-        <button class="btn btn-accent" onclick={fetchArp} disabled={arpLoading}>
+        <Button variant="accent" onclick={fetchArp} disabled={arpLoading} loading={arpLoading}>
           {arpLoading ? 'Loading...' : 'Refresh ARP Table'}
-        </button>
+        </Button>
       </div>
 
       {#if arpEntries.length > 0}
@@ -490,9 +486,9 @@
           onkeydown={(e) => e.key === 'Enter' && runWhois()}
           class="input-field"
         />
-        <button class="btn btn-accent" onclick={runWhois} disabled={whoisLoading}>
+        <Button variant="accent" onclick={runWhois} disabled={whoisLoading} loading={whoisLoading}>
           {whoisLoading ? 'Looking up...' : 'Lookup'}
-        </button>
+        </Button>
       </div>
 
       {#if whoisResult}
@@ -507,9 +503,9 @@
     <div class="tool-section">
       <div class="input-row">
         {#if !bwRunning}
-          <button class="btn btn-accent" onclick={startBandwidth}>Start Monitoring</button>
+          <Button variant="accent" onclick={startBandwidth}>Start Monitoring</Button>
         {:else}
-          <button class="btn btn-danger" onclick={stopBandwidth}>Stop Monitoring</button>
+          <Button variant="danger" onclick={stopBandwidth}>Stop Monitoring</Button>
         {/if}
         {#if bwInterfaces.length > 0}
           <select bind:value={bwSelectedIface} class="iface-select">
@@ -572,9 +568,9 @@
           onkeydown={(e) => e.key === 'Enter' && inspectSSL()}
           class="input-field"
         />
-        <button class="btn btn-accent" onclick={inspectSSL} disabled={sslLoading}>
+        <Button variant="accent" onclick={inspectSSL} disabled={sslLoading} loading={sslLoading}>
           {sslLoading ? 'Inspecting...' : 'Inspect'}
-        </button>
+        </Button>
       </div>
 
       {#if sslError}
@@ -656,9 +652,9 @@
           onkeydown={(e) => e.key === 'Enter' && inspectHTTP()}
           class="input-field"
         />
-        <button class="btn btn-accent" onclick={inspectHTTP} disabled={httpLoading}>
+        <Button variant="accent" onclick={inspectHTTP} disabled={httpLoading} loading={httpLoading}>
           {httpLoading ? 'Fetching...' : 'Inspect'}
-        </button>
+        </Button>
       </div>
 
       {#if httpError}
@@ -703,40 +699,6 @@
     font-size: 1.3rem;
   }
 
-  /* Tab bar */
-  .tab-bar {
-    display: flex;
-    gap: 2px;
-    border-bottom: 1px solid var(--border);
-    margin-bottom: 16px;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .tab-btn {
-    padding: 8px 16px;
-    font-size: 0.8rem;
-    border: none;
-    background: none;
-    color: var(--text-muted);
-    cursor: pointer;
-    white-space: nowrap;
-    border-bottom: 2px solid transparent;
-    font-family: inherit;
-    transition:
-      color 0.15s,
-      border-color 0.15s;
-  }
-
-  .tab-btn:hover {
-    color: var(--text-secondary);
-  }
-
-  .tab-btn.active {
-    color: var(--accent);
-    border-bottom-color: var(--accent);
-  }
-
   .tab-content {
     min-height: 300px;
   }
@@ -768,47 +730,6 @@
   .input-field:focus {
     outline: none;
     border-color: var(--accent);
-  }
-
-  .btn {
-    padding: 8px 16px;
-    font-size: 0.8rem;
-    border-radius: 6px;
-    border: 1px solid var(--border);
-    background: var(--btn-bg);
-    color: var(--text-secondary);
-    cursor: pointer;
-    font-family: inherit;
-    white-space: nowrap;
-  }
-
-  .btn:hover:not(:disabled) {
-    border-color: var(--accent);
-  }
-
-  .btn:disabled {
-    opacity: 0.5;
-    cursor: default;
-  }
-
-  .btn-accent {
-    background: var(--accent);
-    color: #fff;
-    border-color: var(--accent);
-  }
-
-  .btn-accent:hover:not(:disabled) {
-    filter: brightness(1.1);
-  }
-
-  .btn-danger {
-    background: var(--danger);
-    color: #fff;
-    border-color: var(--danger);
-  }
-
-  .btn-danger:hover:not(:disabled) {
-    filter: brightness(1.1);
   }
 
   .hint {

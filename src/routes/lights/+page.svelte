@@ -3,6 +3,8 @@
   import type { WizBulb } from '$lib/server/wiz';
   import { onMount } from 'svelte';
   import { toast } from '$lib/toast';
+  import Button from '$lib/components/Button.svelte';
+  import Loading from '$lib/components/Loading.svelte';
 
   import { browser } from '$app/environment';
 
@@ -517,18 +519,18 @@
     <span class="bulb-count">{bulbs.length} {bulbs.length === 1 ? 'Bulb' : 'Bulbs'} Online</span>
   {/if}
   <div class="controls">
-    <button class="btn" onclick={rediscover} disabled={discovering}>
+    <Button onclick={rediscover} disabled={discovering} loading={discovering}>
       {#if discovering && bulbs.length > 0}
-        <span class="btn-spinner"></span> Refreshing...
+        Refreshing...
       {:else if discovering}
         Scanning...
       {:else}
         Rediscover
       {/if}
-    </button>
-    <button class="btn" class:active={polling} onclick={togglePolling}>
+    </Button>
+    <Button variant={polling ? 'accent' : 'default'} onclick={togglePolling}>
       Poll {polling ? 'ON' : 'OFF'}
-    </button>
+    </Button>
   </div>
 </div>
 <p class="page-desc">
@@ -640,11 +642,7 @@
 {/if}
 
 {#if discovering && bulbs.length === 0}
-  <div class="bulb-grid">
-    {#each Array(4) as _, i}
-      <div class="skeleton-card card-stagger" style="animation-delay: {i * 40}ms; height: 200px;"></div>
-    {/each}
-  </div>
+  <Loading count={4} height="200px" columns={2} />
 {:else if bulbs.length === 0}
   <div class="empty">
     <p>No Wiz bulbs found on the network.</p>

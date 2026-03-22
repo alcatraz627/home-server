@@ -4,6 +4,9 @@
   import { toast } from '$lib/toast';
   import { onMount } from 'svelte';
   import { stars } from '$lib/stars';
+  import Button from '$lib/components/Button.svelte';
+  import SearchInput from '$lib/components/SearchInput.svelte';
+  import Loading from '$lib/components/Loading.svelte';
 
   let { data } = $props<{ data: PageData }>();
 
@@ -87,10 +90,8 @@
   let activeDetail = $state<ProcessDetail | null>(null);
   let detailLoading = $state(false);
 
-  // Signal + confirm state
-  let confirmingSignal = $state<number | null>(null);
+  // Signal state
   let selectedSignal = $state<string>('TERM');
-  let confirmTimer: ReturnType<typeof setTimeout> | null = null;
 
   // Common process name reference
   const PROCESS_HELP: Record<string, string> = {
@@ -320,18 +321,7 @@
     detailLoading = false;
   }
 
-  // Signal
-  function requestSignal(pid: number) {
-    if (confirmTimer) clearTimeout(confirmTimer);
-    confirmingSignal = pid;
-    confirmTimer = setTimeout(() => {
-      confirmingSignal = null;
-    }, 3000);
-  }
-
   async function confirmSignal(pid: number) {
-    confirmingSignal = null;
-    if (confirmTimer) clearTimeout(confirmTimer);
     try {
       const res = await fetch(`/api/processes/${pid}?signal=${selectedSignal}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Signal failed');
@@ -355,9 +345,9 @@
 
 <!-- System Monitor -->
 <div class="monitor-toggle">
-  <button class="btn btn-sm" onclick={() => (monitorOpen = !monitorOpen)}>
+  <Button size="sm" onclick={() => (monitorOpen = !monitorOpen)}>
     {monitorOpen ? '▼' : '▶'} System Monitor
-  </button>
+  </Button>
   {#if monitorHistory.length > 0}
     {@const latest = monitorHistory[monitorHistory.length - 1]}
     <span class="monitor-summary">
@@ -594,16 +584,16 @@
 <div class="header">
   <h2 class="page-title">Process Manager</h2>
   <div class="controls">
-    <input type="text" placeholder="Filter..." bind:value={filter} class="filter-input" />
+    <SearchInput bind:value={filter} placeholder="Filter..." size="sm" />
     <div class="view-toggle">
-      <button class="btn" class:active={viewMode === 'flat'} onclick={() => (viewMode = 'flat')}>List</button>
-      <button class="btn" class:active={viewMode === 'tree'} onclick={() => (viewMode = 'tree')}>Tree</button>
+      <Button variant={viewMode === 'flat' ? 'accent' : 'default'} onclick={() => (viewMode = 'flat')}>List</Button>
+      <Button variant={viewMode === 'tree' ? 'accent' : 'default'} onclick={() => (viewMode = 'tree')}>Tree</Button>
     </div>
-    <button class="btn" onclick={refresh}>Refresh</button>
+    <Button onclick={refresh}>Refresh</Button>
     <div class="refresh-group">
-      <button class="btn" class:active={autoRefresh} onclick={toggleAutoRefresh}>
+      <Button variant={autoRefresh ? 'accent' : 'default'} onclick={toggleAutoRefresh}>
         Auto {autoRefresh ? 'ON' : 'OFF'}
-      </button>
+      </Button>
       <select class="refresh-select" value={refreshRate} onchange={updateRefreshRate}>
         <option value={2}>2s</option>
         <option value={5}>5s</option>
@@ -631,29 +621,13 @@
     <span class="col-state">State</span>
     <span class="col-user">User</span>
     <span class="col-actions">
-      <button
-        class="btn btn-sm unit-toggle"
-        title="Toggle between % and absolute values"
-        onclick={() => (showAbsolute = !showAbsolute)}
-      >
+      <Button size="xs" onclick={() => (showAbsolute = !showAbsolute)}>
         {showAbsolute ? '%' : 'abs'}
-      </button>
+      </Button>
     </span>
   </div>
   {#if displayed.length === 0}
-    {#each Array(5) as _, i}
-      <div class="process-row" style="animation-delay: {i * 40}ms">
-        <span class="col-star"><div class="skeleton" style="width: 16px; height: 16px;"></div></span>
-        <span class="col-pid"><div class="skeleton" style="width: 40px; height: 14px;"></div></span>
-        <span class="col-name"><div class="skeleton" style="width: 120px; height: 14px;"></div></span>
-        <span class="col-cpu"><div class="skeleton" style="width: 30px; height: 14px;"></div></span>
-        <span class="col-mem"><div class="skeleton" style="width: 30px; height: 14px;"></div></span>
-        <span class="col-rss"><div class="skeleton" style="width: 50px; height: 14px;"></div></span>
-        <span class="col-state"><div class="skeleton" style="width: 40px; height: 14px;"></div></span>
-        <span class="col-user"><div class="skeleton" style="width: 50px; height: 14px;"></div></span>
-        <span class="col-actions"></span>
-      </div>
-    {/each}
+    <Loading count={5} height="38px" />
   {/if}
   {#each displayed as proc}
     {@const node = viewMode === 'tree' && 'depth' in proc ? (proc as TreeNode) : null}
@@ -707,15 +681,9 @@
             <option value={sig}>{sig}</option>
           {/each}
         </select>
-        {#if confirmingSignal === proc.pid}
-          <button class="btn btn-sm btn-confirm" onclick={() => confirmSignal(proc.pid)}>sure?</button>
-        {:else}
-          <button
-            class="btn btn-sm btn-danger"
-            onclick={() => requestSignal(proc.pid)}
-            title={SIGNAL_INFO[selectedSignal]}>send</button
-          >
-        {/if}
+        <Button size="xs" variant="danger" confirm confirmText="sure?" onclick={() => confirmSignal(proc.pid)}
+          >send</Button
+        >
       </span>
     </div>
     {#if expandedPid === proc.pid}
@@ -811,9 +779,9 @@
               </details>
             {/if}
           {:else}
-            <button class="btn inspect-btn" onclick={() => fetchDetail(proc.pid)} disabled={detailLoading}>
+            <Button onclick={() => fetchDetail(proc.pid)} disabled={detailLoading} loading={detailLoading}>
               {detailLoading ? 'Loading...' : 'Inspect (open files, threads, env)'}
-            </button>
+            </Button>
           {/if}
         </div>
       </div>
@@ -822,9 +790,9 @@
 </div>
 
 {#if displayList.length > DISPLAY_LIMIT && !showAll}
-  <button class="btn show-all" onclick={() => (showAll = true)}>
+  <Button class="show-all" onclick={() => (showAll = true)}>
     Show all {displayList.length} processes
-  </button>
+  </Button>
 {/if}
 
 <style>
@@ -848,22 +816,6 @@
     flex-wrap: wrap;
   }
 
-  .filter-input {
-    padding: 6px 12px;
-    font-size: 0.8rem;
-    border-radius: 6px;
-    border: 1px solid var(--border);
-    background: var(--input-bg);
-    color: var(--text-primary);
-    width: 160px;
-    font-family: inherit;
-  }
-
-  .filter-input:focus {
-    outline: none;
-    border-color: var(--accent);
-  }
-
   .view-toggle {
     display: flex;
     gap: 0;
@@ -878,21 +830,6 @@
   }
   .view-toggle .btn:last-child {
     border-radius: 0 6px 6px 0;
-  }
-
-  .btn {
-    padding: 6px 14px;
-    font-size: 0.8rem;
-    border-radius: 6px;
-    border: 1px solid var(--border);
-    background: var(--btn-bg);
-    color: var(--text-secondary);
-    cursor: pointer;
-    font-family: inherit;
-  }
-
-  .btn:hover {
-    border-color: var(--accent);
   }
 
   .btn.active {

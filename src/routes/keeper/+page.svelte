@@ -2,6 +2,9 @@
   import type { PageData } from './$types';
   import type { FeatureRequest, FeatureScope, FeatureStatus } from '$lib/server/keeper';
   import EmptyState from '$lib/components/EmptyState.svelte';
+  import Button from '$lib/components/Button.svelte';
+  import Badge from '$lib/components/Badge.svelte';
+  import SearchInput from '$lib/components/SearchInput.svelte';
   import { toast } from '$lib/toast';
 
   let { data } = $props<{ data: PageData }>();
@@ -385,23 +388,6 @@
     }, 2000);
   }
 
-  // Confirm delete
-  let confirmingDelete = $state<string | null>(null);
-  let confirmTimer: ReturnType<typeof setTimeout> | null = null;
-
-  function requestDelete(id: string) {
-    if (confirmTimer) clearTimeout(confirmTimer);
-    confirmingDelete = id;
-    confirmTimer = setTimeout(() => {
-      confirmingDelete = null;
-    }, 3000);
-  }
-
-  async function confirmDelete(id: string) {
-    confirmingDelete = null;
-    await deleteReq(id);
-  }
-
   // ANSI to HTML converter
   function ansiToHtml(text: string): string {
     const ansiMap: Record<string, string> = {
@@ -466,16 +452,16 @@
       <input type="checkbox" bind:checked={showCompleted} />
       <span>Show completed</span>
     </label>
-    <button class="btn" onclick={refresh}>Refresh</button>
-    <button
-      class="btn btn-accent"
+    <Button onclick={refresh}>Refresh</Button>
+    <Button
+      variant="accent"
       onclick={() => {
         showForm = !showForm;
         if (!showForm) clearForm();
       }}
     >
       {showForm ? 'Cancel' : '+ New Request'}
-    </button>
+    </Button>
   </div>
 </div>
 <p class="page-desc">Queue and track Claude AI agent requests. Monitor progress from backlog through completion.</p>
@@ -506,7 +492,7 @@
     <div class="info-header">
       <h3>How it works</h3>
       {#if requests.length > 0}
-        <button class="btn btn-sm" onclick={() => (showHowItWorks = false)}>Dismiss</button>
+        <Button size="sm" onclick={() => (showHowItWorks = false)}>Dismiss</Button>
       {/if}
     </div>
 
@@ -544,7 +530,7 @@
 <!-- Search + scope filter -->
 {#if requests.length > 0}
   <div class="filter-bar">
-    <input type="text" class="search-input" placeholder="Search requests..." bind:value={search} />
+    <SearchInput bind:value={search} placeholder="Search requests..." clearable />
     <select class="scope-filter" bind:value={filterScope}>
       <option value="">All scopes</option>
       {#each SCOPES as s}
@@ -595,13 +581,11 @@
 
     <div class="form-actions">
       {#if editingId}
-        <button class="btn btn-primary" onclick={saveEdit} disabled={!formTitle || !formGoal}>Save Changes</button>
+        <Button variant="primary" onclick={saveEdit} disabled={!formTitle || !formGoal}>Save Changes</Button>
       {:else}
-        <button class="btn btn-primary" onclick={createRequest} disabled={!formTitle || !formGoal}
-          >Create Request</button
-        >
+        <Button variant="primary" onclick={createRequest} disabled={!formTitle || !formGoal}>Create Request</Button>
       {/if}
-      <button class="btn" onclick={clearForm}>Cancel</button>
+      <Button onclick={clearForm}>Cancel</Button>
     </div>
   </div>
 {/if}
@@ -646,8 +630,18 @@
               <span class="expand-indicator">{expandedId === req.id ? '▼' : '▸'}</span>
               <h3>{req.title}</h3>
               <span class="scope-badge">{scopeLabel(req.scope)}</span>
-              <span class="status-badge status-{req.status}"
-                >{STATUS_FLOW.find((s) => s.value === req.status)?.label}</span
+              <Badge
+                variant={req.status === 'draft'
+                  ? 'default'
+                  : req.status === 'ready'
+                    ? 'accent'
+                    : req.status === 'running'
+                      ? 'success'
+                      : req.status === 'halted'
+                        ? 'danger'
+                        : 'success'}
+                dot={req.status === 'running'}
+                pulse={req.status === 'running'}>{STATUS_FLOW.find((s) => s.value === req.status)?.label}</Badge
               >
               {#if (req.status === 'running' || runningAgents.includes(req.id)) && agentStartTimes[req.id]}
                 <span class="elapsed-badge">{formatElapsed(agentStartTimes[req.id])}</span>
@@ -662,23 +656,21 @@
           </div>
           <div class="request-actions" onclick={(e) => e.stopPropagation()}>
             {#if req.status === 'draft'}
-              <button class="btn btn-sm" onclick={() => updateStatus(req.id, 'ready')}>Mark Ready</button>
+              <Button size="sm" onclick={() => updateStatus(req.id, 'ready')}>Mark Ready</Button>
             {:else if req.status === 'ready'}
-              <button class="btn btn-sm btn-success" onclick={() => startAgentAction(req.id)}>Run Agent</button>
+              <Button size="sm" variant="accent" onclick={() => startAgentAction(req.id)}>Run Agent</Button>
             {:else if req.status === 'running' || runningAgents.includes(req.id)}
-              <button class="btn btn-sm btn-danger-fill" onclick={() => stopAgentAction(req.id)}>Stop</button>
-              <button class="btn btn-sm" onclick={() => markDone(req.id)}>Mark Done</button>
+              <Button size="sm" variant="danger" onclick={() => stopAgentAction(req.id)}>Stop</Button>
+              <Button size="sm" onclick={() => markDone(req.id)}>Mark Done</Button>
             {:else if req.status === 'halted'}
-              <button class="btn btn-sm btn-success" onclick={() => resumeAgentAction(req.id)}>Resume</button>
-              <button class="btn btn-sm" onclick={() => markDone(req.id)}>Mark Done</button>
+              <Button size="sm" variant="accent" onclick={() => resumeAgentAction(req.id)}>Resume</Button>
+              <Button size="sm" onclick={() => markDone(req.id)}>Mark Done</Button>
             {/if}
             {#if req.status !== 'running' && !runningAgents.includes(req.id)}
-              <button class="btn btn-sm" onclick={() => startEdit(req)}>Edit</button>
-              {#if confirmingDelete === req.id}
-                <button class="btn btn-sm btn-confirm" onclick={() => confirmDelete(req.id)}>sure?</button>
-              {:else}
-                <button class="btn btn-sm btn-danger" onclick={() => requestDelete(req.id)}>✕</button>
-              {/if}
+              <Button size="sm" onclick={() => startEdit(req)}>Edit</Button>
+              <Button size="sm" variant="danger" confirm confirmText="Sure?" onclick={() => deleteReq(req.id)}
+                >&#x2715;</Button
+              >
             {/if}
           </div>
         </div>
@@ -698,9 +690,9 @@
                 <div class="detail-header">
                   <span class="detail-label">Agent Log</span>
                   <div class="detail-actions">
-                    <button class="btn btn-xs" onclick={() => copyResult(req.id, logContent[req.id] || '')}>
+                    <Button size="xs" onclick={() => copyResult(req.id, logContent[req.id] || '')}>
                       {copiedResult === req.id ? 'Copied!' : 'Copy Log'}
-                    </button>
+                    </Button>
                   </div>
                 </div>
                 <div class="log-viewer">{@html ansiToHtml(logContent[req.id])}</div>
@@ -719,7 +711,7 @@
                     if (e.key === 'Enter') sendMessage(req.id);
                   }}
                 />
-                <button class="btn btn-sm btn-primary" onclick={() => sendMessage(req.id)}>Send</button>
+                <Button size="sm" variant="primary" onclick={() => sendMessage(req.id)}>Send</Button>
               </div>
             {/if}
 
@@ -728,11 +720,11 @@
                 <span class="detail-label">Output / Notes</span>
                 <div class="detail-actions">
                   {#if editingResult}
-                    <button class="btn btn-xs" onclick={() => copyResult(req.id, editingResult)}>
+                    <Button size="xs" onclick={() => copyResult(req.id, editingResult)}>
                       {copiedResult === req.id ? 'Copied!' : 'Copy'}
-                    </button>
+                    </Button>
                   {/if}
-                  <button class="btn btn-xs btn-primary" onclick={() => saveResult(req.id)}>Save</button>
+                  <Button size="xs" variant="primary" onclick={() => saveResult(req.id)}>Save</Button>
                 </div>
               </div>
               <textarea
@@ -780,70 +772,6 @@
   }
   .toggle-completed input {
     cursor: pointer;
-  }
-  .btn {
-    padding: 6px 14px;
-    font-size: 0.8rem;
-    border-radius: 6px;
-    border: 1px solid var(--border);
-    background: var(--btn-bg);
-    color: var(--text-secondary);
-    cursor: pointer;
-    font-family: inherit;
-  }
-  .btn:hover:not(:disabled) {
-    border-color: var(--accent);
-  }
-  .btn:disabled {
-    opacity: 0.5;
-    cursor: default;
-  }
-  .btn-sm {
-    padding: 4px 10px;
-    font-size: 0.75rem;
-  }
-  .btn-accent {
-    border-color: var(--accent);
-    color: var(--accent);
-  }
-  .btn-primary {
-    background: var(--success);
-    border-color: var(--success);
-    color: #fff;
-  }
-  .btn-primary:hover:not(:disabled) {
-    filter: brightness(1.15);
-  }
-  .btn-success {
-    background: var(--success-bg);
-    border-color: var(--success);
-    color: var(--success);
-  }
-  .btn-danger:hover {
-    border-color: var(--danger);
-    color: var(--danger);
-  }
-  .btn-danger-fill {
-    background: var(--danger);
-    border-color: var(--danger);
-    color: #fff;
-  }
-  .btn-danger-fill:hover {
-    filter: brightness(1.15);
-  }
-  .btn-confirm {
-    border-color: var(--danger);
-    background: var(--danger-bg);
-    color: var(--danger);
-    animation: pulse 0.6s ease-in-out infinite alternate;
-  }
-  @keyframes pulse {
-    from {
-      opacity: 0.7;
-    }
-    to {
-      opacity: 1;
-    }
   }
   @keyframes pulse-glow {
     0%,
@@ -906,20 +834,6 @@
     display: flex;
     gap: 8px;
     margin-bottom: 14px;
-  }
-  .search-input {
-    flex: 1;
-    padding: 7px 12px;
-    font-size: 0.8rem;
-    border-radius: 6px;
-    border: 1px solid var(--border);
-    background: var(--input-bg);
-    color: var(--text-primary);
-    font-family: inherit;
-  }
-  .search-input:focus {
-    outline: none;
-    border-color: var(--accent);
   }
   .scope-filter {
     padding: 7px 12px;
@@ -1100,37 +1014,6 @@
     white-space: nowrap;
     flex-shrink: 0;
   }
-  .status-badge {
-    font-size: 0.6rem;
-    padding: 2px 8px;
-    border-radius: 10px;
-    white-space: nowrap;
-    flex-shrink: 0;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-  }
-  .status-draft {
-    background: color-mix(in srgb, var(--text-faint) 15%, transparent);
-    color: var(--text-faint);
-  }
-  .status-ready {
-    background: color-mix(in srgb, var(--accent) 15%, transparent);
-    color: var(--accent);
-  }
-  .status-running {
-    background: color-mix(in srgb, var(--success) 15%, transparent);
-    color: var(--success);
-  }
-  .status-halted {
-    background: color-mix(in srgb, var(--danger) 15%, transparent);
-    color: var(--danger);
-  }
-  .status-done {
-    background: color-mix(in srgb, var(--success) 15%, transparent);
-    color: var(--success);
-    opacity: 0.7;
-  }
   .elapsed-badge {
     font-size: 0.6rem;
     padding: 2px 8px;
@@ -1202,11 +1085,6 @@
   .detail-actions {
     display: flex;
     gap: 4px;
-  }
-  .btn-xs {
-    padding: 2px 8px;
-    font-size: 0.65rem;
-    border-radius: 4px;
   }
 
   /* Log viewer */
