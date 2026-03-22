@@ -41,6 +41,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/wol', label: 'Wake-on-LAN', desc: 'Wake devices', icon: 'wol' },
       { href: '/dns', label: 'DNS Lookup', desc: 'Domain resolver', icon: 'dns' },
       { href: '/ports', label: 'Port Scanner', desc: 'Scan ports', icon: 'port' },
+      { href: '/services', label: 'Services', desc: 'Health monitor', icon: 'activity' },
     ],
   },
   {
@@ -58,6 +59,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/clipboard', label: 'Clipboard', desc: 'Sync clipboard', icon: 'clipboard' },
       { href: '/screenshots', label: 'Screenshots', desc: 'Screen gallery', icon: 'screenshot' },
       { href: '/benchmarks', label: 'Benchmarks', desc: 'System bench', icon: 'benchmark' },
+      { href: '/docker', label: 'Docker', desc: 'Containers', icon: 'docker' },
     ],
   },
   {
@@ -66,6 +68,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/logs', label: 'Logs', desc: 'App diagnostics', icon: 'file-text' },
       { href: '/docs', label: 'Docs', desc: 'Documentation', icon: 'file-text' },
+      { href: '/notifications', label: 'Notifications', desc: 'Alert center', icon: 'bell' },
       { href: '/showcase', label: 'Showcase', desc: 'Design system', icon: 'palette' },
     ],
   },

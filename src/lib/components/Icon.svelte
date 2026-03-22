@@ -94,6 +94,9 @@
     RotateCw,
     Plug,
     Radio,
+    Bell,
+    Activity,
+    Box,
   } from 'lucide-svelte';
 
   let {
@@ -209,6 +212,9 @@
     sliders: SlidersHorizontal,
     rotate: RotateCw,
     plug: Plug,
+    bell: Bell,
+    activity: Activity,
+    docker: Box,
   };
 
   const component = $derived(ICON_MAP[name] || HelpCircle);

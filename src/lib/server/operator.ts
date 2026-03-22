@@ -194,6 +194,20 @@ export async function runTask(taskId: string, attempt = 1): Promise<TaskRun> {
       notifyTaskComplete(config.name, run.status as any, run.duration || undefined).catch(() => {});
     }
 
+    // Fire in-app notification for failures
+    if (run.status === 'failed' || run.status === 'timeout') {
+      import('./notifications')
+        .then(({ addNotification }) =>
+          addNotification(
+            'error',
+            `Task ${run.status}: ${config.name}`,
+            run.output.slice(-200) || `Exit code ${code}`,
+            'task',
+          ),
+        )
+        .catch(() => {});
+    }
+
     // Retry on failure
     if (run.status === 'failed' && attempt < config.maxRetries) {
       // Exponential backoff: 2^attempt seconds

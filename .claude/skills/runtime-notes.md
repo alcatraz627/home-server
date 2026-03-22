@@ -2,6 +2,49 @@
 
 Append-only log of skill run insights. Newest entries at top.
 
+## session: T18 homelab features — services, notifications, docker — 2026-03-22
+
+**Purpose:** Built three new homelab pages (Service Health Dashboard, Notification Center, Docker Management) with full API + server module + UI integration.
+
+**Insights:**
+
+1. The Icon.svelte component uses a flat `ICON_MAP` lookup — new icons (Bell, Activity, Box from lucide-svelte) must be imported AND mapped with a lowercase key string.
+2. Service health checks use `fetch` with `AbortController` for timeout support — cleaner than spawning curl processes.
+3. Notifications module uses dynamic `import()` in backups.ts/operator.ts/services.ts to avoid circular dependencies and allow graceful failure if the module isn't loaded yet.
+4. The scheduler was extended with service health check cron jobs — interval seconds get converted to `*/N * * * *` cron expressions (minimum 1 minute granularity).
+5. Docker page uses `docker ps -a --format json` for structured output — the `--format` flag returns one JSON object per line (not a JSON array), so output is split by newlines and parsed individually.
+6. All three pages follow the established pattern: `+page.server.ts` for SSR load, `+page.svelte` with `$state`/`$derived` runes, and a separate `+server.ts` API for client-side mutations.
+
+---
+
+## session: fetchApi adoption + icon sweep — 2026-03-22
+
+**Purpose:** Replaced raw `fetch('/api/...')` calls with `fetchApi()` wrapper across 8 page files, and replaced Unicode arrow symbols with `<Icon>` components in the layout.
+
+**Insights:**
+
+1. The dashboard (`src/routes/+page.svelte`) has no `/api/` fetch calls — only `/?_data=` SvelteKit data calls, so it required no changes for the fetchApi migration.
+2. `replace_all` in the Edit tool is very effective for bulk replacements when the match string is unique enough (e.g., `await fetch('/api/tasks'` maps cleanly to `await fetchApi('/api/tasks'`).
+3. The `files/+page.svelte` has a `previewUrl()` helper that returns an `/api/files/...` URL — easy to miss since the fetch call doesn't contain a literal `/api/` string.
+4. Unicode arrows `↓`/`↑` in the layout's network stats bar are UI icons, not data content — they deserved `<Icon>` replacement. The `⚠` in tasks/+page.svelte template command strings are data content and should be left alone.
+5. The `backups/+page.svelte` has a `/api/backups/preview` endpoint that differs from the main `/api/backups` pattern — separate grep needed to catch it.
+
+---
+
+## session: Configurable constants + decentralization docs — 2026-03-22
+
+**Purpose:** Wrote `docs/configurable-constants.md` (60+ hardcoded values inventoried, settings schema, extraction plan) and `docs/decentralization.md` (multi-server architecture, migration plan for `fetchApi` adoption).
+
+**Insights:**
+
+1. The `fetchApi()` wrapper in `src/lib/api.ts` and the entire device-context system (`targetDevice`, `remoteDevices`, `getApiBase()`, navbar selector) are **fully implemented but have zero adoption** — all 80+ fetch calls in page components use raw `fetch('/api/...')` instead.
+2. The `~/.home-server` config directory path is repeated in 5+ server files (logger, operator, backups, lights config, benchmarks, screenshots). A centralized `PATHS` object in `src/lib/server/paths.ts` would DRY this up.
+3. Three localStorage keys don't follow the `hs:` prefix convention: `speedtest-history`, `dns-history`, `terminal_sessions` — inconsistency that should be fixed when extracting to `storage-keys.ts`.
+4. Server-side data loading (15 `+page.server.ts` files) is the biggest blocker for multi-server — these always read from the local OS/filesystem. A dual-mode pattern (server-load for local, client-fetch for remote) is needed.
+5. WebSocket connections don't need CORS (browsers allow cross-origin WS), but they won't carry cookies from the target origin — auth for remote terminals needs a query-param token or first-message auth instead.
+
+---
+
 ## session: Add structured logging to all server modules — 2026-03-22
 
 **Purpose:** Instrumented all 11 server-side modules and 3 API routes with the `createLogger` system for structured, file-based logging.

@@ -65,7 +65,7 @@
 
   async function fetchServerSessions() {
     try {
-      const res = await fetch('/api/terminal');
+      const res = await fetchApi('/api/terminal');
       if (res.ok) {
         const data = await res.json();
         serverSessions = data.sessions || [];
@@ -295,7 +295,7 @@
     // Kill server-side session
     if (sessionId) {
       try {
-        await fetch(`/api/terminal/${sessionId}`, { method: 'DELETE' });
+        await fetchApi(`/api/terminal/${sessionId}`, { method: 'DELETE' });
       } catch {
         // ignore
       }

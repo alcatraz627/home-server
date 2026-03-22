@@ -352,7 +352,7 @@
   async function sendMessage(id: string) {
     if (!userMessage.trim()) return;
     try {
-      const res = await fetch(`/api/keeper/${id}/message`, {
+      const res = await fetchApi(`/api/keeper/${id}/message`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: userMessage }),

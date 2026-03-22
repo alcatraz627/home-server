@@ -19,7 +19,7 @@
   async function refresh() {
     refreshing = true;
     try {
-      const res = await fetch('/api/tailscale');
+      const res = await fetchApi('/api/tailscale');
       if (!res.ok) throw new Error('Failed to fetch Tailscale devices');
       const result = await res.json();
       devices = result.devices;

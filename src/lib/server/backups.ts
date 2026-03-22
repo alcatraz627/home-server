@@ -189,6 +189,23 @@ export async function runBackup(configId: string): Promise<BackupRun> {
 
     runningBackups.delete(configId);
     await appendHistory(run);
+
+    // Fire in-app notification
+    try {
+      const { addNotification } = await import('./notifications');
+      if (code === 0) {
+        await addNotification(
+          'success',
+          `Backup completed: ${config.name}`,
+          `${run.filesTransferred} files transferred`,
+          'backup',
+        );
+      } else {
+        await addNotification('error', `Backup failed: ${config.name}`, run.error || 'Unknown error', 'backup');
+      }
+    } catch {
+      // notifications module may not be available
+    }
   });
 
   await appendHistory(run);

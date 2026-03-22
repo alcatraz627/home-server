@@ -85,7 +85,7 @@
     previewFiles = [];
     previewSummary = '';
     try {
-      const res = await fetch('/api/backups/preview', {
+      const res = await fetchApi('/api/backups/preview', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ configId }),

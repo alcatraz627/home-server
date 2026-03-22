@@ -57,6 +57,32 @@ export async function scheduleAll(): Promise<void> {
     }
   }
 
+  // Schedule service health checks
+  try {
+    const { getServices, checkAndRecord } = await import('./services');
+    const services = await getServices();
+    for (const svc of services) {
+      if (svc.interval > 0) {
+        // Convert interval seconds to a cron-compatible schedule
+        // For intervals < 60s, check every minute; otherwise use the interval
+        const minutes = Math.max(1, Math.floor(svc.interval / 60));
+        const cronExpr = minutes < 60 ? `*/${minutes} * * * *` : '0 * * * *';
+        if (cron.validate(cronExpr)) {
+          const job = cron.schedule(cronExpr, async () => {
+            try {
+              await checkAndRecord(svc.id);
+            } catch (err: any) {
+              log.error('Service check failed', { serviceId: svc.id, error: err.message });
+            }
+          });
+          scheduledJobs.set(`service:${svc.id}`, job);
+        }
+      }
+    }
+  } catch {
+    // services module may not be available
+  }
+
   log.info('Jobs scheduled', { count: scheduledJobs.size });
 }
 

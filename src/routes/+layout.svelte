@@ -362,17 +362,18 @@
 
       {#if isStatVisible('net')}
         <span class="stat" title="Network throughput (cumulative)">
-          NET {formatNetBytes(data.system.networkBytes.bytesIn)}↓ {formatNetBytes(data.system.networkBytes.bytesOut)}↑
+          NET {formatNetBytes(data.system.networkBytes.bytesIn)}<Icon name="arrow-down" size={10} />
+          {formatNetBytes(data.system.networkBytes.bytesOut)}<Icon name="arrow-up" size={10} />
         </span>
       {/if}
 
       {#if isStatVisible('netSpeed')}
         <span class="stat" title="Network speed (bytes/sec)">
           <span style="color: {netSpeedColor(netSpeed.inPerSec)}"
-            >{formatNetBytes(Math.round(netSpeed.inPerSec))}/s↓</span
+            >{formatNetBytes(Math.round(netSpeed.inPerSec))}/s<Icon name="arrow-down" size={10} /></span
           >
           <span style="color: {netSpeedColor(netSpeed.outPerSec)}"
-            >{formatNetBytes(Math.round(netSpeed.outPerSec))}/s↑</span
+            >{formatNetBytes(Math.round(netSpeed.outPerSec))}/s<Icon name="arrow-up" size={10} /></span
           >
         </span>
       {/if}

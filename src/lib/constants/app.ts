@@ -10,5 +10,5 @@
  */
 export const APP = {
   title: 'Home Server',
-  version: '3.9.1-keen-owl-17',
+  version: '3.10.0-swift-beacon-33',
 } as const;
