@@ -415,3 +415,24 @@ See [docs/claude-keeper.md](docs/claude-keeper.md) for full planning document.
 - [ ] **Docker/Container Management** — list, start, stop, restart containers via Docker API socket. View logs, resource usage. Only visible if Docker is installed
 - [ ] **Network Device Discovery** — ARP scan / mDNS to show all devices on local network with IP, hostname, MAC, vendor, response time. Periodic refresh, history tracking
 - [ ] **Uptime Monitoring** — track and chart uptime of the server itself + configured services. Show availability percentage over 24h/7d/30d. Simple ping-based checks
+
+### T20 — Task/Template Page Overhaul
+- [ ] **Template runner terminal** — when "Run" is clicked on a template, show a shared inline terminal below the template list displaying live output. Overwritten by next run. Closeable with ✕
+- [ ] **Template edit/delete** — custom templates show edit (pencil) and delete (✕) buttons. Edit opens the form pre-filled. Delete with confirm
+- [ ] **New Task form polish** — better visual hierarchy, consistent card layout, section headers, improved spacing to match the backup form redesign
+- [ ] **Button icons** — add Unicode/emoji icons to all buttons on the page (New Task, Templates, Refresh, Run, Delete, Save as Template)
+- [ ] **Task card icons** — status-specific icons next to task names (running spinner, checkmark, error, clock for scheduled)
+- [ ] **Task pagination** — paginate the task list (10 per page) with prev/next controls
+- [ ] **Animated transitions** — animate template panel show/hide (slide down), task filtering (layout shift), card enter/exit. Use Svelte `animate:flip` for list reordering and `transition:slide` for sections
+
+### T21 — New Fun Pages (Research)
+- [ ] **Speed Test** — run bandwidth tests (download/upload) against Cloudflare/fast.com, display results with gauges. History chart over time. Uses `curl` with timing
+- [ ] **Clipboard Sync** — share clipboard content across devices on the tailnet. Paste text/images on one device, copy on another. Uses a simple WebSocket + localStorage
+- [ ] **Screenshot Gallery** — auto-capture and browse screenshots from the server. Uses `screencapture` on macOS, stores in `~/.home-server/screenshots/`, gallery view with timestamps
+- [ ] **QR Code Generator** — generate QR codes for any URL, text, or WiFi credentials. Useful for sharing server URLs with phones. Pure JS (no dependencies)
+- [ ] **Bookmark Manager** — save and organize links with tags, descriptions, and favicons. Search/filter. Export as HTML bookmarks. Stored in JSON
+- [ ] **Kanban Board** — simple drag-and-drop kanban for personal project tracking. Columns: Todo, Doing, Done. Cards with title, color labels, due dates
+- [ ] **Wake-on-LAN** — send magic packets to wake sleeping machines on the network. Configure MAC addresses for each device. One-click wake button
+- [ ] **DNS Lookup Tool** — interactive dig/nslookup with visual record display (A, AAAA, MX, CNAME, TXT). Compare across DNS providers (Google, Cloudflare, ISP)
+- [ ] **Port Scanner** — scan a target IP for open ports with service detection. Uses `nc` or `nmap` if installed. Visual port map
+- [ ] **System Benchmarks** — run CPU (sysbench), disk (dd), memory, and network benchmarks. Store results, compare over time. Good for detecting degradation
