@@ -25,6 +25,7 @@
 
   let monitorHistory = $state<SystemSnapshot[]>([]);
   let monitorOpen = $state(false);
+  let perCoreMode = $state(false);
   let monitorInterval: ReturnType<typeof setInterval> | null = null;
   const MONITOR_MAX = 60;
 
@@ -505,7 +506,7 @@
     </div>
 
     <!-- Swap Usage -->
-    <div class="monitor-card">
+    <div class="monitor-card swap-card">
       <div class="monitor-label">
         Swap <span class="monitor-value"
           >{monitorHistory[monitorHistory.length - 1].swap?.usedPercent ?? 0}% ({formatBytes(
@@ -524,7 +525,7 @@
             60,
             100,
           )}
-          fill="var(--purple)"
+          fill="var(--orange)"
           opacity="0.12"
         />
         <path
@@ -535,7 +536,7 @@
             100,
           )}
           fill="none"
-          stroke="var(--purple)"
+          stroke="var(--orange)"
           stroke-width="1.5"
         />
       </svg>

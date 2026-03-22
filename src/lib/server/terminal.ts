@@ -4,6 +4,7 @@ import os from 'node:os';
 export interface TerminalSession {
   id: string;
   createdAt: Date;
+  scrollback: string;
   onData: (cb: (data: string) => void) => { dispose: () => void };
   write: (data: string) => void;
   resize: (cols: number, rows: number) => void;
@@ -12,6 +13,7 @@ export interface TerminalSession {
 
 const sessions = new Map<string, TerminalSession>();
 const DEFAULT_SHELL = process.env.SHELL || '/bin/bash';
+const SCROLLBACK_LIMIT = 5000;
 
 console.log(`[terminal] Using node-pty with shell: ${DEFAULT_SHELL}`);
 
@@ -27,9 +29,24 @@ export function createSession(cols = 80, rows = 24): TerminalSession {
     env: process.env as Record<string, string>,
   });
 
+  let scrollback = '';
+
+  term.onData((data: string) => {
+    scrollback += data;
+    if (scrollback.length > SCROLLBACK_LIMIT) {
+      scrollback = scrollback.slice(-SCROLLBACK_LIMIT);
+    }
+  });
+
   const session: TerminalSession = {
     id,
     createdAt: new Date(),
+    get scrollback() {
+      return scrollback;
+    },
+    set scrollback(v: string) {
+      scrollback = v;
+    },
     onData: (cb: (data: string) => void) => {
       const disposable = term.onData(cb);
       return { dispose: () => disposable.dispose() };

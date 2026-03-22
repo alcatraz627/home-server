@@ -38,6 +38,34 @@
     cycleCount: number | null;
   }
 
+  interface DisplayInfo {
+    name: string;
+    resolution: string;
+    refreshRate: string;
+    gpu: string;
+    builtIn: boolean;
+  }
+
+  interface NetworkInterface {
+    port: string;
+    device: string;
+    mac: string;
+    ip: string;
+    status: string;
+  }
+
+  interface SystemInfo {
+    cpuBrand: string;
+    cpuCores: number;
+    cpuThreads: number;
+    ram: string;
+    macosVersion: string;
+    serial: string;
+    model: string;
+  }
+
+  type TabKey = 'wifi' | 'bluetooth' | 'usb' | 'audio' | 'battery' | 'displays' | 'network' | 'system';
+
   const CACHE_KEY = 'hs:peripherals-cache';
 
   function loadCache(): any | null {
@@ -64,9 +92,13 @@
   let usb = $state<USBDevice[]>(cached?.usb || []);
   let audio = $state<AudioDevice[]>(cached?.audio || []);
   let battery = $state<BatteryInfo | null>(cached?.battery || null);
+  let displays = $state<DisplayInfo[]>(cached?.displays || []);
+  let networkInterfaces = $state<NetworkInterface[]>(cached?.networkInterfaces || []);
+  let systemInfo = $state<SystemInfo | null>(cached?.systemInfo || null);
   let loading = $state(!cached);
-  let activeTab = $state<'wifi' | 'bluetooth' | 'usb' | 'audio' | 'battery'>('wifi');
+  let activeTab = $state<TabKey>('wifi');
   let wifiSort = $state<'rssi' | 'ssid' | 'channel'>('rssi');
+  let btToggling = $state<string | null>(null);
 
   async function refresh() {
     loading = true;
@@ -79,11 +111,37 @@
       usb = data.usb || [];
       audio = data.audio || [];
       battery = data.battery || null;
+      displays = data.displays || [];
+      networkInterfaces = data.networkInterfaces || [];
+      systemInfo = data.systemInfo || null;
       saveCache(data);
     } catch (e: any) {
       toast.error(e.message || 'Failed to load peripherals');
     } finally {
       loading = false;
+    }
+  }
+
+  async function toggleBtConnection(dev: BluetoothDevice) {
+    btToggling = dev.address;
+    const action = dev.connected ? 'bt-disconnect' : 'bt-connect';
+    try {
+      const res = await fetch('/api/peripherals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, address: dev.address }),
+      });
+      const result = await res.json();
+      if (!result.ok) {
+        toast.error(result.error || `Failed to ${dev.connected ? 'disconnect' : 'connect'}`);
+      } else {
+        toast.success(`${dev.connected ? 'Disconnected from' : 'Connected to'} ${dev.name}`);
+        await refresh();
+      }
+    } catch (e: any) {
+      toast.error(e.message || 'Bluetooth action failed');
+    } finally {
+      btToggling = null;
     }
   }
 
@@ -143,6 +201,15 @@
   </button>
   <button class="tab" class:active={activeTab === 'battery'} onclick={() => (activeTab = 'battery')}>
     Battery {battery ? `(${battery.percentage}%)` : ''}
+  </button>
+  <button class="tab" class:active={activeTab === 'displays'} onclick={() => (activeTab = 'displays')}>
+    Displays ({displays.length})
+  </button>
+  <button class="tab" class:active={activeTab === 'network'} onclick={() => (activeTab = 'network')}>
+    Network ({networkInterfaces.length})
+  </button>
+  <button class="tab" class:active={activeTab === 'system'} onclick={() => (activeTab = 'system')}>
+    System Info
   </button>
 </div>
 
@@ -227,6 +294,18 @@
             <span class="bt-meta">{dev.address} | {dev.type}</span>
           </div>
           <span class="bt-state">{dev.connected ? 'Connected' : 'Paired'}</span>
+          <button
+            class="btn btn-bt-toggle"
+            class:connected={dev.connected}
+            onclick={() => toggleBtConnection(dev)}
+            disabled={btToggling === dev.address}
+          >
+            {#if btToggling === dev.address}
+              ...
+            {:else}
+              {dev.connected ? 'Disconnect' : 'Connect'}
+            {/if}
+          </button>
         </div>
       {/each}
     </div>
@@ -333,6 +412,111 @@
       </div>
     </div>
   {/if}
+{:else if activeTab === 'displays'}
+  {#if loading && displays.length === 0}
+    <div class="skeleton-list">
+      {#each Array(2) as _, i}
+        <div class="skeleton-card" style="animation-delay: {i * 60}ms; height: 52px; border-radius: 8px;"></div>
+      {/each}
+    </div>
+  {:else if displays.length === 0}
+    <div class="empty">No displays detected</div>
+  {:else}
+    <div class="device-list">
+      {#each displays as disp, i}
+        <div class="device-row card-stagger" style="animation-delay: {i * 30}ms">
+          <div class="device-icon">&#x1F5B5;</div>
+          <div class="device-info">
+            <span class="device-name">
+              {disp.name}
+              {#if disp.builtIn}
+                <span class="built-in-tag">Built-in</span>
+              {/if}
+            </span>
+            <span class="device-meta">
+              {disp.resolution}
+              {#if disp.refreshRate}
+                | {disp.refreshRate}{/if}
+              | GPU: {disp.gpu}
+            </span>
+          </div>
+          {#if disp.refreshRate}
+            <span class="device-badge">{disp.refreshRate}</span>
+          {/if}
+        </div>
+      {/each}
+    </div>
+  {/if}
+{:else if activeTab === 'network'}
+  {#if loading && networkInterfaces.length === 0}
+    <div class="skeleton-list">
+      {#each Array(3) as _, i}
+        <div class="skeleton-card" style="animation-delay: {i * 60}ms; height: 52px; border-radius: 8px;"></div>
+      {/each}
+    </div>
+  {:else if networkInterfaces.length === 0}
+    <div class="empty">No network interfaces found</div>
+  {:else}
+    <div class="device-list">
+      {#each networkInterfaces as iface, i}
+        <div class="device-row card-stagger" style="animation-delay: {i * 30}ms">
+          <div class="device-icon">&#x1F310;</div>
+          <div class="device-info">
+            <span class="device-name">{iface.port}</span>
+            <span class="device-meta">
+              {iface.device} | MAC: {iface.mac}
+              {#if iface.ip}
+                | IP: {iface.ip}{/if}
+            </span>
+          </div>
+          <span
+            class="device-badge"
+            class:active-badge={iface.status === 'active'}
+            class:inactive-badge={iface.status !== 'active'}
+          >
+            {iface.status}
+          </span>
+        </div>
+      {/each}
+    </div>
+  {/if}
+{:else if activeTab === 'system'}
+  {#if loading && !systemInfo}
+    <div class="skeleton-list">
+      <div class="skeleton-card" style="height: 200px; border-radius: 8px; max-width: 500px;"></div>
+    </div>
+  {:else if !systemInfo}
+    <div class="empty">System info unavailable</div>
+  {:else}
+    <div class="system-card card">
+      <div class="system-details">
+        <div class="system-detail">
+          <span class="system-label">Model</span>
+          <span class="system-value">{systemInfo.model}</span>
+        </div>
+        <div class="system-detail">
+          <span class="system-label">CPU</span>
+          <span class="system-value">{systemInfo.cpuBrand}</span>
+        </div>
+        <div class="system-detail">
+          <span class="system-label">Cores / Threads</span>
+          <span class="system-value">{systemInfo.cpuCores} cores / {systemInfo.cpuThreads} threads</span>
+        </div>
+        <div class="system-detail">
+          <span class="system-label">Memory</span>
+          <span class="system-value">{systemInfo.ram}</span>
+        </div>
+        <div class="system-detail">
+          <span class="system-label">macOS Version</span>
+          <span class="system-value">{systemInfo.macosVersion}</span>
+        </div>
+        <div class="system-detail">
+          <span class="system-label">Serial Number</span>
+          <span class="system-value">{systemInfo.serial}</span>
+        </div>
+      </div>
+    </div>
+  {/if}
 {/if}
 
 <style>
@@ -365,6 +549,7 @@
     display: flex;
     gap: 4px;
     margin-bottom: 16px;
+    flex-wrap: wrap;
   }
   .tab {
     padding: 8px 16px;
@@ -555,7 +740,21 @@
     color: var(--text-muted);
   }
 
-  /* USB / Audio device list */
+  .btn-bt-toggle {
+    padding: 4px 10px;
+    font-size: 0.72rem;
+    border-radius: 4px;
+  }
+  .btn-bt-toggle.connected {
+    border-color: var(--danger);
+    color: var(--danger);
+  }
+  .btn-bt-toggle:not(.connected) {
+    border-color: var(--success);
+    color: var(--success);
+  }
+
+  /* USB / Audio / Display / Network device list */
   .device-list {
     display: flex;
     flex-direction: column;
@@ -585,6 +784,9 @@
     font-size: 0.85rem;
     font-weight: 500;
     color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
   .device-meta {
     font-size: 0.7rem;
@@ -602,6 +804,23 @@
   .device-badge.input-badge {
     background: var(--warning-bg, rgba(255, 180, 0, 0.1));
     color: var(--warning);
+  }
+  .device-badge.active-badge {
+    background: var(--success-bg, rgba(0, 200, 100, 0.1));
+    color: var(--success);
+  }
+  .device-badge.inactive-badge {
+    background: var(--bg-secondary);
+    color: var(--text-faint);
+  }
+
+  .built-in-tag {
+    font-size: 0.65rem;
+    padding: 1px 6px;
+    border-radius: 8px;
+    background: var(--accent-bg);
+    color: var(--accent);
+    font-weight: 400;
   }
 
   /* Battery */
@@ -678,6 +897,38 @@
     font-size: 0.85rem;
     color: var(--text-primary);
     font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* System Info */
+  .system-card {
+    padding: 20px;
+    max-width: 500px;
+  }
+  .system-details {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .system-detail {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .system-label {
+    font-size: 0.75rem;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+  }
+  .system-value {
+    font-size: 0.85rem;
+    color: var(--text-primary);
+    font-family: 'JetBrains Mono', monospace;
+    text-align: right;
+    word-break: break-word;
   }
 
   .skeleton-list {

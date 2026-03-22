@@ -3,8 +3,51 @@
   import type { LayoutData } from './$types';
   import { onMount } from 'svelte';
   import { stars } from '$lib/stars';
+  import { browser } from '$app/environment';
+  import Icon from '$lib/components/Icon.svelte';
 
   let { data } = $props<{ data: PageData & LayoutData }>();
+
+  // ── Dashboard section config ─────────────────────────────────────────────
+  const DASHBOARD_SECTIONS = [
+    { key: 'system-stats', label: 'System Stats' },
+    { key: 'tasks', label: 'Tasks' },
+    { key: 'backups', label: 'Backups' },
+    { key: 'keeper', label: 'Keeper' },
+    { key: 'disk', label: 'Disk' },
+    { key: 'activity-timeline', label: 'Activity Timeline' },
+    { key: 'top-processes', label: 'Top Processes' },
+    { key: 'quick-nav', label: 'Quick Nav' },
+    { key: 'starred-files', label: 'Starred Files' },
+  ] as const;
+
+  type SectionKey = (typeof DASHBOARD_SECTIONS)[number]['key'];
+
+  const DASH_CONFIG_KEY = 'hs:dashboard-config';
+
+  function loadDashConfig(): Record<string, boolean> {
+    if (!browser) return {};
+    try {
+      const raw = localStorage.getItem(DASH_CONFIG_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch {}
+    // Default: all visible
+    const defaults: Record<string, boolean> = {};
+    for (const s of DASHBOARD_SECTIONS) defaults[s.key] = true;
+    return defaults;
+  }
+
+  let dashConfig = $state<Record<string, boolean>>(loadDashConfig());
+  let dashConfigOpen = $state(false);
+
+  function isSectionVisible(key: SectionKey): boolean {
+    return dashConfig[key] !== false;
+  }
+
+  function toggleSection(key: SectionKey) {
+    dashConfig[key] = !(dashConfig[key] !== false);
+    if (browser) localStorage.setItem(DASH_CONFIG_KEY, JSON.stringify(dashConfig));
+  }
 
   // Starred files for quick-access
   let starredFiles = $state<string[]>([]);
@@ -80,190 +123,244 @@
   <title>Dashboard | Home Server</title>
 </svelte:head>
 
-<h2>Dashboard</h2>
+<div class="page-header-row">
+  <h2 class="page-title">Dashboard</h2>
+  <div class="dash-gear-wrap">
+    <button class="icon-btn" aria-label="Dashboard settings" onclick={() => (dashConfigOpen = !dashConfigOpen)}>
+      <Icon name="settings" size={14} />
+    </button>
+    {#if dashConfigOpen}
+      <div class="dash-config-dropdown" role="menu">
+        <span class="dropdown-label">Visible Sections</span>
+        <div class="dash-config-list">
+          {#each DASHBOARD_SECTIONS as s}
+            <label class="dash-config-item">
+              <input type="checkbox" checked={isSectionVisible(s.key)} onchange={() => toggleSection(s.key)} />
+              <span>{s.label}</span>
+            </label>
+          {/each}
+        </div>
+      </div>
+      <!-- svelte-ignore a11y_no_static_element_interactions -->
+      <div class="dash-config-overlay" onclick={() => (dashConfigOpen = false)} role="presentation"></div>
+    {/if}
+  </div>
+</div>
+<p class="page-desc">At-a-glance overview of your server's health, running tasks, and quick navigation to all tools.</p>
 
 <!-- System Stats Row -->
-<div class="stats-row">
-  <div class="stat-card card-stagger" style="animation-delay: 0ms">
-    <div class="stat-header">Memory</div>
-    <div class="stat-value" style="color: {memColor}">{system.memUsedPercent}%</div>
-    <div class="stat-bar">
-      <div class="stat-fill" style="width: {system.memUsedPercent}%; background: {memColor}"></div>
-    </div>
-    <div class="stat-detail">{system.memTotal} GB total</div>
-  </div>
-
-  <div class="stat-card card-stagger" style="animation-delay: 40ms">
-    <div class="stat-header">CPU Load</div>
-    <div class="stat-value" style="color: {loadColor}">{system.loadAvg}</div>
-    <div class="stat-bar">
-      <div
-        class="stat-fill"
-        style="width: {Math.min(100, (system.loadAvg / system.cpuCount) * 100)}%; background: {loadColor}"
-      ></div>
-    </div>
-    <div class="stat-detail">{system.cpuCount} cores</div>
-  </div>
-
-  <div class="stat-card card-stagger" style="animation-delay: 80ms">
-    <div class="stat-header">Uptime</div>
-    <div class="stat-value">{system.uptime}h</div>
-    <div class="stat-detail">{Math.floor(system.uptime / 24)}d {system.uptime % 24}h</div>
-  </div>
-
-  {#each dashboard.disk as d, i}
-    {@const pct = diskUsagePercent(d)}
-    {@const color = diskColor(pct)}
-    <div class="stat-card card-stagger" style="animation-delay: {(i + 3) * 40}ms">
-      <div class="stat-header">Disk <code>{d.mount}</code></div>
-      <div class="stat-value" style="color: {color}">{d.usePercent}</div>
+{#if isSectionVisible('system-stats')}
+  <div class="stats-row">
+    <div class="stat-card card-stagger" style="animation-delay: 0ms">
+      <div class="stat-header">Memory</div>
+      <div class="stat-value" style="color: {memColor}">{system.memUsedPercent}%</div>
       <div class="stat-bar">
-        <div class="stat-fill" style="width: {d.usePercent}; background: {color}"></div>
+        <div class="stat-fill" style="width: {system.memUsedPercent}%; background: {memColor}"></div>
       </div>
-      <svg class="disk-sparkline" viewBox="0 0 60 20" preserveAspectRatio="none">
-        <rect x="0" y={20 - (pct / 100) * 20} width="60" height={(pct / 100) * 20} fill={color} opacity="0.2" rx="2" />
-        <line x1="0" y1={20 - (pct / 100) * 20} x2="60" y2={20 - (pct / 100) * 20} stroke={color} stroke-width="1.5" />
-      </svg>
-      <div class="stat-detail">
-        {d.used} / {d.total}
-        {#if d.fstype}<span class="disk-fstype">{d.fstype}</span>{/if}
-      </div>
-      {#if d.device}
-        <div class="stat-device" title={d.device}>{d.device.split('/').pop()}</div>
-      {/if}
+      <div class="stat-detail">{system.memTotal} GB total</div>
     </div>
-  {/each}
-</div>
+
+    <div class="stat-card card-stagger" style="animation-delay: 40ms">
+      <div class="stat-header">CPU Load</div>
+      <div class="stat-value" style="color: {loadColor}">{system.loadAvg}</div>
+      <div class="stat-bar">
+        <div
+          class="stat-fill"
+          style="width: {Math.min(100, (system.loadAvg / system.cpuCount) * 100)}%; background: {loadColor}"
+        ></div>
+      </div>
+      <div class="stat-detail">{system.cpuCount} cores</div>
+    </div>
+
+    <div class="stat-card card-stagger" style="animation-delay: 80ms">
+      <div class="stat-header">Uptime</div>
+      <div class="stat-value">{system.uptime}h</div>
+      <div class="stat-detail">{Math.floor(system.uptime / 24)}d {system.uptime % 24}h</div>
+    </div>
+
+    {#if isSectionVisible('disk')}
+      {#each dashboard.disk as d, i}
+        {@const pct = diskUsagePercent(d)}
+        {@const color = diskColor(pct)}
+        <div class="stat-card card-stagger" style="animation-delay: {(i + 3) * 40}ms">
+          <div class="stat-header">Disk <code>{d.mount}</code></div>
+          <div class="stat-value" style="color: {color}">{d.usePercent}</div>
+          <div class="stat-bar">
+            <div class="stat-fill" style="width: {d.usePercent}; background: {color}"></div>
+          </div>
+          <svg class="disk-sparkline" viewBox="0 0 60 20" preserveAspectRatio="none">
+            <rect
+              x="0"
+              y={20 - (pct / 100) * 20}
+              width="60"
+              height={(pct / 100) * 20}
+              fill={color}
+              opacity="0.2"
+              rx="2"
+            />
+            <line
+              x1="0"
+              y1={20 - (pct / 100) * 20}
+              x2="60"
+              y2={20 - (pct / 100) * 20}
+              stroke={color}
+              stroke-width="1.5"
+            />
+          </svg>
+          <div class="stat-detail">
+            {d.used} / {d.total}
+            {#if d.fstype}<span class="disk-fstype">{d.fstype}</span>{/if}
+          </div>
+          {#if d.device}
+            <div class="stat-device" title={d.device}>{d.device.split('/').pop()}</div>
+          {/if}
+        </div>
+      {/each}
+    {/if}
+  </div>
+{/if}
 
 <!-- Status Cards -->
 <div class="status-grid">
-  <a href="/tasks" class="status-card card-stagger" style="animation-delay: 0ms">
-    <div class="status-icon">⚙</div>
-    <div class="status-body">
-      <h3>Tasks</h3>
-      <div class="status-metrics">
-        {#if dashboard.tasks.running > 0}
-          <span class="metric running">{dashboard.tasks.running} running</span>
-        {/if}
-        {#if dashboard.tasks.failed > 0}
-          <span class="metric failed">{dashboard.tasks.failed} failed</span>
-        {/if}
-        <span class="metric">{dashboard.tasks.scheduled} scheduled</span>
-        <span class="metric muted">{dashboard.tasks.total} total</span>
+  {#if isSectionVisible('tasks')}
+    <a href="/tasks" class="status-card card-stagger" style="animation-delay: 0ms">
+      <div class="status-icon">⚙</div>
+      <div class="status-body">
+        <h3>Tasks</h3>
+        <div class="status-metrics">
+          {#if dashboard.tasks.running > 0}
+            <span class="metric running">{dashboard.tasks.running} running</span>
+          {/if}
+          {#if dashboard.tasks.failed > 0}
+            <span class="metric failed">{dashboard.tasks.failed} failed</span>
+          {/if}
+          <span class="metric">{dashboard.tasks.scheduled} scheduled</span>
+          <span class="metric muted">{dashboard.tasks.total} total</span>
+        </div>
       </div>
-    </div>
-  </a>
+    </a>
+  {/if}
 
-  <a href="/backups" class="status-card card-stagger" style="animation-delay: 40ms">
-    <div class="status-icon">⟲</div>
-    <div class="status-body">
-      <h3>Backups</h3>
-      <div class="status-metrics">
-        <span class="metric muted">{dashboard.backups.total} configs</span>
-        {#if dashboard.backups.lastRun}
-          <span
-            class="metric"
-            class:success={dashboard.backups.lastRun.status === 'success'}
-            class:failed={dashboard.backups.lastRun.status === 'failed'}
-          >
-            {dashboard.backups.lastRun.name}: {dashboard.backups.lastRun.status}
-          </span>
-          <span class="metric muted">{formatRelativeTime(dashboard.backups.lastRun.time)}</span>
-        {:else}
-          <span class="metric muted">No runs yet</span>
-        {/if}
+  {#if isSectionVisible('backups')}
+    <a href="/backups" class="status-card card-stagger" style="animation-delay: 40ms">
+      <div class="status-icon">⟲</div>
+      <div class="status-body">
+        <h3>Backups</h3>
+        <div class="status-metrics">
+          <span class="metric muted">{dashboard.backups.total} configs</span>
+          {#if dashboard.backups.lastRun}
+            <span
+              class="metric"
+              class:success={dashboard.backups.lastRun.status === 'success'}
+              class:failed={dashboard.backups.lastRun.status === 'failed'}
+            >
+              {dashboard.backups.lastRun.name}: {dashboard.backups.lastRun.status}
+            </span>
+            <span class="metric muted">{formatRelativeTime(dashboard.backups.lastRun.time)}</span>
+          {:else}
+            <span class="metric muted">No runs yet</span>
+          {/if}
+        </div>
       </div>
-    </div>
-  </a>
+    </a>
+  {/if}
 
-  <a href="/keeper" class="status-card card-stagger" style="animation-delay: 80ms">
-    <div class="status-icon">◈</div>
-    <div class="status-body">
-      <h3>Keeper</h3>
-      <div class="status-metrics">
-        {#if dashboard.keeper['in-progress']}
-          <span class="metric running">{dashboard.keeper['in-progress']} in progress</span>
-        {/if}
-        {#if dashboard.keeper.ready}
-          <span class="metric accent">{dashboard.keeper.ready} ready</span>
-        {/if}
-        {#if dashboard.keeper.backlog}
-          <span class="metric muted">{dashboard.keeper.backlog} backlog</span>
-        {/if}
-        {#if dashboard.keeper.done}
-          <span class="metric success">{dashboard.keeper.done} done</span>
-        {/if}
+  {#if isSectionVisible('keeper')}
+    <a href="/keeper" class="status-card card-stagger" style="animation-delay: 80ms">
+      <div class="status-icon">◈</div>
+      <div class="status-body">
+        <h3>Keeper</h3>
+        <div class="status-metrics">
+          {#if dashboard.keeper['in-progress']}
+            <span class="metric running">{dashboard.keeper['in-progress']} in progress</span>
+          {/if}
+          {#if dashboard.keeper.ready}
+            <span class="metric accent">{dashboard.keeper.ready} ready</span>
+          {/if}
+          {#if dashboard.keeper.backlog}
+            <span class="metric muted">{dashboard.keeper.backlog} backlog</span>
+          {/if}
+          {#if dashboard.keeper.done}
+            <span class="metric success">{dashboard.keeper.done} done</span>
+          {/if}
+        </div>
       </div>
-    </div>
-  </a>
+    </a>
+  {/if}
 </div>
 
 <!-- Activity & Processes Row -->
-<div class="detail-row">
-  <!-- Recent Activity Timeline -->
-  <div class="detail-card">
-    <h3 class="section-title">Recent Activity</h3>
-    {#if dashboard.recentRuns.length > 0}
-      <div class="timeline">
-        {#each dashboard.recentRuns as run}
-          <div class="timeline-item">
-            <span
-              class="timeline-dot"
-              style="background: {run.status === 'success'
-                ? 'var(--success)'
-                : run.status === 'failed' || run.status === 'timeout'
-                  ? 'var(--danger)'
-                  : 'var(--warning)'}"
-            ></span>
-            <div class="timeline-content">
-              <span class="timeline-name">{run.name}</span>
-              <span class="timeline-meta">
-                {run.status}
-                {#if run.duration}
-                  · {run.duration < 1000 ? run.duration + 'ms' : (run.duration / 1000).toFixed(1) + 's'}{/if}
-                · {formatRelativeTime(run.time)}
-              </span>
-            </div>
+{#if isSectionVisible('activity-timeline') || isSectionVisible('top-processes')}
+  <div class="detail-row">
+    <!-- Recent Activity Timeline -->
+    {#if isSectionVisible('activity-timeline')}
+      <div class="detail-card">
+        <h3 class="section-title">Recent Activity</h3>
+        {#if dashboard.recentRuns.length > 0}
+          <div class="timeline">
+            {#each dashboard.recentRuns as run}
+              <div class="timeline-item">
+                <span
+                  class="timeline-dot"
+                  style="background: {run.status === 'success'
+                    ? 'var(--success)'
+                    : run.status === 'failed' || run.status === 'timeout'
+                      ? 'var(--danger)'
+                      : 'var(--warning)'}"
+                ></span>
+                <div class="timeline-content">
+                  <span class="timeline-name">{run.name}</span>
+                  <span class="timeline-meta">
+                    {run.status}
+                    {#if run.duration}
+                      · {run.duration < 1000 ? run.duration + 'ms' : (run.duration / 1000).toFixed(1) + 's'}{/if}
+                    · {formatRelativeTime(run.time)}
+                  </span>
+                </div>
+              </div>
+            {/each}
           </div>
-        {/each}
+        {:else}
+          <p class="detail-empty">No recent task runs</p>
+        {/if}
       </div>
-    {:else}
-      <p class="detail-empty">No recent task runs</p>
     {/if}
-  </div>
 
-  <!-- Top Processes -->
-  <div class="detail-card">
-    <h3 class="section-title">Top Processes</h3>
-    {#if dashboard.topProcesses.length > 0}
-      <div class="top-procs">
-        {#each dashboard.topProcesses as proc}
-          <div class="proc-row">
-            <span class="proc-name">{proc.name}</span>
-            <div class="proc-bars">
-              <div class="proc-bar">
-                <div class="proc-fill proc-cpu" style="width: {Math.min(100, proc.cpu)}%"></div>
+    <!-- Top Processes -->
+    {#if isSectionVisible('top-processes')}
+      <div class="detail-card">
+        <h3 class="section-title">Top Processes</h3>
+        {#if dashboard.topProcesses.length > 0}
+          <div class="top-procs">
+            {#each dashboard.topProcesses as proc}
+              <div class="proc-row">
+                <span class="proc-name">{proc.name}</span>
+                <div class="proc-bars">
+                  <div class="proc-bar">
+                    <div class="proc-fill proc-cpu" style="width: {Math.min(100, proc.cpu)}%"></div>
+                  </div>
+                  <div class="proc-bar">
+                    <div class="proc-fill proc-mem" style="width: {Math.min(100, proc.mem)}%"></div>
+                  </div>
+                </div>
+                <span class="proc-vals">{proc.cpu.toFixed(1)}% · {proc.mem.toFixed(1)}%</span>
               </div>
-              <div class="proc-bar">
-                <div class="proc-fill proc-mem" style="width: {Math.min(100, proc.mem)}%"></div>
-              </div>
+            {/each}
+            <div class="proc-legend">
+              <span><span class="legend-dot" style="background: var(--accent)"></span> CPU</span>
+              <span><span class="legend-dot" style="background: var(--purple)"></span> MEM</span>
             </div>
-            <span class="proc-vals">{proc.cpu.toFixed(1)}% · {proc.mem.toFixed(1)}%</span>
           </div>
-        {/each}
-        <div class="proc-legend">
-          <span><span class="legend-dot" style="background: var(--accent)"></span> CPU</span>
-          <span><span class="legend-dot" style="background: var(--purple)"></span> MEM</span>
-        </div>
+        {:else}
+          <p class="detail-empty">No process data</p>
+        {/if}
       </div>
-    {:else}
-      <p class="detail-empty">No process data</p>
     {/if}
   </div>
-</div>
+{/if}
 
 <!-- Starred Files -->
-{#if starredFiles.length > 0}
+{#if isSectionVisible('starred-files') && starredFiles.length > 0}
   <h3 class="section-title">Starred Files</h3>
   <div class="starred-files">
     {#each starredFiles as filePath, i}
@@ -282,17 +379,84 @@
 {/if}
 
 <!-- Quick Nav -->
-<h3 class="section-title">Quick Access</h3>
-<div class="nav-grid">
-  {#each widgets as w, i}
-    <a href={w.href} class="nav-card card-stagger" style="animation-delay: {i * 40}ms">
-      <span class="nav-icon">{w.icon}</span>
-      <span>{w.label}</span>
-    </a>
-  {/each}
-</div>
+{#if isSectionVisible('quick-nav')}
+  <h3 class="section-title">Quick Access</h3>
+  <div class="nav-grid">
+    {#each widgets as w, i}
+      <a href={w.href} class="nav-card card-stagger" style="animation-delay: {i * 40}ms">
+        <span class="nav-icon">{w.icon}</span>
+        <span>{w.label}</span>
+      </a>
+    {/each}
+  </div>
+{/if}
 
 <style>
+  .page-header-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+
+  .page-header-row .page-title {
+    margin-bottom: 0;
+  }
+
+  .dash-gear-wrap {
+    position: relative;
+  }
+
+  .dash-config-dropdown {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    min-width: 200px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+    padding: 10px;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .dash-config-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 99;
+  }
+
+  .dash-config-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .dash-config-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 2px 0;
+  }
+
+  .dash-config-item input[type='checkbox'] {
+    accent-color: var(--accent);
+  }
+
+  .dropdown-label {
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-faint);
+  }
+
   h2 {
     font-size: 1.3rem;
     margin-bottom: 16px;

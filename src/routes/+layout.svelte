@@ -25,14 +25,16 @@
   type CpuMode = 'percent' | 'load';
   type RefreshInterval = 2 | 5 | 10 | 30 | 0;
 
-  type StatKey = 'mem' | 'cpu' | 'uptime' | 'swap' | 'procs' | 'net';
-  const ALL_STATS: { key: StatKey; label: string }[] = [
-    { key: 'mem', label: 'Memory' },
-    { key: 'cpu', label: 'CPU' },
-    { key: 'uptime', label: 'Uptime' },
-    { key: 'swap', label: 'Swap' },
-    { key: 'procs', label: 'Processes' },
-    { key: 'net', label: 'Network' },
+  type StatKey = 'mem' | 'cpu' | 'uptime' | 'swap' | 'procs' | 'net' | 'netSpeed' | 'diskIO';
+  const ALL_STATS: { key: StatKey; label: string; desc: string }[] = [
+    { key: 'mem', label: 'Memory', desc: 'RAM usage percentage' },
+    { key: 'cpu', label: 'CPU', desc: 'Processor load or utilization' },
+    { key: 'uptime', label: 'Uptime', desc: 'Time since last reboot' },
+    { key: 'swap', label: 'Swap', desc: 'Virtual memory swap usage' },
+    { key: 'procs', label: 'Processes', desc: 'Total running process count' },
+    { key: 'net', label: 'Network', desc: 'Cumulative bytes in/out' },
+    { key: 'netSpeed', label: 'Net Speed', desc: 'Live bytes/sec throughput' },
+    { key: 'diskIO', label: 'Disk I/O', desc: 'Disk read/write throughput' },
   ];
   const DEFAULT_VISIBLE_STATS: StatKey[] = ['mem', 'cpu', 'uptime'];
 
@@ -106,6 +108,30 @@
     if (b < 1048576) return `${(b / 1024).toFixed(0)}K`;
     if (b < 1073741824) return `${(b / 1048576).toFixed(1)}M`;
     return `${(b / 1073741824).toFixed(1)}G`;
+  }
+
+  // ── Net speed tracking ──────────────────────────────────────────────────
+  let prevNetBytes = $state<{ bytesIn: number; bytesOut: number; time: number } | null>(null);
+  let netSpeed = $state<{ inPerSec: number; outPerSec: number }>({ inPerSec: 0, outPerSec: 0 });
+
+  function updateNetSpeed() {
+    const now = Date.now();
+    const cur = data.system.networkBytes;
+    if (prevNetBytes && now > prevNetBytes.time) {
+      const dt = (now - prevNetBytes.time) / 1000;
+      netSpeed = {
+        inPerSec: Math.max(0, (cur.bytesIn - prevNetBytes.bytesIn) / dt),
+        outPerSec: Math.max(0, (cur.bytesOut - prevNetBytes.bytesOut) / dt),
+      };
+    }
+    prevNetBytes = { bytesIn: cur.bytesIn, bytesOut: cur.bytesOut, time: now };
+  }
+
+  function netSpeedColor(bytesPerSec: number): string {
+    const mb = bytesPerSec / 1048576;
+    if (mb > 10) return 'var(--danger)';
+    if (mb >= 1) return 'var(--warning)';
+    return 'var(--success)';
   }
 
   function handleAddDevice() {

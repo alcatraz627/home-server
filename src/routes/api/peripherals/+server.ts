@@ -308,6 +308,210 @@ function getCurrentWifi(): { ssid: string; rssi: number } | null {
   }
 }
 
+// --- Displays ---
+
+interface DisplayInfo {
+  name: string;
+  resolution: string;
+  refreshRate: string;
+  gpu: string;
+  builtIn: boolean;
+}
+
+function getDisplays(): DisplayInfo[] {
+  try {
+    if (isMac) {
+      const raw = execSync('system_profiler SPDisplaysDataType -json 2>/dev/null', {
+        encoding: 'utf-8',
+        timeout: 15000,
+      });
+      const data = JSON.parse(raw);
+      const displays: DisplayInfo[] = [];
+      const gpuList = data?.SPDisplaysDataType || [];
+      for (const gpu of gpuList) {
+        const gpuName = gpu.sppci_model || gpu._name || 'Unknown GPU';
+        const ndrvs = gpu.spdisplays_ndrvs || [];
+        for (const disp of ndrvs) {
+          const res = disp._spdisplays_resolution || disp.spdisplays_resolution || '';
+          const refresh = disp._spdisplays_refresh || disp.spdisplays_refresh || '';
+          const isBuiltIn =
+            disp.spdisplays_connection_type === 'spdisplays_internal' ||
+            (disp._name || '').toLowerCase().includes('built-in') ||
+            (disp._name || '').toLowerCase().includes('retina');
+          displays.push({
+            name: disp._name || 'Unknown Display',
+            resolution: res,
+            refreshRate: refresh ? `${refresh} Hz` : '',
+            gpu: gpuName,
+            builtIn: isBuiltIn,
+          });
+        }
+      }
+      return displays;
+    }
+    return [];
+  } catch {
+    return [];
+  }
+}
+
+// --- Network Interfaces ---
+
+interface NetworkInterface {
+  port: string;
+  device: string;
+  mac: string;
+  ip: string;
+  status: string;
+}
+
+function getNetworkInterfaces(): NetworkInterface[] {
+  try {
+    if (isMac) {
+      const raw = execSync('networksetup -listallhardwareports 2>/dev/null', {
+        encoding: 'utf-8',
+        timeout: 10000,
+      });
+
+      let ifconfigRaw = '';
+      try {
+        ifconfigRaw = execSync('ifconfig 2>/dev/null', {
+          encoding: 'utf-8',
+          timeout: 10000,
+        });
+      } catch {}
+
+      // Parse ifconfig into a map: device -> { ip, status }
+      const ifMap = new Map<string, { ip: string; status: string }>();
+      const ifBlocks = ifconfigRaw.split(/^(?=\S)/m);
+      for (const block of ifBlocks) {
+        const devMatch = block.match(/^(\S+?):/);
+        if (!devMatch) continue;
+        const dev = devMatch[1];
+        const ipMatch = block.match(/inet\s+(\d+\.\d+\.\d+\.\d+)/);
+        const statusMatch = block.match(/status:\s*(\S+)/);
+        const isUp = block.includes('UP');
+        ifMap.set(dev, {
+          ip: ipMatch?.[1] || '',
+          status: statusMatch?.[1] || (isUp ? 'active' : 'inactive'),
+        });
+      }
+
+      const interfaces: NetworkInterface[] = [];
+      const blocks = raw.split(/\n\n/).filter((b) => b.trim());
+      for (const block of blocks) {
+        const portMatch = block.match(/Hardware Port:\s*(.+)/);
+        const devMatch = block.match(/Device:\s*(\S+)/);
+        const macMatch = block.match(/Ethernet Address:\s*(\S+)/);
+        if (portMatch && devMatch) {
+          const dev = devMatch[1];
+          const ifInfo = ifMap.get(dev);
+          interfaces.push({
+            port: portMatch[1],
+            device: dev,
+            mac: macMatch?.[1] || 'N/A',
+            ip: ifInfo?.ip || '',
+            status: ifInfo?.status || 'inactive',
+          });
+        }
+      }
+      return interfaces;
+    }
+    return [];
+  } catch {
+    return [];
+  }
+}
+
+// --- System Info ---
+
+interface SystemInfo {
+  cpuBrand: string;
+  cpuCores: number;
+  cpuThreads: number;
+  ram: string;
+  macosVersion: string;
+  serial: string;
+  model: string;
+}
+
+function getSystemInfo(): SystemInfo | null {
+  try {
+    if (isMac) {
+      let cpuBrand = '';
+      try {
+        cpuBrand = execSync('sysctl -n machdep.cpu.brand_string 2>/dev/null', {
+          encoding: 'utf-8',
+          timeout: 5000,
+        }).trim();
+      } catch {}
+
+      let cpuThreads = 0;
+      try {
+        cpuThreads = parseInt(
+          execSync('sysctl -n hw.ncpu 2>/dev/null', {
+            encoding: 'utf-8',
+            timeout: 5000,
+          }).trim(),
+        );
+      } catch {}
+
+      const raw = execSync('system_profiler SPHardwareDataType -json 2>/dev/null', {
+        encoding: 'utf-8',
+        timeout: 15000,
+      });
+      const data = JSON.parse(raw);
+      const hw = data?.SPHardwareDataType?.[0] || {};
+
+      let macosVersion = '';
+      try {
+        macosVersion = execSync('sw_vers -productVersion 2>/dev/null', {
+          encoding: 'utf-8',
+          timeout: 5000,
+        }).trim();
+      } catch {}
+
+      return {
+        cpuBrand: cpuBrand || hw.cpu_type || 'Unknown',
+        cpuCores: parseInt(hw.number_processors?.replace?.(/.*?(\d+).*/, '$1') || '0') || 0,
+        cpuThreads: cpuThreads || 0,
+        ram: hw.physical_memory || 'Unknown',
+        macosVersion,
+        serial: hw.serial_number || 'Unknown',
+        model: hw.machine_name || hw.model_name || 'Unknown',
+      };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+// --- Bluetooth connect/disconnect ---
+
+function bluetoothAction(action: 'connect' | 'disconnect', address: string): { ok: boolean; error?: string } {
+  if (!isMac) return { ok: false, error: 'Bluetooth control is only supported on macOS' };
+  try {
+    // Check if blueutil is available
+    try {
+      execSync('which blueutil', { encoding: 'utf-8', timeout: 3000 });
+    } catch {
+      return {
+        ok: false,
+        error: 'blueutil not found. Install it with: brew install blueutil',
+      };
+    }
+    const flag = action === 'connect' ? '--connect' : '--disconnect';
+    execSync(`blueutil ${flag} "${address}"`, {
+      encoding: 'utf-8',
+      timeout: 15000,
+    });
+    return { ok: true };
+  } catch (e: any) {
+    return { ok: false, error: e.message || `Failed to ${action}` };
+  }
+}
+
 export const GET: RequestHandler = async () => {
   const wifi = getWifiNetworks();
   const bluetooth = getBluetoothDevices();
@@ -315,5 +519,22 @@ export const GET: RequestHandler = async () => {
   const usb = getUSBDevices();
   const audio = getAudioDevices();
   const battery = getBatteryInfo();
-  return json({ wifi, bluetooth, currentWifi, usb, audio, battery });
+  const displays = getDisplays();
+  const networkInterfaces = getNetworkInterfaces();
+  const systemInfo = getSystemInfo();
+  return json({ wifi, bluetooth, currentWifi, usb, audio, battery, displays, networkInterfaces, systemInfo });
+};
+
+export const POST: RequestHandler = async ({ request }) => {
+  const body = await request.json();
+  const { action, address } = body;
+  if (action === 'bt-connect' || action === 'bt-disconnect') {
+    if (!address || typeof address !== 'string') {
+      return json({ ok: false, error: 'Missing address' }, { status: 400 });
+    }
+    const btAction = action === 'bt-connect' ? 'connect' : 'disconnect';
+    const result = bluetoothAction(btAction, address);
+    return json(result, { status: result.ok ? 200 : 500 });
+  }
+  return json({ ok: false, error: 'Unknown action' }, { status: 400 });
 };
