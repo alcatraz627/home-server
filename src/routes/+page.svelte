@@ -160,6 +160,70 @@
   </a>
 </div>
 
+<!-- Activity & Processes Row -->
+<div class="detail-row">
+  <!-- Recent Activity Timeline -->
+  <div class="detail-card">
+    <h3 class="section-title">Recent Activity</h3>
+    {#if dashboard.recentRuns.length > 0}
+      <div class="timeline">
+        {#each dashboard.recentRuns as run}
+          <div class="timeline-item">
+            <span
+              class="timeline-dot"
+              style="background: {run.status === 'success'
+                ? 'var(--success)'
+                : run.status === 'failed' || run.status === 'timeout'
+                  ? 'var(--danger)'
+                  : 'var(--warning)'}"
+            ></span>
+            <div class="timeline-content">
+              <span class="timeline-name">{run.name}</span>
+              <span class="timeline-meta">
+                {run.status}
+                {#if run.duration}
+                  · {run.duration < 1000 ? run.duration + 'ms' : (run.duration / 1000).toFixed(1) + 's'}{/if}
+                · {formatRelativeTime(run.time)}
+              </span>
+            </div>
+          </div>
+        {/each}
+      </div>
+    {:else}
+      <p class="detail-empty">No recent task runs</p>
+    {/if}
+  </div>
+
+  <!-- Top Processes -->
+  <div class="detail-card">
+    <h3 class="section-title">Top Processes</h3>
+    {#if dashboard.topProcesses.length > 0}
+      <div class="top-procs">
+        {#each dashboard.topProcesses as proc}
+          <div class="proc-row">
+            <span class="proc-name">{proc.name}</span>
+            <div class="proc-bars">
+              <div class="proc-bar">
+                <div class="proc-fill proc-cpu" style="width: {Math.min(100, proc.cpu)}%"></div>
+              </div>
+              <div class="proc-bar">
+                <div class="proc-fill proc-mem" style="width: {Math.min(100, proc.mem)}%"></div>
+              </div>
+            </div>
+            <span class="proc-vals">{proc.cpu.toFixed(1)}% · {proc.mem.toFixed(1)}%</span>
+          </div>
+        {/each}
+        <div class="proc-legend">
+          <span><span class="legend-dot" style="background: var(--accent)"></span> CPU</span>
+          <span><span class="legend-dot" style="background: var(--purple)"></span> MEM</span>
+        </div>
+      </div>
+    {:else}
+      <p class="detail-empty">No process data</p>
+    {/if}
+  </div>
+</div>
+
 <!-- Quick Nav -->
 <h3 class="section-title">Quick Access</h3>
 <div class="nav-grid">
@@ -310,6 +374,145 @@
     color: var(--accent);
   }
 
+  /* Activity & Processes */
+  .detail-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+
+  .detail-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+  }
+
+  .detail-empty {
+    font-size: 0.75rem;
+    color: var(--text-faint);
+    text-align: center;
+    padding: 16px;
+  }
+
+  /* Timeline */
+  .timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .timeline-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .timeline-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-top: 4px;
+  }
+
+  .timeline-content {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  .timeline-name {
+    font-size: 0.78rem;
+    color: var(--text-primary);
+  }
+
+  .timeline-meta {
+    font-size: 0.65rem;
+    color: var(--text-faint);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* Top Processes */
+  .top-procs {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .proc-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .proc-name {
+    font-size: 0.75rem;
+    width: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+  }
+
+  .proc-bars {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .proc-bar {
+    height: 3px;
+    background: var(--border-subtle);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .proc-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.3s;
+  }
+
+  .proc-cpu {
+    background: var(--accent);
+  }
+
+  .proc-mem {
+    background: var(--purple);
+  }
+
+  .proc-vals {
+    font-size: 0.6rem;
+    color: var(--text-faint);
+    font-family: 'JetBrains Mono', monospace;
+    white-space: nowrap;
+    width: 80px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  .proc-legend {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    margin-top: 4px;
+    font-size: 0.6rem;
+    color: var(--text-faint);
+  }
+
+  .legend-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    margin-right: 3px;
+    vertical-align: middle;
+  }
+
   /* Quick Nav */
   .nav-grid {
     display: grid;
@@ -345,6 +548,9 @@
   @media (max-width: 640px) {
     .stats-row {
       grid-template-columns: repeat(2, 1fr);
+    }
+    .detail-row {
+      grid-template-columns: 1fr;
     }
     .status-grid {
       grid-template-columns: 1fr;
