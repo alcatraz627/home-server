@@ -2,6 +2,24 @@
 
 Append-only log of skill run insights. Newest entries at top.
 
+## session: Mega sprint v2.5.1 → v4.2.0 — 2026-03-22
+
+**Purpose:** Complete ALL remaining roadmap items, iterate through 5 rounds of user feedback, build component library, add infrastructure (logging, security, testing, deployment).
+
+**Insights:**
+
+1. **Parallel agents are the key throughput multiplier** — 22+ background agents this session, each handling independent work (new pages, component migration, security, Linux support). The constraint is shared files (+layout.svelte, app.css, nav.ts) — only modify those from the main context
+2. **Component library migration netted -1400 lines** — replacing inline buttons/badges/tabs across 21 pages with shared components. The `hs-` CSS prefix convention prevented conflicts during incremental migration
+3. **lucide-svelte replaces custom SVG registry** — the Icon component now wraps lucide components via an ICON_MAP. This gives 1000+ icons from a maintained library instead of 68 hand-drawn SVGs. But lucide doesn't have brand icons (Docker, etc.) — those need custom additions
+4. **`os.freemem()` is misleading on macOS** — reports near-zero because macOS caches aggressively. Use `vm_stat` for actual available memory
+5. **`crypto.randomUUID()` and `navigator.clipboard.writeText()` fail on HTTP** — Tailscale serves over HTTP not HTTPS. Always provide fallbacks
+6. **Terminal scrollback buffer has a rendering gap** — server stores last 5K chars and sends on reconnect, but xterm.js doesn't always render it correctly after resize. The `[Session restored]` message works but output history appears blank
+7. **Test suite should be run before any more features** — 25 test files exist but haven't been validated against the running server. Establish baseline before adding complexity
+8. **Error boundary is the missing piece** — client-side errors are invisible to the server. Adding a Svelte error boundary that POSTs to `/api/logs` would close this visibility gap permanently
+9. **fetchApi adoption is only 30%** — 8 of ~28 pages use the multi-device wrapper. The rest still use raw `fetch()`, which means device switching only works for the migrated pages
+
+---
+
 ## session: Remote access doc + Tailscale DNS troubleshooting — 2026-03-22
 
 **Purpose:** Diagnosed why the home server wasn't accessible on mobile data (bare hostname DNS resolution failure), wrote `docs/remote-access.md`.
