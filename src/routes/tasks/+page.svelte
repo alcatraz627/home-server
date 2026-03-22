@@ -1682,7 +1682,11 @@
                   : 'var(--success)'}"
             ></div>
           </div>
-          <span class="disk-info">{d.used} / {d.total} ({d.usePercent})</span>
+          <span class="disk-info">
+            {d.used} / {d.total} ({d.usePercent})
+            {#if d.fstype}<span class="disk-fstype">{d.fstype}</span>{/if}
+            {#if d.device}<span class="disk-device" title={d.device}>{d.device.split('/').pop()}</span>{/if}
+          </span>
         </div>
       {/each}
     </div>
@@ -2203,8 +2207,29 @@
   .disk-info {
     font-size: 0.7rem;
     color: var(--text-muted);
-    width: 140px;
+    width: 200px;
     text-align: right;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
+  .disk-fstype {
+    font-size: 0.6rem;
+    color: var(--text-faint);
+    background: var(--bg-inset);
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-family: monospace;
+  }
+  .disk-device {
+    font-size: 0.6rem;
+    color: var(--text-faint);
+    font-family: monospace;
+    max-width: 80px;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .form-card {

@@ -345,6 +345,38 @@
     if (e.key === 'Escape') renamingFile = null;
   }
 
+  // Editable path bar state
+  let editingPath = $state(false);
+  let pathInputValue = $state('');
+
+  function startEditingPath() {
+    pathInputValue = currentPath || '/';
+    editingPath = true;
+  }
+
+  function cancelEditingPath() {
+    editingPath = false;
+  }
+
+  async function submitPathInput() {
+    const raw = pathInputValue.trim().replace(/^\/+/, '').replace(/\/+$/, '');
+    editingPath = false;
+    try {
+      const params = raw ? `?path=${encodeURIComponent(raw)}` : '';
+      const res = await fetch(`/api/files${params}`);
+      if (!res.ok) throw new Error('Invalid path');
+      currentPath = raw;
+      files = await res.json();
+    } catch {
+      toast.error('Invalid path — directory not found', { key: 'path-nav' });
+    }
+  }
+
+  function handlePathKey(e: KeyboardEvent) {
+    if (e.key === 'Enter') submitPathInput();
+    if (e.key === 'Escape') cancelEditingPath();
+  }
+
   // Navigate into directory
   async function navigateTo(path: string) {
     currentPath = path;
@@ -534,16 +566,43 @@
   </div>
 </div>
 
-<!-- Breadcrumbs -->
-<nav class="breadcrumbs">
-  {#each breadcrumbs as crumb, i}
-    {#if i > 0}<span class="crumb-sep">/</span>{/if}
-    {#if i === breadcrumbs.length - 1}
-      <span class="crumb-current">{crumb.name}</span>
-    {:else}
-      <button class="crumb-link" onclick={() => navigateTo(crumb.path)}>{crumb.name}</button>
-    {/if}
-  {/each}
+<!-- Editable path bar -->
+<nav class="path-bar">
+  {#if editingPath}
+    <input
+      type="text"
+      class="path-input"
+      bind:value={pathInputValue}
+      onkeydown={handlePathKey}
+      onblur={cancelEditingPath}
+    />
+    <button
+      class="path-edit-btn"
+      onmousedown={(e) => {
+        e.preventDefault();
+        submitPathInput();
+      }}>Go</button
+    >
+    <button
+      class="path-edit-btn"
+      onmousedown={(e) => {
+        e.preventDefault();
+        cancelEditingPath();
+      }}>Cancel</button
+    >
+  {:else}
+    <div class="path-segments">
+      {#each breadcrumbs as crumb, i}
+        {#if i > 0}<span class="crumb-sep">/</span>{/if}
+        {#if i === breadcrumbs.length - 1}
+          <span class="crumb-current">{crumb.name}</span>
+        {:else}
+          <button class="crumb-link" onclick={() => navigateTo(crumb.path)}>{crumb.name}</button>
+        {/if}
+      {/each}
+    </div>
+    <button class="path-edit-btn" onclick={startEditingPath} title="Edit path">&#x270E;</button>
+  {/if}
 </nav>
 
 <!-- New folder input -->
@@ -875,18 +934,56 @@
     color: var(--text-muted);
   }
 
-  /* Breadcrumbs */
-  .breadcrumbs {
+  /* Editable path bar */
+  .path-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 14px;
+    font-size: 0.8rem;
+    padding: 6px 12px;
+    background: var(--bg-secondary);
+    border-radius: 6px;
+    border-bottom: 2px solid var(--border);
+    overflow-x: auto;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .path-segments {
     display: flex;
     align-items: center;
     gap: 4px;
-    margin-bottom: 14px;
-    font-size: 0.8rem;
-    padding: 8px 12px;
-    background: var(--bg-secondary);
-    border-radius: 6px;
-    border: 1px solid var(--border);
+    flex: 1;
+    min-width: 0;
     overflow-x: auto;
+  }
+
+  .path-input {
+    flex: 1;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    padding: 4px 8px;
+    border: 1px solid var(--accent);
+    border-radius: 4px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    outline: none;
+  }
+
+  .path-edit-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 0.75rem;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-family: inherit;
+    white-space: nowrap;
+  }
+  .path-edit-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
   }
 
   .crumb-link {
@@ -894,7 +991,7 @@
     border: none;
     color: var(--accent);
     cursor: pointer;
-    font-family: inherit;
+    font-family: 'JetBrains Mono', monospace;
     font-size: inherit;
     padding: 2px 4px;
     border-radius: 3px;

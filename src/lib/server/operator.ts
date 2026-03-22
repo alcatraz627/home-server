@@ -209,22 +209,55 @@ export function getSystemDiskUsage(): {
   used: string;
   available: string;
   usePercent: string;
+  device: string;
+  fstype: string;
 }[] {
   try {
+    const platform = os.platform();
     const raw = execSync('df -h / /Volumes/* 2>/dev/null || df -h', { encoding: 'utf-8', timeout: 3000 });
     const lines = raw.trim().split('\n').slice(1);
+
+    // Build a map of device/mount -> fstype
+    const fstypeMap = new Map<string, string>();
+    try {
+      if (platform === 'darwin') {
+        // Use diskutil to get filesystem types for mounted volumes
+        const mountsRaw = execSync('mount', { encoding: 'utf-8', timeout: 3000 });
+        for (const line of mountsRaw.trim().split('\n')) {
+          // Format: /dev/disk3s1s1 on / (apfs, sealed, local, read-only, journaled)
+          const m = line.match(/^(\S+)\s+on\s+(\S+)\s+\(([^,)]+)/);
+          if (m) {
+            fstypeMap.set(m[1], m[3].trim());
+            fstypeMap.set(m[2], m[3].trim());
+          }
+        }
+      } else {
+        // Linux: use df -T for filesystem type
+        const dfT = execSync('df -T / 2>/dev/null || true', { encoding: 'utf-8', timeout: 3000 });
+        const dfTLines = dfT.trim().split('\n').slice(1);
+        for (const line of dfTLines) {
+          const parts = line.trim().split(/\s+/);
+          if (parts.length >= 7) {
+            fstypeMap.set(parts[0], parts[1]); // device -> fstype
+            fstypeMap.set(parts[parts.length - 1], parts[1]); // mount -> fstype
+          }
+        }
+      }
+    } catch {}
+
     const disks = lines
       .map((line) => {
         const parts = line.trim().split(/\s+/);
         const device = parts[0];
+        const mount = parts[parts.length - 1];
         return {
           device,
-          mount: parts[parts.length - 1],
+          mount,
           total: parts[1],
           used: parts[2],
           available: parts[3],
           usePercent: parts[4],
-          fstype: '',
+          fstype: fstypeMap.get(device) || fstypeMap.get(mount) || '',
         };
       })
       .filter(

@@ -17,11 +17,34 @@
     type: string;
   }
 
+  interface USBDevice {
+    name: string;
+    vendor: string;
+    serial: string;
+    speed: string;
+  }
+
+  interface AudioDevice {
+    name: string;
+    type: 'input' | 'output';
+    sampleRate: string;
+  }
+
+  interface BatteryInfo {
+    percentage: number;
+    charging: boolean;
+    timeRemaining: string;
+    cycleCount: number | null;
+  }
+
   let wifi = $state<WifiNetwork[]>([]);
   let bluetooth = $state<BluetoothDevice[]>([]);
   let currentWifi = $state<{ ssid: string; rssi: number } | null>(null);
+  let usb = $state<USBDevice[]>([]);
+  let audio = $state<AudioDevice[]>([]);
+  let battery = $state<BatteryInfo | null>(null);
   let loading = $state(true);
-  let activeTab = $state<'wifi' | 'bluetooth'>('wifi');
+  let activeTab = $state<'wifi' | 'bluetooth' | 'usb' | 'audio' | 'battery'>('wifi');
   let wifiSort = $state<'rssi' | 'ssid' | 'channel'>('rssi');
 
   async function refresh() {
@@ -32,6 +55,9 @@
       wifi = data.wifi;
       bluetooth = data.bluetooth;
       currentWifi = data.currentWifi;
+      usb = data.usb || [];
+      audio = data.audio || [];
+      battery = data.battery || null;
     } catch (e: any) {
       toast.error(e.message || 'Failed to load peripherals');
     } finally {
@@ -86,6 +112,15 @@
   </button>
   <button class="tab" class:active={activeTab === 'bluetooth'} onclick={() => (activeTab = 'bluetooth')}>
     Bluetooth ({bluetooth.length})
+  </button>
+  <button class="tab" class:active={activeTab === 'usb'} onclick={() => (activeTab = 'usb')}>
+    USB ({usb.length})
+  </button>
+  <button class="tab" class:active={activeTab === 'audio'} onclick={() => (activeTab = 'audio')}>
+    Audio ({audio.length})
+  </button>
+  <button class="tab" class:active={activeTab === 'battery'} onclick={() => (activeTab = 'battery')}>
+    Battery {battery ? `(${battery.percentage}%)` : ''}
   </button>
 </div>
 
@@ -145,25 +180,119 @@
       {/each}
     </div>
   {/if}
-{:else if loading}
-  <div class="loading">Scanning devices...</div>
-{:else if bluetooth.length === 0}
-  <div class="empty">No Bluetooth devices found</div>
-{:else}
-  <div class="bt-list">
-    {#each bluetooth as dev, i}
-      <div class="bt-row card-stagger" style="animation-delay: {i * 30}ms">
-        <span class="bt-status">
-          <span class="dot" class:connected={dev.connected}></span>
-        </span>
-        <div class="bt-info">
-          <span class="bt-name">{dev.name}</span>
-          <span class="bt-meta">{dev.address} | {dev.type}</span>
+{:else if activeTab === 'bluetooth'}
+  {#if loading}
+    <div class="loading">Scanning devices...</div>
+  {:else if bluetooth.length === 0}
+    <div class="empty">No Bluetooth devices found</div>
+  {:else}
+    <div class="bt-list">
+      {#each bluetooth as dev, i}
+        <div class="bt-row card-stagger" style="animation-delay: {i * 30}ms">
+          <span class="bt-status">
+            <span class="dot" class:connected={dev.connected}></span>
+          </span>
+          <div class="bt-info">
+            <span class="bt-name">{dev.name}</span>
+            <span class="bt-meta">{dev.address} | {dev.type}</span>
+          </div>
+          <span class="bt-state">{dev.connected ? 'Connected' : 'Paired'}</span>
         </div>
-        <span class="bt-state">{dev.connected ? 'Connected' : 'Paired'}</span>
+      {/each}
+    </div>
+  {/if}
+{:else if activeTab === 'usb'}
+  {#if loading}
+    <div class="loading">Scanning USB devices...</div>
+  {:else if usb.length === 0}
+    <div class="empty">No USB devices found</div>
+  {:else}
+    <div class="device-list">
+      {#each usb as dev, i}
+        <div class="device-row card-stagger" style="animation-delay: {i * 30}ms">
+          <div class="device-icon">&#x1F50C;</div>
+          <div class="device-info">
+            <span class="device-name">{dev.name}</span>
+            <span class="device-meta">
+              {#if dev.vendor}Vendor: {dev.vendor}{/if}
+              {#if dev.serial}
+                | Serial: {dev.serial}{/if}
+            </span>
+          </div>
+          {#if dev.speed}
+            <span class="device-badge">{dev.speed}</span>
+          {/if}
+        </div>
+      {/each}
+    </div>
+  {/if}
+{:else if activeTab === 'audio'}
+  {#if loading}
+    <div class="loading">Scanning audio devices...</div>
+  {:else if audio.length === 0}
+    <div class="empty">No audio devices found</div>
+  {:else}
+    <div class="device-list">
+      {#each audio as dev, i}
+        <div class="device-row card-stagger" style="animation-delay: {i * 30}ms">
+          <div class="device-icon">{dev.type === 'input' ? '&#x1F3A4;' : '&#x1F50A;'}</div>
+          <div class="device-info">
+            <span class="device-name">{dev.name}</span>
+            <span class="device-meta">
+              {dev.type === 'input' ? 'Input' : 'Output'}
+              {#if dev.sampleRate}
+                | {dev.sampleRate}{/if}
+            </span>
+          </div>
+          <span class="device-badge" class:input-badge={dev.type === 'input'}>
+            {dev.type === 'input' ? 'IN' : 'OUT'}
+          </span>
+        </div>
+      {/each}
+    </div>
+  {/if}
+{:else if activeTab === 'battery'}
+  {#if loading}
+    <div class="loading">Checking battery...</div>
+  {:else if !battery}
+    <div class="empty">No battery detected (desktop Mac or unavailable)</div>
+  {:else}
+    <div class="battery-card card">
+      <div class="battery-header">
+        <div class="battery-visual">
+          <div class="battery-shell">
+            <div
+              class="battery-fill"
+              style="width: {battery.percentage}%; background: {battery.percentage > 20
+                ? 'var(--success)'
+                : 'var(--danger)'}"
+            ></div>
+          </div>
+          <div class="battery-nub"></div>
+        </div>
+        <span class="battery-pct">{battery.percentage}%</span>
+        <span class="battery-status" class:charging={battery.charging}>
+          {battery.charging ? 'Charging' : 'On Battery'}
+        </span>
       </div>
-    {/each}
-  </div>
+      <div class="battery-details">
+        <div class="battery-detail">
+          <span class="battery-label">Time Remaining</span>
+          <span class="battery-value">{battery.timeRemaining}</span>
+        </div>
+        {#if battery.cycleCount !== null}
+          <div class="battery-detail">
+            <span class="battery-label">Cycle Count</span>
+            <span class="battery-value">{battery.cycleCount}</span>
+          </div>
+        {/if}
+        <div class="battery-detail">
+          <span class="battery-label">Power Source</span>
+          <span class="battery-value">{battery.charging ? 'AC Power' : 'Battery'}</span>
+        </div>
+      </div>
+    </div>
+  {/if}
 {/if}
 
 <style>
@@ -386,12 +515,140 @@
     color: var(--text-muted);
   }
 
+  /* USB / Audio device list */
+  .device-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .device-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border-subtle);
+    background: var(--bg-secondary);
+  }
+  .device-icon {
+    font-size: 1.2rem;
+    width: 28px;
+    text-align: center;
+  }
+  .device-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .device-name {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+  .device-meta {
+    font-size: 0.7rem;
+    color: var(--text-faint);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .device-badge {
+    font-size: 0.72rem;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: var(--accent-bg);
+    color: var(--accent);
+    white-space: nowrap;
+  }
+  .device-badge.input-badge {
+    background: var(--warning-bg, rgba(255, 180, 0, 0.1));
+    color: var(--warning);
+  }
+
+  /* Battery */
+  .battery-card {
+    padding: 20px;
+    max-width: 400px;
+  }
+  .battery-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 16px;
+  }
+  .battery-visual {
+    display: flex;
+    align-items: center;
+  }
+  .battery-shell {
+    width: 60px;
+    height: 26px;
+    border: 2px solid var(--text-muted);
+    border-radius: 4px;
+    padding: 2px;
+    position: relative;
+  }
+  .battery-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.3s;
+  }
+  .battery-nub {
+    width: 4px;
+    height: 12px;
+    background: var(--text-muted);
+    border-radius: 0 2px 2px 0;
+    margin-left: 1px;
+  }
+  .battery-pct {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .battery-status {
+    font-size: 0.78rem;
+    padding: 2px 10px;
+    border-radius: 10px;
+    background: var(--bg-secondary);
+    color: var(--text-muted);
+  }
+  .battery-status.charging {
+    background: var(--success-bg, rgba(0, 200, 100, 0.1));
+    color: var(--success);
+  }
+  .battery-details {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .battery-detail {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .battery-label {
+    font-size: 0.75rem;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .battery-value {
+    font-size: 0.85rem;
+    color: var(--text-primary);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
   @media (max-width: 640px) {
     .network-row {
       flex-wrap: wrap;
     }
     .net-security {
       margin-left: auto;
+    }
+    .device-row {
+      flex-wrap: wrap;
     }
   }
 </style>

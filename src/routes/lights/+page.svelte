@@ -444,6 +444,9 @@
 
 <div class="header">
   <h2>Smart Lights</h2>
+  {#if bulbs.length > 0}
+    <span class="bulb-count">{bulbs.length} {bulbs.length === 1 ? 'Bulb' : 'Bulbs'} Online</span>
+  {/if}
   <div class="controls">
     <button class="btn" onclick={rediscover} disabled={discovering}>
       {#if discovering && bulbs.length > 0}
@@ -609,6 +612,12 @@
               />
             {/if}
             <div class="bulb-details">
+              <!-- Room tag above name -->
+              {#if rooms[bulb.mac]}
+                <div class="room-tag-row">
+                  <span class="room-tag">{rooms[bulb.mac]}</span>
+                </div>
+              {/if}
               <div class="bulb-header">
                 {#if renamingMac === bulb.mac}
                   <input
@@ -638,9 +647,6 @@
               </div>
               <div class="bulb-meta">
                 <span>{bulb.ip}</span>
-                {#if rooms[bulb.mac]}
-                  <span class="room-tag">{rooms[bulb.mac]}</span>
-                {/if}
                 {#if bulb.rssi != null}<span title="WiFi signal strength">{bulb.rssi}dBm</span>{/if}
                 {#if bulb.moduleName}<span title="Module">{bulb.moduleName}</span>{/if}
                 {#if bulb.fwVersion}<span title="Firmware">fw {bulb.fwVersion}</span>{/if}
@@ -654,7 +660,7 @@
           </div>
         </div>
 
-        <!-- Room assignment -->
+        <!-- Room assignment (independent save) -->
         <div class="room-assign">
           {#if editingRoom === bulb.mac}
             <input
@@ -689,16 +695,16 @@
 
         {#if bulb.state}
           <div class="bulb-controls">
-            <label class="control-row brightness-row">
-              <span class="control-label">Brightness</span>
-              <div class="brightness-arc">
+            <!-- Brightness section -->
+            <div class="card-section brightness-section">
+              <div class="brightness-arc-lg">
                 <div
                   class="arc-track"
                   style="background: conic-gradient(from 200deg, {bulb.color
                     ? colorHex(bulb)
                     : 'var(--accent)'} {bulb.brightness * 2.8}deg, var(--border-subtle) 0deg)"
                 ></div>
-                <span class="arc-value">{bulb.brightness}%</span>
+                <span class="arc-value-lg">{bulb.brightness}%</span>
               </div>
               <input
                 type="range"
@@ -706,9 +712,13 @@
                 max="100"
                 value={bulb.brightness}
                 oninput={(e) => handleBrightness(bulb, e)}
+                class="brightness-slider"
               />
-            </label>
+            </div>
 
+            <div class="card-divider"></div>
+
+            <!-- Color section -->
             <div class="control-row color-row">
               <span class="control-label">Color</span>
               <div class="color-picker-wrap">
@@ -734,6 +744,9 @@
               </div>
             </div>
 
+            <div class="card-divider"></div>
+
+            <!-- Temperature section -->
             <div class="control-row">
               <span class="control-label">Temp</span>
               <div class="temp-presets">
@@ -777,6 +790,15 @@
   }
   h2 {
     font-size: 1.3rem;
+  }
+  .bulb-count {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    padding: 3px 12px;
+    border-radius: 12px;
+    font-weight: 600;
   }
   .controls {
     display: flex;
@@ -1057,6 +1079,20 @@
     color: var(--text-faint);
     font-family: monospace;
   }
+  .room-tag-row {
+    margin-bottom: 2px;
+  }
+  .room-tag-row .room-tag {
+    display: inline-block;
+    font-size: 0.6rem;
+    padding: 1px 8px;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--purple, #9333ea) 12%, transparent);
+    color: var(--purple, #9333ea);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
   .current-scene {
     color: var(--accent) !important;
     font-weight: 500;
@@ -1120,39 +1156,51 @@
     color: var(--text-primary);
     font-family: inherit;
   }
-  .room-tag {
-    color: var(--purple) !important;
-    font-weight: 500;
+  /* room-tag in meta row (legacy compat) */
+
+  /* Card section dividers */
+  .card-divider {
+    height: 1px;
+    background: var(--border-subtle);
+    margin: 2px 0;
   }
 
-  /* Brightness arc */
-  .brightness-row {
-    flex-wrap: wrap;
+  /* Brightness section */
+  .brightness-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
   }
-  .brightness-arc {
-    width: 48px;
-    height: 48px;
+  .brightness-arc-lg {
+    width: 72px;
+    height: 72px;
     border-radius: 50%;
     position: relative;
     flex-shrink: 0;
   }
-  .arc-track {
+  .brightness-arc-lg .arc-track {
     width: 100%;
     height: 100%;
     border-radius: 50%;
   }
-  .arc-value {
+  .arc-value-lg {
     position: absolute;
-    inset: 6px;
+    inset: 8px;
     background: var(--bg-secondary);
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.6rem;
+    font-size: 0.8rem;
     font-family: 'JetBrains Mono', monospace;
     color: var(--text-primary);
-    font-weight: 600;
+    font-weight: 700;
+  }
+  .brightness-slider {
+    width: 100%;
+    accent-color: var(--accent);
   }
 
   .bulb-controls {

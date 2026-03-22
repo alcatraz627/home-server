@@ -11,6 +11,16 @@
   let stats = $state(initialStats);
   let runningAgents = $state<string[]>(initialRunning);
 
+  // Claude CLI availability
+  let claudeAvailable = $state<boolean | null>(null);
+  let showHowItWorks = $state(false);
+
+  import { onMount } from 'svelte';
+  onMount(() => {
+    // Fetch claude availability on load
+    refresh();
+  });
+
   // UI state
   let showForm = $state(false);
   let editingId = $state<string | null>(null);
@@ -96,6 +106,9 @@
       requests = result.requests;
       stats = result.stats;
       runningAgents = result.runningAgents;
+      if (result.claudeAvailable !== undefined) {
+        claudeAvailable = result.claudeAvailable;
+      }
     } catch (e: any) {
       toast.error(e.message || 'Failed to refresh keeper', { key: 'keeper-refresh' });
     }

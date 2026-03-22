@@ -17,6 +17,7 @@
 
   let { data, children } = $props<{ data: LayoutData; children: any }>();
   let sidebarOpen = $state(false);
+  let navSearch = $state('');
 
   // ── Stats config ─────────────────────────────────────────────────────────────
   type CpuMode = 'percent' | 'load';
@@ -206,6 +207,21 @@
     pinnedHrefs.map((h) => allNavItems.find((i) => i.href === h)).filter(Boolean) as NavItem[],
   );
 
+  // Sidebar search filter
+  let filteredGroups = $derived.by(() => {
+    const q = navSearch.toLowerCase().trim();
+    if (!q) return NAV_GROUPS;
+    return NAV_GROUPS.map((group) => ({
+      ...group,
+      items: group.items.filter(
+        (item) =>
+          item.label.toLowerCase().includes(q) ||
+          item.desc.toLowerCase().includes(q) ||
+          group.label.toLowerCase().includes(q),
+      ),
+    })).filter((group) => group.items.length > 0);
+  });
+
   function isActive(href: string): boolean {
     const path = $page.url.pathname;
     if (href === '/') return path === '/';
@@ -394,7 +410,10 @@
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <nav class:open={sidebarOpen}>
-      {#if pinnedItems.length > 0}
+      <div class="nav-search">
+        <input type="text" placeholder="Search pages..." bind:value={navSearch} class="nav-search-input" />
+      </div>
+      {#if pinnedItems.length > 0 && !navSearch}
         <div class="nav-group">
           <button class="nav-group-header" onclick={() => {}}>
             <span class="nav-group-label">Pinned</span>
@@ -428,7 +447,7 @@
         </div>
       {/if}
 
-      {#each NAV_GROUPS as group (group.id)}
+      {#each filteredGroups as group (group.id)}
         {@const isExpanded = expandedGroups[group.id] !== false}
         <div class="nav-group">
           <button class="nav-group-header" onclick={() => toggleGroup(group.id)}>
@@ -815,6 +834,32 @@
   .nav-group {
     display: flex;
     flex-direction: column;
+  }
+
+  /* Nav search */
+  .nav-search {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .nav-search-input {
+    width: 100%;
+    padding: 5px 10px;
+    font-size: 0.75rem;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--input-bg);
+    color: var(--text-primary);
+    font-family: inherit;
+  }
+
+  .nav-search-input::placeholder {
+    color: var(--text-faint);
+  }
+
+  .nav-search-input:focus {
+    outline: none;
+    border-color: var(--accent);
   }
 
   .nav-group-header {

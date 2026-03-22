@@ -2,8 +2,21 @@
   import type { PageData } from './$types';
   import type { LayoutData } from './$types';
   import { onMount } from 'svelte';
+  import { stars } from '$lib/stars';
 
   let { data } = $props<{ data: PageData & LayoutData }>();
+
+  // Starred files for quick-access
+  let starredFiles = $state<string[]>([]);
+
+  onMount(() => {
+    starredFiles = stars.getStarred('file');
+    // Re-read on store changes
+    const unsub = stars.subscribe(() => {
+      starredFiles = stars.getStarred('file');
+    });
+    return unsub;
+  });
   let dashboard = $state(data.dashboard);
   let system = $state(data.system);
 
@@ -44,6 +57,14 @@
     const ratio = system.loadAvg / system.cpuCount;
     return ratio >= 0.9 ? 'var(--danger)' : ratio >= 0.7 ? 'var(--warning)' : 'var(--success)';
   });
+
+  function diskUsagePercent(d: { usePercent: string }): number {
+    return parseInt(d.usePercent) || 0;
+  }
+
+  function diskColor(pct: number): string {
+    return pct > 90 ? 'var(--danger)' : pct > 70 ? 'var(--warning)' : 'var(--success)';
+  }
 
   const widgets = [
     { href: '/files', icon: '⇄', label: 'Files' },
@@ -91,29 +112,25 @@
   </div>
 
   {#each dashboard.disk as d, i}
+    {@const pct = diskUsagePercent(d)}
+    {@const color = diskColor(pct)}
     <div class="stat-card card-stagger" style="animation-delay: {(i + 3) * 40}ms">
       <div class="stat-header">Disk <code>{d.mount}</code></div>
-      <div
-        class="stat-value"
-        style="color: {parseInt(d.usePercent) > 90
-          ? 'var(--danger)'
-          : parseInt(d.usePercent) > 70
-            ? 'var(--warning)'
-            : 'var(--success)'}"
-      >
-        {d.usePercent}
-      </div>
+      <div class="stat-value" style="color: {color}">{d.usePercent}</div>
       <div class="stat-bar">
-        <div
-          class="stat-fill"
-          style="width: {d.usePercent}; background: {parseInt(d.usePercent) > 90
-            ? 'var(--danger)'
-            : parseInt(d.usePercent) > 70
-              ? 'var(--warning)'
-              : 'var(--success)'}"
-        ></div>
+        <div class="stat-fill" style="width: {d.usePercent}; background: {color}"></div>
       </div>
-      <div class="stat-detail">{d.used} / {d.total}</div>
+      <svg class="disk-sparkline" viewBox="0 0 60 20" preserveAspectRatio="none">
+        <rect x="0" y={20 - (pct / 100) * 20} width="60" height={(pct / 100) * 20} fill={color} opacity="0.2" rx="2" />
+        <line x1="0" y1={20 - (pct / 100) * 20} x2="60" y2={20 - (pct / 100) * 20} stroke={color} stroke-width="1.5" />
+      </svg>
+      <div class="stat-detail">
+        {d.used} / {d.total}
+        {#if d.fstype}<span class="disk-fstype">{d.fstype}</span>{/if}
+      </div>
+      {#if d.device}
+        <div class="stat-device" title={d.device}>{d.device.split('/').pop()}</div>
+      {/if}
     </div>
   {/each}
 </div>
@@ -245,6 +262,25 @@
   </div>
 </div>
 
+<!-- Starred Files -->
+{#if starredFiles.length > 0}
+  <h3 class="section-title">Starred Files</h3>
+  <div class="starred-files">
+    {#each starredFiles as filePath, i}
+      <a
+        href="/files?path={encodeURIComponent(filePath)}"
+        class="starred-file card-stagger"
+        style="animation-delay: {i * 30}ms"
+        title={filePath}
+      >
+        <span class="starred-icon">★</span>
+        <span class="starred-name">{filePath.split('/').pop()}</span>
+        <span class="starred-path">{filePath.split('/').slice(0, -1).join('/')}</span>
+      </a>
+    {/each}
+  </div>
+{/if}
+
 <!-- Quick Nav -->
 <h3 class="section-title">Quick Access</h3>
 <div class="nav-grid">
@@ -326,6 +362,34 @@
     font-size: 0.65rem;
     color: var(--text-faint);
     font-family: 'JetBrains Mono', monospace;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+
+  .disk-sparkline {
+    width: 60px;
+    height: 20px;
+    margin: 4px 0 2px;
+  }
+
+  .disk-fstype {
+    font-size: 0.55rem;
+    color: var(--text-faint);
+    background: var(--bg-inset);
+    padding: 1px 3px;
+    border-radius: 3px;
+  }
+
+  .stat-device {
+    font-size: 0.55rem;
+    color: var(--text-faint);
+    font-family: 'JetBrains Mono', monospace;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-top: 2px;
   }
 
   /* Status Cards */
@@ -564,6 +628,67 @@
 
   .nav-icon {
     font-size: 1.1rem;
+  }
+
+  /* Starred Files */
+  .starred-files {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+
+  .starred-file {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 12px;
+    text-decoration: none;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    transition:
+      border-color 0.15s,
+      color 0.15s;
+    max-width: 280px;
+    overflow: hidden;
+  }
+
+  .starred-file:hover {
+    border-color: var(--purple);
+    color: var(--text-primary);
+  }
+
+  .starred-icon {
+    color: var(--purple);
+    font-size: 0.75rem;
+    flex-shrink: 0;
+  }
+
+  .starred-name {
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .starred-path {
+    font-size: 0.6rem;
+    color: var(--text-faint);
+    font-family: 'JetBrains Mono', monospace;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: none;
+  }
+
+  @media (min-width: 640px) {
+    .starred-path {
+      display: inline;
+      max-width: 120px;
+    }
   }
 
   @media (max-width: 640px) {

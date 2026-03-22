@@ -1,13 +1,24 @@
 import { json } from '@sveltejs/kit';
 import { getRequests, createRequest, updateRequest, deleteRequest, getStats } from '$lib/server/keeper';
 import { getRunningAgentIds } from '$lib/server/agent-runner';
+import { execSync } from 'child_process';
 import type { RequestHandler } from './$types';
+
+function isClaudeAvailable(): boolean {
+  try {
+    execSync('which claude', { stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export const GET: RequestHandler = async () => {
   const requests = await getRequests();
   const stats = await getStats();
   const runningAgents = getRunningAgentIds();
-  return json({ requests, stats, runningAgents });
+  const claudeAvailable = isClaudeAvailable();
+  return json({ requests, stats, runningAgents, claudeAvailable });
 };
 
 export const POST: RequestHandler = async ({ request }) => {

@@ -93,6 +93,23 @@
     renamingId = null;
   }
 
+  // Format message content — detect code blocks and inline code
+  function formatContent(text: string): string {
+    // Escape HTML first
+    let safe = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    // Fenced code blocks: ```lang\ncode\n```
+    safe = safe.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
+      return `<pre class="ai-code-block"><code class="lang-${lang || 'text'}">${code.trim()}</code></pre>`;
+    });
+    // Inline code: `code`
+    safe = safe.replace(/`([^`]+)`/g, '<code class="ai-inline-code">$1</code>');
+    // Bold: **text**
+    safe = safe.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    // Line breaks
+    safe = safe.replace(/\n/g, '<br>');
+    return safe;
+  }
+
   // Copy message
   async function copyMessage(content: string) {
     try {
@@ -265,7 +282,7 @@
                 <span class="ai-role">{msg.role === 'user' ? 'You' : 'Claude'}</span>
                 <button class="ai-copy-btn" onclick={() => copyMessage(msg.content)} title="Copy">&#x2398;</button>
               </div>
-              <div class="ai-content">{msg.content}</div>
+              <div class="ai-content">{@html formatContent(msg.content)}</div>
             </div>
           {/each}
           {#if loading}
@@ -746,6 +763,27 @@
       transform: translateY(-6px);
       opacity: 1;
     }
+  }
+
+  /* Code blocks in messages */
+  :global(.ai-code-block) {
+    background: var(--code-bg);
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin: 6px 0;
+    overflow-x: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    line-height: 1.5;
+  }
+
+  :global(.ai-inline-code) {
+    background: var(--code-bg);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
   }
 
   /* Rename input */

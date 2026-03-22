@@ -142,6 +142,153 @@ function getBluetoothDevices(): BluetoothDevice[] {
   }
 }
 
+// --- USB Devices ---
+
+interface USBDevice {
+  name: string;
+  vendor: string;
+  serial: string;
+  speed: string;
+}
+
+function getUSBDevices(): USBDevice[] {
+  try {
+    if (isMac) {
+      const raw = execSync('system_profiler SPUSBDataType -json 2>/dev/null', {
+        encoding: 'utf-8',
+        timeout: 15000,
+      });
+      const data = JSON.parse(raw);
+      const devices: USBDevice[] = [];
+
+      function walkUSB(items: any[]) {
+        for (const item of items) {
+          if (item._name) {
+            devices.push({
+              name: item._name || 'Unknown',
+              vendor: item.manufacturer || item.vendor_id || '',
+              serial: item.serial_num || '',
+              speed: item.device_speed || '',
+            });
+          }
+          if (item._items) walkUSB(item._items);
+        }
+      }
+
+      const usbData = data?.SPUSBDataType || [];
+      for (const controller of usbData) {
+        if (controller._items) walkUSB(controller._items);
+      }
+      return devices;
+    }
+    return [];
+  } catch {
+    return [];
+  }
+}
+
+// --- Audio Devices ---
+
+interface AudioDevice {
+  name: string;
+  type: 'input' | 'output';
+  sampleRate: string;
+}
+
+function getAudioDevices(): AudioDevice[] {
+  try {
+    if (isMac) {
+      const raw = execSync('system_profiler SPAudioDataType -json 2>/dev/null', {
+        encoding: 'utf-8',
+        timeout: 15000,
+      });
+      const data = JSON.parse(raw);
+      const devices: AudioDevice[] = [];
+      const audioData = data?.SPAudioDataType || [];
+
+      for (const item of audioData) {
+        if (item._items) {
+          for (const dev of item._items) {
+            const inputs = dev.coreaudio_device_input || dev._items?.filter((i: any) => i.coreaudio_device_input);
+            const outputs = dev.coreaudio_device_output || dev._items?.filter((i: any) => i.coreaudio_device_output);
+            const sampleRate = dev.coreaudio_device_srate || dev._items?.[0]?.coreaudio_device_srate || '';
+
+            if (dev.coreaudio_device_input) {
+              devices.push({
+                name: dev._name || 'Unknown',
+                type: 'input',
+                sampleRate: String(sampleRate),
+              });
+            }
+            if (dev.coreaudio_device_output) {
+              devices.push({
+                name: dev._name || 'Unknown',
+                type: 'output',
+                sampleRate: String(sampleRate),
+              });
+            }
+            // If neither flag but has a name, add as output by default
+            if (!dev.coreaudio_device_input && !dev.coreaudio_device_output && dev._name) {
+              devices.push({
+                name: dev._name,
+                type: 'output',
+                sampleRate: String(sampleRate),
+              });
+            }
+          }
+        }
+      }
+      return devices;
+    }
+    return [];
+  } catch {
+    return [];
+  }
+}
+
+// --- Battery ---
+
+interface BatteryInfo {
+  percentage: number;
+  charging: boolean;
+  timeRemaining: string;
+  cycleCount: number | null;
+}
+
+function getBatteryInfo(): BatteryInfo | null {
+  try {
+    if (isMac) {
+      const raw = execSync('pmset -g batt 2>/dev/null', {
+        encoding: 'utf-8',
+        timeout: 5000,
+      });
+
+      const percentMatch = raw.match(/(\d+)%/);
+      const chargingMatch = raw.match(/(AC Power|charging|charged)/i);
+      const timeMatch = raw.match(/(\d+:\d+)\s*remaining/);
+      const percentage = percentMatch ? parseInt(percentMatch[1]) : 0;
+      const charging = !!chargingMatch;
+      const timeRemaining = timeMatch ? timeMatch[1] : charging ? 'Charging' : 'N/A';
+
+      // Try to get cycle count from system_profiler
+      let cycleCount: number | null = null;
+      try {
+        const battRaw = execSync('system_profiler SPPowerDataType 2>/dev/null | grep "Cycle Count"', {
+          encoding: 'utf-8',
+          timeout: 5000,
+        });
+        const cycleMatch = battRaw.match(/Cycle Count:\s*(\d+)/);
+        if (cycleMatch) cycleCount = parseInt(cycleMatch[1]);
+      } catch {}
+
+      return { percentage, charging, timeRemaining, cycleCount };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 function getCurrentWifi(): { ssid: string; rssi: number } | null {
   try {
     if (isMac) {
@@ -165,5 +312,8 @@ export const GET: RequestHandler = async () => {
   const wifi = getWifiNetworks();
   const bluetooth = getBluetoothDevices();
   const currentWifi = getCurrentWifi();
-  return json({ wifi, bluetooth, currentWifi });
+  const usb = getUSBDevices();
+  const audio = getAudioDevices();
+  const battery = getBatteryInfo();
+  return json({ wifi, bluetooth, currentWifi, usb, audio, battery });
 };

@@ -97,6 +97,28 @@ async function waitForCompletion(id: string, type: 'task' | 'backup'): Promise<v
   }
 }
 
+/** Remove a single task's cron job */
+export function unscheduleTask(taskId: string): boolean {
+  const key = `task:${taskId}`;
+  const job = scheduledJobs.get(key);
+  if (job) {
+    job.stop();
+    scheduledJobs.delete(key);
+    console.log(`[scheduler] Unscheduled task: ${taskId}`);
+    return true;
+  }
+  return false;
+}
+
+/** Get count of scheduled task cron jobs (excludes backups) */
+export function getScheduledTaskCount(): number {
+  let count = 0;
+  for (const key of scheduledJobs.keys()) {
+    if (key.startsWith('task:')) count++;
+  }
+  return count;
+}
+
 /** Get list of currently scheduled jobs */
 export function getScheduledJobs(): { id: string; running: boolean }[] {
   return Array.from(scheduledJobs.entries()).map(([id]) => ({

@@ -805,6 +805,33 @@ select {
   border-radius: var(--radius, 8px);
 }
 
+/* Tab bars with bottom borders should not have bottom radius */
+.tab-bar,
+[role='tablist'] {
+  border-radius: var(--radius, 8px) var(--radius, 8px) 0 0;
+}
+
+.tab-bar > button,
+[role='tablist'] > button {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+/* Page description helper text */
+.page-desc {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+
+.page-desc code {
+  font-size: 0.75rem;
+  background: var(--code-bg);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
 /* ===== Animations ===== */
 
 /* Button press */

@@ -7,13 +7,19 @@
 
   let { data } = $props<{ data: PageData }>();
 
+  // System info from layout (for absolute CPU/MEM display)
+  const totalMemGB: number = (data as any).system?.memTotal ?? 16;
+  const cpuCount: number = (data as any).system?.cpuCount ?? 4;
+
   // System monitor
   interface SystemSnapshot {
     timestamp: number;
     cpu: { cores: { core: number; usage: number }[]; avgUsage: number; loadAvg: number[]; count: number };
     memory: { total: number; free: number; used: number; usedPercent: number };
+    swap: { total: number; used: number; usedPercent: number };
     network: { interfaces: number; bytesIn: number; bytesOut: number };
     disk: { readsPerSec: number; writesPerSec: number };
+    processCount: number;
     uptime: number;
   }
 
@@ -145,6 +151,29 @@
     return values.map((v, i) => `${i === 0 ? 'M' : 'L'}${i * step},${height - (v / max) * height}`).join(' ');
   }
 
+  // Sort state
+  type SortCol = 'pid' | 'name' | 'cpu' | 'mem';
+  type SortDir = 'asc' | 'desc';
+  let sortCol = $state<SortCol>('cpu');
+  let sortDir = $state<SortDir>('desc');
+
+  function toggleSort(col: SortCol) {
+    if (sortCol === col) {
+      sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+      sortCol = col;
+      sortDir = col === 'name' ? 'asc' : 'desc';
+    }
+  }
+
+  function sortIndicator(col: SortCol): string {
+    if (sortCol !== col) return '';
+    return sortDir === 'asc' ? ' ▲' : ' ▼';
+  }
+
+  // CPU/MEM display mode: percent or absolute
+  let showAbsolute = $state(false);
+
   const DISPLAY_LIMIT = 50;
   let showAll = $state(false);
 
@@ -215,7 +244,26 @@
     return flat;
   });
 
-  let displayList = $derived(viewMode === 'tree' ? treeList : sortedWithStars);
+  let sortedList = $derived.by(() => {
+    const list = viewMode === 'tree' ? treeList : sortedWithStars;
+    if (viewMode === 'tree') return list; // tree has its own ordering
+    const mul = sortDir === 'asc' ? 1 : -1;
+    return [...list].sort((a, b) => {
+      switch (sortCol) {
+        case 'pid':
+          return (a.pid - b.pid) * mul;
+        case 'name':
+          return a.name.localeCompare(b.name) * mul;
+        case 'cpu':
+          return (a.cpu - b.cpu) * mul;
+        case 'mem':
+          return (a.mem - b.mem) * mul;
+        default:
+          return 0;
+      }
+    });
+  });
+  let displayList = $derived(sortedList);
   let displayed = $derived(showAll ? displayList : displayList.slice(0, DISPLAY_LIMIT));
 
   // Refresh
@@ -455,6 +503,43 @@
         />
       </svg>
     </div>
+
+    <!-- Swap Usage -->
+    <div class="monitor-card">
+      <div class="monitor-label">
+        Swap <span class="monitor-value"
+          >{monitorHistory[monitorHistory.length - 1].swap?.usedPercent ?? 0}% ({formatBytes(
+            monitorHistory[monitorHistory.length - 1].swap?.used ?? 0,
+          )})</span
+        >
+      </div>
+      <svg class="monitor-chart" viewBox="0 0 200 60" preserveAspectRatio="none">
+        <line x1="0" y1="15" x2="200" y2="15" stroke="var(--border-subtle)" stroke-width="0.5" stroke-dasharray="2,3" />
+        <line x1="0" y1="30" x2="200" y2="30" stroke="var(--border-subtle)" stroke-width="0.5" stroke-dasharray="2,3" />
+        <line x1="0" y1="45" x2="200" y2="45" stroke="var(--border-subtle)" stroke-width="0.5" stroke-dasharray="2,3" />
+        <path
+          d={monitorArea(
+            monitorHistory.map((s) => s.swap?.usedPercent ?? 0),
+            200,
+            60,
+            100,
+          )}
+          fill="var(--purple)"
+          opacity="0.12"
+        />
+        <path
+          d={monitorPath(
+            monitorHistory.map((s) => s.swap?.usedPercent ?? 0),
+            200,
+            60,
+            100,
+          )}
+          fill="none"
+          stroke="var(--purple)"
+          stroke-width="1.5"
+        />
+      </svg>
+    </div>
   </div>
 {/if}
 
@@ -485,14 +570,26 @@
 <div class="process-list">
   <div class="process-header">
     <span class="col-star"></span>
-    <span class="col-pid">PID</span>
-    <span class="col-name">Name</span>
-    <span class="col-cpu">CPU%</span>
-    <span class="col-mem">MEM%</span>
+    <button class="col-pid col-sortable" onclick={() => toggleSort('pid')}>PID{sortIndicator('pid')}</button>
+    <button class="col-name col-sortable" onclick={() => toggleSort('name')}>Name{sortIndicator('name')}</button>
+    <button class="col-cpu col-sortable" onclick={() => toggleSort('cpu')}>
+      {showAbsolute ? 'CPU' : 'CPU%'}{sortIndicator('cpu')}
+    </button>
+    <button class="col-mem col-sortable" onclick={() => toggleSort('mem')}>
+      {showAbsolute ? 'MEM' : 'MEM%'}{sortIndicator('mem')}
+    </button>
     <span class="col-rss">RSS</span>
     <span class="col-state">State</span>
     <span class="col-user">User</span>
-    <span class="col-actions"></span>
+    <span class="col-actions">
+      <button
+        class="btn btn-sm unit-toggle"
+        title="Toggle between % and absolute values"
+        onclick={() => (showAbsolute = !showAbsolute)}
+      >
+        {showAbsolute ? '%' : 'abs'}
+      </button>
+    </span>
   </div>
   {#if displayed.length === 0}
     {#each Array(5) as _, i}
@@ -546,8 +643,12 @@
         <span class="expand-indicator">{expandedPid === proc.pid ? '▼' : '▸'}</span>
         {proc.name}
       </span>
-      <span class="col-cpu" class:hot={proc.cpu > 50}>{proc.cpu.toFixed(1)}</span>
-      <span class="col-mem" class:hot={proc.mem > 50}>{proc.mem.toFixed(1)}</span>
+      <span class="col-cpu" class:hot={proc.cpu > 50}>
+        {showAbsolute ? ((proc.cpu / 100) * cpuCount).toFixed(2) + 'c' : proc.cpu.toFixed(1)}
+      </span>
+      <span class="col-mem" class:hot={proc.mem > 50}>
+        {showAbsolute ? formatMem(proc.rss) : proc.mem.toFixed(1)}
+      </span>
       <span class="col-rss">{formatMem(proc.rss)}</span>
       <span class="col-state">{proc.state}</span>
       <span class="col-user">{proc.user}</span>
@@ -788,6 +889,31 @@
     color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 0.05em;
+  }
+
+  .col-sortable {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-family: inherit;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0;
+    text-align: inherit;
+    white-space: nowrap;
+  }
+
+  .col-sortable:hover {
+    color: var(--accent);
+  }
+
+  .unit-toggle {
+    font-size: 0.6rem;
+    padding: 2px 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
   }
 
   .process-row {

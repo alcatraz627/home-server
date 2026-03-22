@@ -1,13 +1,15 @@
 import { json } from '@sveltejs/kit';
 import { getTaskStatuses, saveTaskConfig, deleteTaskConfig, runTask, getSystemDiskUsage } from '$lib/server/operator';
+import { unscheduleTask, getScheduledTaskCount } from '$lib/server/scheduler';
 import type { TaskConfig } from '$lib/server/operator';
 import type { RequestHandler } from './$types';
 
-/** Get all task statuses + disk usage */
+/** Get all task statuses + disk usage + scheduled cron count */
 export const GET: RequestHandler = async () => {
   const statuses = await getTaskStatuses();
   const disk = getSystemDiskUsage();
-  return json({ statuses, disk });
+  const scheduledCount = getScheduledTaskCount();
+  return json({ statuses, disk, scheduledCount });
 };
 
 /** Create or update a task config */
@@ -39,9 +41,10 @@ export const PUT: RequestHandler = async ({ request }) => {
   }
 };
 
-/** Delete a task config */
+/** Delete a task config and unschedule its cron job */
 export const DELETE: RequestHandler = async ({ request }) => {
   const { id } = await request.json();
+  unscheduleTask(id);
   await deleteTaskConfig(id);
   return new Response(null, { status: 204 });
 };
