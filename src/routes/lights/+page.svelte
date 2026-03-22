@@ -11,6 +11,60 @@
 
   let { data } = $props<{ data: PageData }>();
 
+  // --- Lights config (server-synced) ---
+  interface LightsConfig {
+    names: Record<string, string>;
+    rooms: Record<string, string>;
+    presets: CustomPreset[];
+  }
+
+  const CONFIG_CACHE_KEY = 'hs:lights-config';
+
+  function loadCachedConfig(): LightsConfig {
+    if (!browser) return { names: {}, rooms: {}, presets: [] };
+    try {
+      const raw = localStorage.getItem(CONFIG_CACHE_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch {}
+    return { names: {}, rooms: {}, presets: [] };
+  }
+
+  function cacheConfig(cfg: LightsConfig) {
+    if (browser) {
+      try {
+        localStorage.setItem(CONFIG_CACHE_KEY, JSON.stringify(cfg));
+      } catch {}
+    }
+  }
+
+  async function fetchConfig() {
+    try {
+      const res = await fetch('/api/lights/config');
+      if (!res.ok) throw new Error('Failed to fetch lights config');
+      const cfg: LightsConfig = await res.json();
+      bulbNames = cfg.names;
+      rooms = cfg.rooms;
+      customPresets = cfg.presets;
+      cacheConfig(cfg);
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to load lights config');
+    }
+  }
+
+  async function saveConfig() {
+    const cfg: LightsConfig = { names: bulbNames, rooms, presets: customPresets };
+    cacheConfig(cfg);
+    try {
+      await fetch('/api/lights/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(cfg),
+      });
+    } catch {
+      // Silent fail — cache is already updated
+    }
+  }
+
   // Load cached bulbs for instant render, then refresh
   const CACHE_KEY = 'hs:lights-cache';
   function loadCachedBulbs(): WizBulb[] {
@@ -30,6 +84,8 @@
     }
   }
 
+  const cachedConfig = loadCachedConfig();
+
   let bulbs = $state<WizBulb[]>(loadCachedBulbs());
   let discovering = $state(bulbs.length === 0);
   let polling = $state(false);
@@ -37,12 +93,12 @@
   let initialLoad = $state(bulbs.length === 0);
 
   onMount(async () => {
-    await rediscover();
+    await Promise.all([rediscover(), fetchConfig()]);
     initialLoad = false;
   });
 
-  // Bulb names stored in localStorage
-  let bulbNames = $state<Record<string, string>>(loadNames());
+  // Bulb names — initialized from cache, synced from server
+  let bulbNames = $state<Record<string, string>>(cachedConfig.names);
 
   // Group select
   let selectedBulbs = $state<Set<string>>(new Set());
@@ -125,20 +181,9 @@
 
   let debounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
-  function loadNames(): Record<string, string> {
-    if (typeof localStorage === 'undefined') return {};
-    try {
-      return JSON.parse(localStorage.getItem('hs:bulb-names') || '{}');
-    } catch {
-      return {};
-    }
-  }
-
   function saveName(mac: string, name: string) {
     bulbNames = { ...bulbNames, [mac]: name };
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem('hs:bulb-names', JSON.stringify(bulbNames));
-    }
+    saveConfig();
   }
 
   function bulbName(bulb: WizBulb): string {
@@ -311,23 +356,14 @@
     toast.success(`${targets.length} bulbs → ${action}`);
   }
 
-  // Room grouping (localStorage)
-  let rooms = $state<Record<string, string>>(loadRooms());
+  // Room grouping (server-synced)
+  let rooms = $state<Record<string, string>>(cachedConfig.rooms);
   let editingRoom = $state<string | null>(null);
   let roomValue = $state('');
 
-  function loadRooms(): Record<string, string> {
-    if (typeof localStorage === 'undefined') return {};
-    try {
-      return JSON.parse(localStorage.getItem('hs:bulb-rooms') || '{}');
-    } catch {
-      return {};
-    }
-  }
-
   function saveRoom(mac: string, room: string) {
     rooms = { ...rooms, [mac]: room };
-    if (typeof localStorage !== 'undefined') localStorage.setItem('hs:bulb-rooms', JSON.stringify(rooms));
+    saveConfig();
   }
 
   let allRooms = $derived([...new Set(Object.values(rooms))].filter(Boolean).sort());
@@ -416,7 +452,7 @@
     { label: 'Reading', icon: '📖', dimming: 60, temp: 4500, state: true },
   ];
 
-  // Custom presets (localStorage)
+  // Custom presets (server-synced)
   interface CustomPreset {
     label: string;
     icon: string;
@@ -425,26 +461,12 @@
     color?: { r: number; g: number; b: number };
   }
 
-  const PRESETS_KEY = 'hs:light-presets';
-
-  function loadCustomPresets(): CustomPreset[] {
-    try {
-      const raw = localStorage.getItem(PRESETS_KEY);
-      if (raw) return JSON.parse(raw);
-    } catch {}
-    return [];
-  }
-
-  let customPresets = $state<CustomPreset[]>(browser ? loadCustomPresets() : []);
+  let customPresets = $state<CustomPreset[]>(cachedConfig.presets);
   let showPresetForm = $state(false);
   let presetFormName = $state('');
   let presetFormIcon = $state('🔆');
   let presetFormDimming = $state(50);
   let presetFormTemp = $state(4000);
-
-  function saveCustomPresets() {
-    if (browser) localStorage.setItem(PRESETS_KEY, JSON.stringify(customPresets));
-  }
 
   function addCustomPreset() {
     if (!presetFormName.trim()) return;
@@ -457,14 +479,14 @@
         temp: presetFormTemp,
       },
     ];
-    saveCustomPresets();
+    saveConfig();
     showPresetForm = false;
     presetFormName = '';
   }
 
   function deleteCustomPreset(idx: number) {
     customPresets = customPresets.filter((_, i) => i !== idx);
-    saveCustomPresets();
+    saveConfig();
   }
 
   function applyPreset(preset: {

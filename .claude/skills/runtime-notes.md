@@ -2,6 +2,62 @@
 
 Append-only log of skill run insights. Newest entries at top.
 
+## session: Lights config sync + apps running detection — 2026-03-22
+
+**Purpose:** Moved lights config (bulb names, rooms, presets) from localStorage to server-synced JSON file, and added running app detection to the apps page.
+
+**Insights:**
+
+1. The project uses `~/.home-server/` for all persistent data files (kanban.json, bookmarks.json, etc.) — the lights config follows the same pattern at `lights-config.json`.
+2. For lights config, keeping localStorage as a synchronous cache while the server is source of truth gives instant render on page load with eventual consistency from `fetchConfig()`.
+3. The `cachedConfig` variable must be initialized before `$state` declarations that reference it, since `loadCachedConfig()` is a synchronous call that works during module init.
+4. On macOS, `ps -eo comm` lists running process command paths; matching against `/Applications/*.app` reliably detects running GUI apps.
+5. The apps API GET response changed from `AppInfo[]` to `{ apps: AppInfo[], running: string[] }` — the page server load still returns `{ apps }` for SSR, and client-side `fetchRunning()` gets the full shape.
+
+---
+
+## session: Rebuild dashboard as 2D CSS Grid with size-aware sections — 2026-03-22
+
+**Purpose:** Replaced the vertical dashboard layout with a responsive 2D CSS Grid system, adding per-section size controls (S/M/L) and a settings modal.
+
+**Insights:**
+
+1. The `grid-column: span N` approach works well with `auto-fill` columns, but needs `!important` override at the mobile breakpoint to force `span 1` regardless of configured size.
+2. Modal component uses `$bindable(open)` pattern -- bind directly with `bind:open` and use `{#snippet footer()}` for action buttons.
+3. Separating modal drag state (`modalDraggedId`) from live grid drag state (`draggedId`) is essential to avoid cross-contamination when both drag contexts exist.
+4. Pending layout pattern (clone on open, apply on confirm) prevents partial edits from leaking into the live dashboard.
+5. Backfilling `size` for old localStorage layouts (missing the new field) is important for backward compatibility with existing users.
+
+---
+
+## session: Build comprehensive backend test suite — 2026-03-22
+
+**Purpose:** Created 22 test files covering all API endpoints, integration scenarios, and platform-specific behavior using node:test with no external dependencies.
+
+**Insights:**
+
+1. The project already had `tests/helpers/api.ts`, `tests/helpers/cleanup.ts`, `tests/run.sh`, and `tests/README.md` scaffolded but no actual test files. The cleanup helpers had incorrect API method signatures (used DELETE where the API uses POST with `_action`).
+2. Bookmarks, kanban, clipboard, and WoL use POST with `_action` field for delete/update/move instead of standard HTTP DELETE/PUT verbs. Tests must match this pattern.
+3. Clipboard is in-memory only (no persistence file), so tests that clear it affect the running server's state. Other stores (bookmarks, kanban, wol) persist to `~/.home-server/*.json`.
+4. The speedtest GET endpoint requires an `action` query param (`ping` or `download`) -- calling without it returns 400. Tests need to cover this edge case.
+5. Benchmarks POST uses `_action: 'run'` with a `benchmark` field (`cpu`, `memory`, `disk`, `all`). The `all` variant returns 201 (saves to history) while individual ones return 200.
+6. File streaming supports HTTP Range with proper 206/416 status codes. Path traversal is blocked by checking resolved path starts with upload dir.
+
+---
+
+## session: Linux support doc + CLAUDE.md cross-platform rule — 2026-03-22
+
+**Purpose:** Created `docs/linux-support.md` with full platform-specific code inventory, compatibility matrix, tech debt backlog, and development patterns. Added cross-platform requirement to CLAUDE.md agent instructions.
+
+**Insights:**
+
+1. The peripherals API (`api/peripherals/+server.ts`) is the single largest platform-debt file — 12+ `system_profiler` calls with no Linux fallbacks, all returning `[]` gracefully.
+2. The hardcoded `en0` network interface in `+layout.server.ts` and `api/system` is the highest-impact P0 issue — it silently breaks navbar network stats on Linux.
+3. WiFi, network tools, swap, disk I/O, and tailscale already have working Linux fallbacks — ~70% of features work on Linux out of the box.
+4. Smart bulbs (Wiz protocol) are fully cross-platform since they use `dgram` UDP, not system commands.
+
+---
+
 ## session: arch-qa — manage devices navbar — 2026-03-22
 
 **Purpose:** Traced the "Manage Devices" feature from navbar UI through device-context store to API layer.

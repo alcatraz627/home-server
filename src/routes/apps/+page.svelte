@@ -2,7 +2,9 @@
   import type { PageData } from './$types';
   import SearchInput from '$lib/components/SearchInput.svelte';
   import Button from '$lib/components/Button.svelte';
+  import Badge from '$lib/components/Badge.svelte';
   import { toast } from '$lib/toast';
+  import { onMount, onDestroy } from 'svelte';
 
   interface AppInfo {
     name: string;
@@ -13,6 +15,8 @@
   let apps = $state<AppInfo[]>(data.apps);
   let search = $state('');
   let launching = $state<string | null>(null);
+  let runningApps = $state<Set<string>>(new Set());
+  let runningPollInterval: ReturnType<typeof setInterval> | null = null;
 
   let filtered = $derived.by(() => {
     if (!search) return apps;
@@ -42,6 +46,8 @@
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Launch failed');
       toast.success(`Launched ${app.name}`);
+      // Refresh running status after launch
+      setTimeout(fetchRunning, 2000);
     } catch (e: any) {
       toast.error(e.message || `Failed to launch ${app.name}`);
     } finally {
@@ -49,15 +55,38 @@
     }
   }
 
+  async function fetchRunning() {
+    try {
+      const res = await fetch('/api/apps');
+      if (!res.ok) throw new Error('Failed to fetch apps');
+      const data = await res.json();
+      apps = data.apps;
+      runningApps = new Set(data.running ?? []);
+    } catch {
+      // Silent fail for polling
+    }
+  }
+
   async function refreshApps() {
     try {
       const res = await fetch('/api/apps');
       if (!res.ok) throw new Error('Failed to fetch apps');
-      apps = await res.json();
+      const data = await res.json();
+      apps = data.apps;
+      runningApps = new Set(data.running ?? []);
     } catch (e: any) {
       toast.error(e.message || 'Failed to refresh apps');
     }
   }
+
+  onMount(() => {
+    fetchRunning();
+    runningPollInterval = setInterval(fetchRunning, 10000);
+  });
+
+  onDestroy(() => {
+    if (runningPollInterval) clearInterval(runningPollInterval);
+  });
 </script>
 
 <svelte:head>
@@ -93,6 +122,7 @@
           <button
             class="app-card"
             class:launching={launching === app.path}
+            class:running={runningApps.has(app.name)}
             onclick={() => launchApp(app)}
             title={app.path}
           >
@@ -102,6 +132,10 @@
             <div class="app-name">{app.name}</div>
             {#if launching === app.path}
               <div class="app-status">Launching...</div>
+            {:else if runningApps.has(app.name)}
+              <div class="app-badge">
+                <Badge variant="success" dot pulse>Running</Badge>
+              </div>
             {/if}
           </button>
         {/each}
@@ -113,6 +147,7 @@
 <style>
   .page-header {
     display: flex;
+    flex-direction: row;
     align-items: center;
     gap: 12px;
     margin-bottom: 16px;
@@ -120,12 +155,14 @@
 
   h2 {
     font-size: 1.3rem;
+    margin: 0;
   }
 
   .page-actions {
     display: flex;
     align-items: center;
     gap: 10px;
+    margin-left: auto;
   }
 
   .app-count {
@@ -221,6 +258,10 @@
     background: var(--accent-bg);
   }
 
+  .app-card.running {
+    border-color: var(--success);
+  }
+
   .app-icon {
     width: 48px;
     height: 48px;
@@ -255,6 +296,10 @@
     font-size: 0.65rem;
     color: var(--accent);
     animation: pulse 0.8s ease-in-out infinite alternate;
+  }
+
+  .app-badge {
+    margin-top: -2px;
   }
 
   @keyframes pulse {

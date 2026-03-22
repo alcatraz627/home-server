@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import fs from 'node:fs';
 import path from 'node:path';
-import { exec } from 'node:child_process';
+import { exec, execSync } from 'node:child_process';
 import type { RequestHandler } from './$types';
 
 const APPLICATIONS_DIR = '/Applications';
@@ -27,10 +27,32 @@ function scanApps(): AppInfo[] {
   }
 }
 
-/** GET — list all .app bundles */
+function getRunningApps(): string[] {
+  try {
+    const output = execSync('ps -eo comm 2>/dev/null', { encoding: 'utf-8' });
+    const lines = output.split('\n');
+    const running = new Set<string>();
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (trimmed.includes('/Applications/')) {
+        // Extract app name from paths like /Applications/Foo.app/Contents/MacOS/Foo
+        const match = trimmed.match(/\/Applications\/([^/]+)\.app/);
+        if (match) {
+          running.add(match[1]);
+        }
+      }
+    }
+    return [...running];
+  } catch {
+    return [];
+  }
+}
+
+/** GET — list all .app bundles + running apps */
 export const GET: RequestHandler = async () => {
   const apps = scanApps();
-  return json(apps);
+  const running = getRunningApps();
+  return json({ apps, running });
 };
 
 /** POST — launch an app by path */

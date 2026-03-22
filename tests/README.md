@@ -25,13 +25,13 @@ npm run dev &
 
 ## Test Tiers
 
-| Tier | Command | What it tests | Duration |
-|------|---------|--------------|----------|
-| **Basic** | `./tests/run.sh` | Read-only endpoints (system, processes, browse, tailscale, wifi, peripherals, apps, speedtest) | ~10s |
-| **Full** | `./tests/run.sh full` | Everything: CRUD operations, benchmarks, DNS lookups, file upload/delete, streaming | ~60s |
-| **API only** | `./tests/run.sh api` | All API endpoint tests | ~45s |
-| **Integration** | `./tests/run.sh integration` | Terminal sessions, file streaming with Range headers, smart bulbs | ~30s |
-| **Platform** | `./tests/run.sh platform` | OS-specific commands (macOS or Linux) | ~15s |
+| Tier            | Command                      | What it tests                                                                                  | Duration |
+| --------------- | ---------------------------- | ---------------------------------------------------------------------------------------------- | -------- |
+| **Basic**       | `./tests/run.sh`             | Read-only endpoints (system, processes, browse, tailscale, wifi, peripherals, apps, speedtest) | ~10s     |
+| **Full**        | `./tests/run.sh full`        | Everything: CRUD operations, benchmarks, DNS lookups, file upload/delete, streaming            | ~60s     |
+| **API only**    | `./tests/run.sh api`         | All API endpoint tests                                                                         | ~45s     |
+| **Integration** | `./tests/run.sh integration` | Terminal sessions, file streaming with Range headers, smart bulbs                              | ~30s     |
+| **Platform**    | `./tests/run.sh platform`    | OS-specific commands (macOS or Linux)                                                          | ~15s     |
 
 ## Running Specific Tests
 
@@ -56,42 +56,42 @@ TEST_VERBOSE=1 ./tests/run.sh full
 
 ### API Tests (`tests/api/`)
 
-| File | Endpoint(s) | Tier | What it covers |
-|------|-------------|------|----------------|
-| `system.test.ts` | `GET /api/system` | Basic | CPU cores, memory, swap, uptime, network, process count |
-| `processes.test.ts` | `GET /api/processes` | Basic | Process listing, sorting, field validation |
-| `browse.test.ts` | `GET /api/browse` | Basic | Directory listing, home default, ~ expansion, dotfile hiding |
-| `tailscale.test.ts` | `GET /api/tailscale` | Basic | Device listing, graceful handling when not installed |
-| `wifi.test.ts` | `GET /api/wifi` | Basic | WiFi scan results, current connection |
-| `peripherals.test.ts` | `GET /api/peripherals` | Basic | Peripheral discovery, repeated call stability |
-| `apps.test.ts` | `GET /api/apps` | Basic | Application listing, alphabetical sort |
-| `speedtest.test.ts` | `GET/POST /api/speedtest` | Basic | Ping, download blob, upload measurement, size cap |
-| `files.test.ts` | `GET/POST/PATCH/DELETE /api/files` | CRUD | Upload, download, preview, rename, delete, directory creation |
-| `tasks.test.ts` | `GET/POST/PUT/DELETE /api/tasks` | CRUD | Task creation, execution, output verification, scheduling |
-| `backups.test.ts` | `GET/POST/PATCH/DELETE /api/backups` | CRUD | Config CRUD, rsync availability flag |
-| `keeper.test.ts` | `GET/POST/PUT/DELETE /api/keeper` | CRUD | Feature request CRUD, Claude availability check |
-| `bookmarks.test.ts` | `GET/POST /api/bookmarks` | CRUD | Create, update, delete, tag parsing, ordering |
-| `kanban.test.ts` | `GET/POST /api/kanban` | CRUD | Card CRUD, column moves, due dates |
-| `wol.test.ts` | `GET/POST /api/wol` | CRUD | Device CRUD, localhost ping, validation |
-| `dns.test.ts` | `POST /api/dns` | CRUD | Multi-provider A/MX/NS/TXT/AAAA lookups, error handling |
-| `clipboard.test.ts` | `GET/POST /api/clipboard` | CRUD | Entry CRUD, FIFO ordering, truncation, clear |
-| `benchmarks.test.ts` | `GET/POST/DELETE /api/benchmarks` | CRUD | CPU/memory/disk benchmarks, history |
-| `screenshots.test.ts` | `GET/POST /api/screenshots` | CRUD | Listing, image validation, delete handling |
+| File                  | Endpoint(s)                          | Tier  | What it covers                                                |
+| --------------------- | ------------------------------------ | ----- | ------------------------------------------------------------- |
+| `system.test.ts`      | `GET /api/system`                    | Basic | CPU cores, memory, swap, uptime, network, process count       |
+| `processes.test.ts`   | `GET /api/processes`                 | Basic | Process listing, sorting, field validation                    |
+| `browse.test.ts`      | `GET /api/browse`                    | Basic | Directory listing, home default, ~ expansion, dotfile hiding  |
+| `tailscale.test.ts`   | `GET /api/tailscale`                 | Basic | Device listing, graceful handling when not installed          |
+| `wifi.test.ts`        | `GET /api/wifi`                      | Basic | WiFi scan results, current connection                         |
+| `peripherals.test.ts` | `GET /api/peripherals`               | Basic | Peripheral discovery, repeated call stability                 |
+| `apps.test.ts`        | `GET /api/apps`                      | Basic | Application listing, alphabetical sort                        |
+| `speedtest.test.ts`   | `GET/POST /api/speedtest`            | Basic | Ping, download blob, upload measurement, size cap             |
+| `files.test.ts`       | `GET/POST/PATCH/DELETE /api/files`   | CRUD  | Upload, download, preview, rename, delete, directory creation |
+| `tasks.test.ts`       | `GET/POST/PUT/DELETE /api/tasks`     | CRUD  | Task creation, execution, output verification, scheduling     |
+| `backups.test.ts`     | `GET/POST/PATCH/DELETE /api/backups` | CRUD  | Config CRUD, rsync availability flag                          |
+| `keeper.test.ts`      | `GET/POST/PUT/DELETE /api/keeper`    | CRUD  | Feature request CRUD, Claude availability check               |
+| `bookmarks.test.ts`   | `GET/POST /api/bookmarks`            | CRUD  | Create, update, delete, tag parsing, ordering                 |
+| `kanban.test.ts`      | `GET/POST /api/kanban`               | CRUD  | Card CRUD, column moves, due dates                            |
+| `wol.test.ts`         | `GET/POST /api/wol`                  | CRUD  | Device CRUD, localhost ping, validation                       |
+| `dns.test.ts`         | `POST /api/dns`                      | CRUD  | Multi-provider A/MX/NS/TXT/AAAA lookups, error handling       |
+| `clipboard.test.ts`   | `GET/POST /api/clipboard`            | CRUD  | Entry CRUD, FIFO ordering, truncation, clear                  |
+| `benchmarks.test.ts`  | `GET/POST/DELETE /api/benchmarks`    | CRUD  | CPU/memory/disk benchmarks, history                           |
+| `screenshots.test.ts` | `GET/POST /api/screenshots`          | CRUD  | Listing, image validation, delete handling                    |
 
 ### Integration Tests (`tests/integration/`)
 
-| File | What it covers |
-|------|----------------|
-| `terminal.test.ts` | Terminal session listing via REST API |
+| File                  | What it covers                                                      |
+| --------------------- | ------------------------------------------------------------------- |
+| `terminal.test.ts`    | Terminal session listing via REST API                               |
 | `file-stream.test.ts` | HTTP Range requests (206), partial content, path traversal blocking |
-| `lights.test.ts` | Wiz bulb discovery (skips gracefully if no bulbs) |
+| `lights.test.ts`      | Wiz bulb discovery (skips gracefully if no bulbs)                   |
 
 ### Platform Tests (`tests/platform/`)
 
-| File | What it covers |
-|------|----------------|
+| File            | What it covers                                                          |
+| --------------- | ----------------------------------------------------------------------- |
 | `macos.test.ts` | macOS-specific: swap via sysctl, apps in /Applications, system_profiler |
-| `linux.test.ts` | Linux-specific: swap via free, /proc browsing, nmcli WiFi |
+| `linux.test.ts` | Linux-specific: swap via free, /proc browsing, nmcli WiFi               |
 
 ## Architecture
 

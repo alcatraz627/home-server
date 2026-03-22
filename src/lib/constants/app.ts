@@ -10,5 +10,5 @@
  */
 export const APP = {
   title: 'Home Server',
-  version: '3.7.0-swift-reef-27',
+  version: '3.8.0-grid-wave-33',
 } as const;
