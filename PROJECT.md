@@ -785,31 +785,31 @@ User feedback + audit findings from the v3.0.0 sprint. Organized by area.
 
 ### F1 — Lights Multi-Device Sync
 
-- [ ] **Sync bulb settings across devices** — bulb names, room assignments, and custom presets are currently in localStorage (per-browser). Move them to a server-side JSON file (`~/.home-server/lights-config.json`). API: `GET /api/lights/config` returns config, `POST /api/lights/config` saves. On page load, fetch from server. On save (rename, room assign, preset create/delete), POST to server. This ensures any device on the tailnet sees the same names/rooms/presets. Not real-time sync — but always reads latest from server on page load
+- [x] **Sync bulb settings across devices** — bulb names, room assignments, and custom presets are currently in localStorage (per-browser). Move them to a server-side JSON file (`~/.home-server/lights-config.json`). API: `GET /api/lights/config` returns config, `POST /api/lights/config` saves. On page load, fetch from server. On save (rename, room assign, preset create/delete), POST to server. This ensures any device on the tailnet sees the same names/rooms/presets. Not real-time sync — but always reads latest from server on page load
 
 ### F2 — Theme & Customization Expansion
 
-- [ ] **More font controls** — in SettingsPanel, add: font weight (300/400/500/600/700), line height (1.2/1.4/1.6), letter spacing (-0.02/0/0.02/0.04em). Each independently configurable for body vs headings
-- [ ] **More color customization** — add custom overrides for: success, danger, warning, text-primary, text-muted, bg-primary, bg-secondary colors. Show a "Custom Colors" collapsible in SettingsPanel with color pickers for each. Store in localStorage, apply as CSS variable overrides
-- [ ] **5 more themes** — Palenight, Horizon Dark, Synthwave '84, Night Owl, Panda Dark. Total: 25 themes
+- [x] **More font controls** — in SettingsPanel, add: font weight (300/400/500/600/700), line height (1.2/1.4/1.6), letter spacing (-0.02/0/0.02/0.04em). Each independently configurable for body vs headings
+- [x] **More color customization** — add custom overrides for: success, danger, warning, text-primary, text-muted, bg-primary, bg-secondary colors. Show a "Custom Colors" collapsible in SettingsPanel with color pickers for each. Store in localStorage, apply as CSS variable overrides
+- [x] **5 more themes** — Palenight, Horizon Dark, Synthwave '84, Night Owl, Panda Dark. Total: 25 themes
 
 ### F3 — Apps Page Improvements
 
-- [ ] **Fix header alignment** — the `/apps` page header is not vertically aligned. Audit all page headers using `.page-title` — ensure consistent `display: flex; align-items: center; gap: 12px` pattern. Fix any page where title + action buttons are misaligned
-- [ ] **Show running apps** — use `ps aux` to get running process names, cross-reference with the app list. Show a green "Running" badge on apps that have active processes. Match by executable name (e.g., "Google Chrome" → check for "Google Chrome" in process list). Add a `GET /api/apps/running` endpoint that returns running app names
+- [x] **Fix header alignment** — the `/apps` page header is not vertically aligned. Audit all page headers using `.page-title` — ensure consistent `display: flex; align-items: center; gap: 12px` pattern. Fix any page where title + action buttons are misaligned
+- [x] **Show running apps** — use `ps aux` to get running process names, cross-reference with the app list. Show a green "Running" badge on apps that have active processes. Match by executable name (e.g., "Google Chrome" → check for "Google Chrome" in process list). Add a `GET /api/apps/running` endpoint that returns running app names
 
 ### F4 — Toast Behavior
 
-- [ ] **Error toasts persist** — in `$lib/toast.ts`, when `type === 'error'`, set `duration: 0` (infinite). The toast stays until manually dismissed via the close button. Only error type — success/warning/info still auto-dismiss
-- [ ] **Info toasts shorter** — change default info toast duration from 4000ms to 2000ms. Keep success at 4000ms, warning at 5000ms
+- [x] **Error toasts persist** — in `$lib/toast.ts`, when `type === 'error'`, set `duration: 0` (infinite). The toast stays until manually dismissed via the close button. Only error type — success/warning/info still auto-dismiss
+- [x] **Info toasts shorter** — change default info toast duration from 4000ms to 2000ms. Keep success at 4000ms, warning at 5000ms
 
 ### F5 — Dashboard 2D Grid System
 
-- [ ] **CSS Grid layout** — replace the current vertical list with a CSS Grid: `display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--cell-width), 1fr)); gap: 16px`. Each section has a `size` property: `small` (1 column), `medium` (2 columns), `large` (full width). Store in localStorage as `{ id, order, visible, size }[]`
-- [ ] **Size mode per widget** — each dashboard section has a size toggle (S/M/L) in its drag header. Different sizes show different UI:
+- [x] **CSS Grid layout** — replace the current vertical list with a CSS Grid: `display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--cell-width), 1fr)); gap: 16px`. Each section has a `size` property: `small` (1 column), `medium` (2 columns), `large` (full width). Store in localStorage as `{ id, order, visible, size }[]`
+- [x] **Size mode per widget** — each dashboard section has a size toggle (S/M/L) in its drag header. Different sizes show different UI:
   - **Small:** compact card with just the key metric (number + label)
   - **Medium:** standard card with chart/list + summary
   - **Large:** full-width detailed view with all data
     Each section component should accept a `size` prop and render accordingly
-- [ ] **Dashboard settings as modal** — replace the dropdown (which hides behind sidebar) with a proper Modal. Show: section list with visibility toggles, size selectors (S/M/L), drag reorder. Apply button saves. This gives more room for controls and avoids the z-index issue
-- [ ] **Horizontal stacking** — sections should naturally flow into a 2D grid. Two medium widgets side by side. Three small widgets in a row. One large spanning full width. Use CSS Grid `grid-column: span N` based on size
+- [x] **Dashboard settings as modal** — replace the dropdown (which hides behind sidebar) with a proper Modal. Show: section list with visibility toggles, size selectors (S/M/L), drag reorder. Apply button saves. This gives more room for controls and avoids the z-index issue
+- [x] **Horizontal stacking** — sections should naturally flow into a 2D grid. Two medium widgets side by side. Three small widgets in a row. One large spanning full width. Use CSS Grid `grid-column: span N` based on size

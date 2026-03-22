@@ -1,6 +1,7 @@
 <script lang="ts">
   import { theme, THEMES, setTheme, type Theme } from '$lib/theme';
   import { browser } from '$app/environment';
+  import Icon from '$lib/components/Icon.svelte';
 
   let { open = $bindable(false) } = $props<{ open: boolean }>();
 
@@ -14,6 +15,13 @@
     borderRadius: 'sharp' | 'rounded' | 'pill';
     accentColor: string;
     highContrast: boolean;
+    // Font fine-tuning
+    fontWeight: number;
+    headingWeight: number;
+    lineHeight: number;
+    letterSpacing: number;
+    // Custom color overrides
+    customColors: Record<string, string>;
   }
 
   const DEFAULTS: SettingsConfig = {
@@ -23,7 +31,22 @@
     borderRadius: 'rounded',
     accentColor: '',
     highContrast: false,
+    fontWeight: 400,
+    headingWeight: 600,
+    lineHeight: 1.5,
+    letterSpacing: 0,
+    customColors: {},
   };
+
+  const COLOR_OVERRIDES = [
+    { key: '--success', label: 'Success' },
+    { key: '--danger', label: 'Danger' },
+    { key: '--warning', label: 'Warning' },
+    { key: '--text-primary', label: 'Text Primary' },
+    { key: '--text-muted', label: 'Text Muted' },
+    { key: '--bg-primary', label: 'Background' },
+    { key: '--bg-secondary', label: 'Surface' },
+  ];
 
   function loadSettings(): SettingsConfig {
     if (!browser) return { ...DEFAULTS };
@@ -87,6 +110,24 @@
       root.classList.add('high-contrast');
     } else {
       root.classList.remove('high-contrast');
+    }
+
+    // Font weight
+    root.style.setProperty('--font-weight', String(config.fontWeight));
+    root.style.setProperty('--heading-weight', String(config.headingWeight));
+
+    // Line height & letter spacing
+    root.style.setProperty('--line-height', String(config.lineHeight));
+    root.style.setProperty('--letter-spacing', `${config.letterSpacing}em`);
+
+    // Custom color overrides
+    for (const { key } of COLOR_OVERRIDES) {
+      const val = config.customColors[key];
+      if (val) {
+        root.style.setProperty(key, val);
+      } else {
+        root.style.removeProperty(key);
+      }
     }
   }
 
@@ -159,7 +200,7 @@
   <div class="settings-panel">
     <div class="settings-header">
       <h3>Settings</h3>
-      <button class="close-btn" onclick={() => (open = false)}>✕</button>
+      <button class="close-btn" onclick={() => (open = false)}><Icon name="close" size={14} /></button>
     </div>
 
     <div class="settings-body">
@@ -303,6 +344,104 @@
         <button class="toggle-switch" class:on={config.highContrast} onclick={toggleContrast}>
           <span class="toggle-knob"></span>
         </button>
+      </div>
+
+      <!-- Font Weight -->
+      <div class="setting-group">
+        <label class="setting-label">Body Weight</label>
+        <div class="slider-row">
+          <input
+            type="range"
+            min="300"
+            max="700"
+            step="100"
+            bind:value={config.fontWeight}
+            oninput={save}
+            class="setting-slider"
+          />
+          <span class="slider-val">{config.fontWeight}</span>
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <label class="setting-label">Heading Weight</label>
+        <div class="slider-row">
+          <input
+            type="range"
+            min="300"
+            max="700"
+            step="100"
+            bind:value={config.headingWeight}
+            oninput={save}
+            class="setting-slider"
+          />
+          <span class="slider-val">{config.headingWeight}</span>
+        </div>
+      </div>
+
+      <!-- Line Height -->
+      <div class="setting-group">
+        <label class="setting-label">Line Height</label>
+        <div class="option-row">
+          {#each [1.2, 1.4, 1.5, 1.6] as lh}
+            <button
+              class="option-btn"
+              class:active={config.lineHeight === lh}
+              onclick={() => {
+                config.lineHeight = lh;
+                save();
+              }}>{lh}</button
+            >
+          {/each}
+        </div>
+      </div>
+
+      <!-- Letter Spacing -->
+      <div class="setting-group">
+        <label class="setting-label">Letter Spacing</label>
+        <div class="option-row">
+          {#each [-0.02, 0, 0.02, 0.04] as ls}
+            <button
+              class="option-btn"
+              class:active={config.letterSpacing === ls}
+              onclick={() => {
+                config.letterSpacing = ls;
+                save();
+              }}>{ls === 0 ? 'Normal' : `${ls > 0 ? '+' : ''}${ls}em`}</button
+            >
+          {/each}
+        </div>
+      </div>
+
+      <!-- Custom Colors -->
+      <div class="setting-group">
+        <label class="setting-label">Custom Colors</label>
+        <div class="color-overrides">
+          {#each COLOR_OVERRIDES as co}
+            <div class="color-override-row">
+              <span class="color-label">{co.label}</span>
+              <input
+                type="color"
+                class="color-picker"
+                value={config.customColors[co.key] || '#888888'}
+                oninput={(e) => {
+                  config.customColors[co.key] = (e.currentTarget as HTMLInputElement).value;
+                  save();
+                }}
+              />
+              {#if config.customColors[co.key]}
+                <button
+                  class="color-reset"
+                  onclick={() => {
+                    delete config.customColors[co.key];
+                    config.customColors = { ...config.customColors };
+                    save();
+                  }}>Reset</button
+                >
+              {/if}
+            </div>
+          {/each}
+        </div>
       </div>
 
       <!-- Reset -->
@@ -560,6 +699,79 @@
 
   .toggle-switch.on .toggle-knob {
     transform: translateX(18px);
+  }
+
+  /* Slider */
+  .slider-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .setting-slider {
+    flex: 1;
+    accent-color: var(--accent);
+  }
+
+  .slider-val {
+    font-size: 0.72rem;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-muted);
+    min-width: 32px;
+    text-align: right;
+  }
+
+  /* Color overrides */
+  .color-overrides {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .color-override-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .color-label {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    min-width: 80px;
+  }
+
+  .color-picker {
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0;
+    cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
+    overflow: hidden;
+  }
+
+  .color-picker::-webkit-color-swatch-wrapper {
+    padding: 0;
+  }
+  .color-picker::-webkit-color-swatch {
+    border: none;
+  }
+
+  .color-reset {
+    font-size: 0.65rem;
+    padding: 1px 6px;
+    border-radius: 3px;
+    border: 1px solid var(--border);
+    background: var(--btn-bg);
+    color: var(--text-faint);
+    cursor: pointer;
+  }
+
+  .color-reset:hover {
+    color: var(--danger);
+    border-color: var(--danger);
   }
 
   /* Reset */
