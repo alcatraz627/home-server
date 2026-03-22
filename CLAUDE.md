@@ -22,6 +22,20 @@ After making any change, update `APP.version` in `src/lib/constants/app.ts`.
 
 **Do not update** if no files were modified.
 
+## Cross-Platform Support (macOS + Linux)
+
+This project must work on both macOS and Linux (including Raspberry Pi / ARM).
+
+**Before adding or modifying any feature that uses system commands:**
+
+1. Read `docs/linux-support.md` — it has the full inventory of platform-specific code, Linux equivalents, and required patterns.
+2. Implement both macOS and Linux code paths using `os.platform()` checks.
+3. Wrap system commands in try/catch — return empty/null on failure, never crash.
+4. Use the shared patterns documented there (platform-gated execution, dynamic interface detection, graceful degradation).
+5. After changes, update the compatibility matrix and tech debt backlog in `docs/linux-support.md`.
+
+**Never** add a macOS-only system command without a Linux fallback or an explicit `// TODO: Linux support` with an entry in the tech debt backlog.
+
 ## Code Formatting
 
 After editing any `.ts`, `.svelte`, or `.css` files, run `npx prettier --write` on the changed files before committing. The project uses Prettier with `prettier-plugin-svelte`.

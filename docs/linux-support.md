@@ -164,16 +164,17 @@ Items ordered by impact — highest first.
    - Navbar network throughput stats show nothing on Linux
    - Fix: Create a shared `getPrimaryInterface()` helper using `os.networkInterfaces()`
 
-2. **Peripherals page returns empty on Linux** — `api/peripherals/+server.ts`
-   - Bluetooth: needs `bluetoothctl devices` + `bluetoothctl info <MAC>`
-   - USB: needs `lsusb` parsing
-   - System info: needs `lscpu`, `/etc/os-release`, `free -h`
+2. **Peripherals page partially works on Linux** — `api/peripherals/+server.ts`
+   - ~~Bluetooth: needs `bluetoothctl devices` + `bluetoothctl info <MAC>`~~ ✅ Done
+   - ~~USB: needs `lsusb` parsing~~ ✅ Done
+   - ~~System info: needs `lscpu`, `/etc/os-release`, `free -b`~~ ✅ Done
    - Displays: needs `xrandr` parsing
    - Audio: needs `aplay -l` or `pactl list sinks`
    - Network interfaces: needs `ip link show`
 
-3. **App launcher scans `/Applications`** — `api/apps/+server.ts:7`
-   - Fix: Parse `.desktop` files from `/usr/share/applications/` on Linux
+3. ~~**App launcher scans `/Applications`** — `api/apps/+server.ts:7`~~ ✅ Done
+   - Parses `.desktop` files from `/usr/share/applications/` + `~/.local/share/applications/`
+   - Launches via Exec command or `xdg-open`
 
 ### P1 — Degraded experience on Linux
 
@@ -189,7 +190,7 @@ Items ordered by impact — highest first.
 
 ### P2 — Nice to have
 
-7. **Bluetooth control via `bluetoothctl`** — connect/disconnect on Linux
+7. ~~**Bluetooth control via `bluetoothctl`** — connect/disconnect on Linux~~ ✅ Done
 8. **Battery via `/sys/class/power_supply/`** — only relevant with UPS HAT on Pi
 9. **Tasks page hardcoded paths** — `~/Library/Caches/pip` in template examples
 
