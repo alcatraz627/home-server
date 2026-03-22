@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { json } from '@sveltejs/kit';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -139,7 +140,7 @@ export const POST: RequestHandler = async ({ request }) => {
     // Save full results if running all
     if (benchmark === 'all' && result.cpu && result.memory && result.disk) {
       const entry: BenchmarkResult = {
-        id: Math.random().toString(36).slice(2, 10),
+        id: crypto.randomUUID().slice(0, 8),
         timestamp: new Date().toISOString(),
         ...result,
       };

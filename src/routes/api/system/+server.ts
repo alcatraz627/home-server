@@ -3,6 +3,7 @@ import os from 'node:os';
 import { execSync } from 'node:child_process';
 import type { RequestHandler } from './$types';
 import { createLogger } from '$lib/server/logger';
+import { getPrimaryInterface } from '$lib/server/network-utils';
 
 const log = createLogger('api:system');
 
@@ -48,8 +49,9 @@ function getProcessCount(): number {
 function getNetworkThroughput(): { bytesIn: number; bytesOut: number } {
   try {
     const platform = os.platform();
+    const iface = getPrimaryInterface();
     if (platform === 'darwin') {
-      const out = execSync("netstat -ib | awk '/en0/ && /Link/ {print $7, $10}'", {
+      const out = execSync(`netstat -ib | awk '/${iface}/ && /Link/ {print $7, $10}'`, {
         encoding: 'utf-8',
         timeout: 3000,
         shell: '/bin/sh',

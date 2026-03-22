@@ -58,6 +58,32 @@ export const GET: RequestHandler = async () => {
 /** POST — save lights config */
 export const POST: RequestHandler = async ({ request }) => {
   const body = await request.json();
+
+  // Support reconcile action: merge new names with existing, remove stale entries
+  if (body.action === 'reconcile') {
+    const existing = readConfig();
+    const activeMacs: string[] = body.activeMacs ?? [];
+    const newNames: Record<string, string> = body.names ?? {};
+
+    // Merge: keep existing names for active MACs, add new names
+    const merged: Record<string, string> = {};
+    for (const mac of activeMacs) {
+      if (newNames[mac]) {
+        merged[mac] = newNames[mac];
+      } else if (existing.names[mac]) {
+        merged[mac] = existing.names[mac];
+      }
+    }
+
+    const config: LightsConfig = {
+      names: merged,
+      rooms: existing.rooms,
+      presets: existing.presets,
+    };
+    writeConfig(config);
+    return json({ ...config, removed: Object.keys(existing.names).filter((m) => !activeMacs.includes(m)) });
+  }
+
   const config: LightsConfig = {
     names: body.names ?? {},
     rooms: body.rooms ?? {},

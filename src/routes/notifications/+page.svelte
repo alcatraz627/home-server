@@ -2,6 +2,7 @@
   import type { PageData } from './$types';
   import type { AppNotification, NotificationType, NotificationSource } from '$lib/server/notifications';
   import { toast } from '$lib/toast';
+  import { fetchApi } from '$lib/api';
   import Button from '$lib/components/Button.svelte';
   import Badge from '$lib/components/Badge.svelte';
   import Icon from '$lib/components/Icon.svelte';
@@ -53,7 +54,7 @@
 
   async function refresh() {
     try {
-      const res = await fetch('/api/notifications');
+      const res = await fetchApi('/api/notifications');
       const data = await res.json();
       notifications = data.notifications;
       unreadCount = data.unreadCount;
@@ -64,7 +65,7 @@
 
   async function markRead(id: string) {
     try {
-      await fetch('/api/notifications', {
+      await fetchApi('/api/notifications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'markRead', id }),
@@ -82,7 +83,7 @@
 
   async function markAllRead() {
     try {
-      await fetch('/api/notifications', {
+      await fetchApi('/api/notifications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'markAllRead' }),
@@ -97,7 +98,7 @@
 
   async function clearAll() {
     try {
-      await fetch('/api/notifications', {
+      await fetchApi('/api/notifications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'clearAll' }),

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { toast } from '$lib/toast';
+  import { fetchApi } from '$lib/api';
 
   interface SpeedResult {
     download: number; // Mbps
@@ -8,6 +9,7 @@
     timestamp: string;
   }
 
+  let testMode = $state<'local' | 'external'>('local');
   let running = $state(false);
   let phase = $state<'idle' | 'latency' | 'download' | 'upload' | 'done'>('idle');
   let progress = $state(0);
@@ -41,7 +43,7 @@
     const pings: number[] = [];
     for (let i = 0; i < 5; i++) {
       const start = performance.now();
-      await fetch('/api/speedtest?action=ping', { cache: 'no-store' });
+      await fetchApi('/api/speedtest?action=ping', { cache: 'no-store' });
       pings.push(performance.now() - start);
     }
     // Remove highest, average the rest
@@ -58,7 +60,7 @@
     for (let i = 0; i < sizes.length; i++) {
       progress = ((i + 1) / sizes.length) * 100;
       const start = performance.now();
-      const res = await fetch(`/api/speedtest?action=download&size=${sizes[i]}`, {
+      const res = await fetchApi(`/api/speedtest?action=download&size=${sizes[i]}`, {
         cache: 'no-store',
       });
       const blob = await res.blob();
@@ -84,7 +86,7 @@
         crypto.getRandomValues(data.subarray(off, Math.min(off + 65536, data.length)));
       }
       const start = performance.now();
-      await fetch('/api/speedtest', {
+      await fetchApi('/api/speedtest', {
         method: 'POST',
         body: data,
       });
@@ -96,12 +98,48 @@
     return (totalBytes * 8) / totalTime / 1_000_000;
   }
 
+  async function runExternalTest() {
+    running = true;
+    phase = 'download';
+    progress = 50;
+    try {
+      const res = await fetchApi('/api/speedtest?action=external');
+      if (!res.ok) throw new Error((await res.json()).error || 'Failed');
+      const data = await res.json();
+      latency = data.latency;
+      downloadSpeed = data.download;
+      uploadSpeed = data.upload;
+      phase = 'done';
+      progress = 100;
+
+      const result: SpeedResult = {
+        download: data.download,
+        upload: data.upload,
+        latency: data.latency,
+        timestamp: new Date().toISOString(),
+      };
+      history = [result, ...history].slice(0, 20);
+      saveHistory();
+      toast.success(`External test via ${data.server}`);
+    } catch (e: any) {
+      toast.error(e.message || 'External test failed');
+      phase = 'idle';
+    } finally {
+      running = false;
+    }
+  }
+
   async function runTest() {
     running = true;
     latency = 0;
     downloadSpeed = 0;
     uploadSpeed = 0;
     progress = 0;
+
+    if (testMode === 'external') {
+      await runExternalTest();
+      return;
+    }
 
     try {
       // Latency
@@ -282,9 +320,15 @@
       </div>
     {/if}
 
-    <button class="btn-start" onclick={runTest} disabled={running}>
-      {running ? 'Running...' : phase === 'done' ? 'Run Again' : 'Start Test'}
-    </button>
+    <div class="test-controls">
+      <select class="mode-select" bind:value={testMode} disabled={running}>
+        <option value="local">Local (Server ↔ Browser)</option>
+        <option value="external">External (Server ↔ Cloudflare)</option>
+      </select>
+      <button class="btn-start" onclick={runTest} disabled={running}>
+        {running ? 'Running...' : phase === 'done' ? 'Run Again' : 'Start Test'}
+      </button>
+    </div>
   </div>
 
   {#if history.length > 0}
@@ -513,6 +557,24 @@
       opacity: 0.4;
     }
   }
+  .test-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    justify-content: center;
+  }
+
+  .mode-select {
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 0.82rem;
+    font-family: inherit;
+    cursor: pointer;
+  }
+
   .btn-start {
     padding: 0.75rem 2.5rem;
     background: var(--accent);

@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import { spawn, execSync } from 'child_process';
 import os from 'os';
 import { sanitizeShellArg } from '$lib/server/security';
+import { getPrimaryInterface } from '$lib/server/network-utils';
 
 interface PacketEntry {
   id: number;
@@ -37,7 +38,7 @@ function getInterfaces(): string[] {
         .filter(Boolean);
     }
   } catch {
-    return ['en0', 'eth0', 'lo0'];
+    return [getPrimaryInterface(), 'lo0'];
   }
 }
 
@@ -125,7 +126,15 @@ export const POST: RequestHandler = async ({ request }) => {
       return json({ error: 'Capture already running' }, { status: 400 });
     }
 
-    const iface = sanitizeShellArg(body.interface || 'en0');
+    const requestedIface = body.interface || getPrimaryInterface();
+    const allowedIfaces = getInterfaces();
+    if (!allowedIfaces.includes(requestedIface)) {
+      return json(
+        { error: `Invalid interface: ${requestedIface}. Allowed: ${allowedIfaces.join(', ')}` },
+        { status: 400 },
+      );
+    }
+    const iface = sanitizeShellArg(requestedIface);
     const rawFilter = body.filter || '';
     const count = Math.min(Math.max(parseInt(body.count) || 100, 1), 5000);
 

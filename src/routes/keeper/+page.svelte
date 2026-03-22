@@ -216,6 +216,50 @@
     return `${secs}s`;
   }
 
+  // Keyboard navigation
+  let focusedIndex = $state(-1);
+
+  function handleKeydown(e: KeyboardEvent) {
+    const tag = (e.target as HTMLElement)?.tagName;
+    const isEditable =
+      tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (e.target as HTMLElement)?.isContentEditable;
+    if (isEditable) return;
+
+    if (e.key === 'ArrowDown' || e.key === 'j') {
+      e.preventDefault();
+      focusedIndex = Math.min(focusedIndex + 1, filtered.length - 1);
+      scrollToFocused();
+    } else if (e.key === 'ArrowUp' || e.key === 'k') {
+      e.preventDefault();
+      focusedIndex = Math.max(focusedIndex - 1, 0);
+      scrollToFocused();
+    } else if (e.key === 'Enter' && focusedIndex >= 0) {
+      e.preventDefault();
+      toggleExpand(filtered[focusedIndex].id);
+    } else if (e.key === 'e' && focusedIndex >= 0) {
+      const req = filtered[focusedIndex];
+      if (req.status !== 'running' && !runningAgents.includes(req.id)) {
+        startEdit(req);
+      }
+    } else if (e.key === 'r' && focusedIndex >= 0) {
+      const req = filtered[focusedIndex];
+      if (req.status === 'draft') updateStatus(req.id, 'ready');
+    } else if (e.key === 'd' && focusedIndex >= 0) {
+      const req = filtered[focusedIndex];
+      if (req.status !== 'running') markDone(req.id);
+    } else if (e.key === 'n') {
+      showForm = !showForm;
+      if (!showForm) clearForm();
+    }
+  }
+
+  function scrollToFocused() {
+    setTimeout(() => {
+      const el = document.querySelector('.request-card.kb-focused');
+      el?.scrollIntoView({ block: 'nearest' });
+    }, 0);
+  }
+
   // Expanded detail
   let expandedId = $state<string | null>(null);
   let editingResult = $state('');
@@ -443,6 +487,8 @@
   });
 </script>
 
+<svelte:window onkeydown={handleKeydown} />
+
 <svelte:head>
   <title>Keeper | Home Server</title>
 </svelte:head>
@@ -608,8 +654,16 @@
     <p class="empty">No requests match your filters.</p>
   {/if}
 {:else}
+  <div class="kb-hints">
+    <span><kbd>↑↓</kbd> navigate</span>
+    <span><kbd>↵</kbd> expand</span>
+    <span><kbd>e</kbd> edit</span>
+    <span><kbd>r</kbd> ready</span>
+    <span><kbd>d</kbd> done</span>
+    <span><kbd>n</kbd> new</span>
+  </div>
   <div class="request-list">
-    {#each filtered as req}
+    {#each filtered as req, i}
       <!-- svelte-ignore a11y_click_events_have_key_events -->
       <!-- svelte-ignore a11y_no_static_element_interactions -->
       <div
@@ -618,6 +672,7 @@
         class:is-halted={req.status === 'halted'}
         class:is-running={req.status === 'running' || runningAgents.includes(req.id)}
         class:expanded={expandedId === req.id}
+        class:kb-focused={focusedIndex === i}
         onclick={() => toggleExpand(req.id)}
       >
         <div class="request-top">
@@ -755,6 +810,38 @@
 {/if}
 
 <style>
+  .kb-hints {
+    display: flex;
+    gap: 14px;
+    padding: 6px 12px;
+    margin-bottom: 8px;
+    font-size: 0.65rem;
+    color: var(--text-faint);
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    background: var(--bg-primary);
+  }
+
+  .kb-hints span {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .kb-hints kbd {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    padding: 1px 4px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    background: var(--bg-secondary);
+  }
+
+  :global(.request-card.kb-focused) {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+  }
+
   .header {
     display: flex;
     align-items: center;

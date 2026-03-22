@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import * as pty from 'node-pty';
 import os from 'node:os';
 import { createLogger } from './logger';
@@ -21,18 +22,54 @@ const sessions = new Map<string, TerminalSession>();
 const DEFAULT_SHELL = process.env.SHELL || '/bin/bash';
 const SCROLLBACK_LIMIT = 5000;
 
+/** Keys to exclude from the PTY environment — API keys, tokens, secrets */
+const ENV_BLACKLIST = new Set([
+  'ANTHROPIC_API_KEY',
+  'OPENAI_API_KEY',
+  'GITHUB_TOKEN',
+  'GH_TOKEN',
+  'NPM_TOKEN',
+  'AWS_SECRET_ACCESS_KEY',
+  'AWS_SESSION_TOKEN',
+  'GOOGLE_API_KEY',
+  'SLACK_TOKEN',
+  'SLACK_BOT_TOKEN',
+  'DATABASE_URL',
+  'REDIS_URL',
+  'MONGO_URI',
+  'JWT_SECRET',
+  'SESSION_SECRET',
+  'COOKIE_SECRET',
+  'ENCRYPTION_KEY',
+  'PRIVATE_KEY',
+]);
+
+function filterEnv(env: Record<string, string>): Record<string, string> {
+  const filtered: Record<string, string> = {};
+  for (const [key, value] of Object.entries(env)) {
+    if (ENV_BLACKLIST.has(key)) continue;
+    // Also filter any key containing SECRET, TOKEN, KEY, PASSWORD (case-insensitive)
+    const upper = key.toUpperCase();
+    if (upper.includes('SECRET') || upper.includes('_TOKEN') || upper.includes('_KEY') || upper.includes('PASSWORD')) {
+      continue;
+    }
+    filtered[key] = value;
+  }
+  return filtered;
+}
+
 log.info('Terminal module initialized', { shell: DEFAULT_SHELL });
 
 /** Create a new terminal session */
 export function createSession(cols = 80, rows = 24): TerminalSession {
-  const id = Math.random().toString(36).slice(2, 10);
+  const id = crypto.randomUUID().slice(0, 8);
 
   const term = pty.spawn(DEFAULT_SHELL, ['--login'], {
     name: 'xterm-256color',
     cols,
     rows,
     cwd: process.cwd(),
-    env: process.env as Record<string, string>,
+    env: filterEnv(process.env as Record<string, string>),
   });
 
   let scrollback = '';

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { toast } from '$lib/toast';
+  import { fetchApi } from '$lib/api';
 
   let text = $state('https://example.com');
   let size = $state(256);
@@ -454,7 +455,7 @@
   async function fillFromWifi() {
     fillingWifi = true;
     try {
-      const res = await fetch('/api/wifi');
+      const res = await fetchApi('/api/wifi');
       if (!res.ok) throw new Error('Failed to get WiFi info');
       const data = await res.json();
       if (data.current?.ssid) {

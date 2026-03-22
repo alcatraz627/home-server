@@ -50,9 +50,15 @@ function webSocketPlugin(): Plugin {
               }
 
               wsConn.send(JSON.stringify({ type: 'session', id: session.id, shell: session.label }));
+              // Resize pty to match new client dimensions on reconnect
+              if (sessionParam) {
+                resizeSession(session.id, cols, rows);
+              }
               // Send scrollback buffer for reconnected sessions
               if (session.scrollback) {
-                wsConn.send(JSON.stringify({ type: 'output', data: session.scrollback }));
+                // Clear screen first, then write scrollback to avoid stale rendering
+                wsConn.send(JSON.stringify({ type: 'output', data: '\x1b[2J\x1b[H' }));
+                wsConn.send(JSON.stringify({ type: 'scrollback', data: session.scrollback }));
                 console.log(`[terminal] Session ${session.id} — sent ${session.scrollback.length} chars of scrollback`);
               }
               console.log(`[terminal] Session ${session.id} — WebSocket connected`);

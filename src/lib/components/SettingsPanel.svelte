@@ -10,8 +10,8 @@
 
   interface SettingsConfig {
     fontSize: 12 | 14 | 16;
-    fontFamily: 'inter' | 'system' | 'mono';
-    headerFont: 'space-grotesk' | 'inter' | 'system';
+    fontFamily: 'inter' | 'system' | 'mono' | 'geist' | 'dm-sans' | 'ibm-plex';
+    headerFont: 'space-grotesk' | 'inter' | 'system' | 'geist' | 'playfair' | 'mono';
     borderRadius: 'sharp' | 'rounded' | 'pill';
     accentColor: string;
     highContrast: boolean;
@@ -39,13 +39,23 @@
   };
 
   const COLOR_OVERRIDES = [
-    { key: '--success', label: 'Success' },
-    { key: '--danger', label: 'Danger' },
-    { key: '--warning', label: 'Warning' },
-    { key: '--text-primary', label: 'Text Primary' },
-    { key: '--text-muted', label: 'Text Muted' },
-    { key: '--bg-primary', label: 'Background' },
-    { key: '--bg-secondary', label: 'Surface' },
+    { key: '--accent', label: 'Accent', group: 'Brand' },
+    { key: '--success', label: 'Success', group: 'Brand' },
+    { key: '--danger', label: 'Danger', group: 'Brand' },
+    { key: '--warning', label: 'Warning', group: 'Brand' },
+    { key: '--purple', label: 'Purple', group: 'Brand' },
+    { key: '--cyan', label: 'Cyan', group: 'Brand' },
+    { key: '--orange', label: 'Orange', group: 'Brand' },
+    { key: '--text-primary', label: 'Text', group: 'Text' },
+    { key: '--text-secondary', label: 'Text Secondary', group: 'Text' },
+    { key: '--text-muted', label: 'Text Muted', group: 'Text' },
+    { key: '--text-faint', label: 'Text Faint', group: 'Text' },
+    { key: '--bg-primary', label: 'Background', group: 'Surface' },
+    { key: '--bg-secondary', label: 'Surface', group: 'Surface' },
+    { key: '--bg-inset', label: 'Inset', group: 'Surface' },
+    { key: '--bg-hover', label: 'Hover', group: 'Surface' },
+    { key: '--border', label: 'Border', group: 'Surface' },
+    { key: '--border-subtle', label: 'Border Subtle', group: 'Surface' },
   ];
 
   function loadSettings(): SettingsConfig {
@@ -77,6 +87,9 @@
       inter: "'Inter', sans-serif",
       system: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
       mono: "'JetBrains Mono', monospace",
+      geist: "'Geist', 'Inter', sans-serif",
+      'dm-sans': "'DM Sans', 'Inter', sans-serif",
+      'ibm-plex': "'IBM Plex Sans', 'Inter', sans-serif",
     };
     root.style.setProperty('--font-body', fontMap[config.fontFamily] || fontMap.inter);
 
@@ -85,6 +98,9 @@
       'space-grotesk': "'Space Grotesk', 'Inter', sans-serif",
       inter: "'Inter', sans-serif",
       system: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+      geist: "'Geist', 'Inter', sans-serif",
+      playfair: "'Playfair Display', serif",
+      mono: "'JetBrains Mono', monospace",
     };
     root.style.setProperty('--font-heading', headerMap[config.headerFont] || headerMap['space-grotesk']);
 
@@ -159,12 +175,12 @@
     save();
   }
 
-  function setFontFamily(f: 'inter' | 'system' | 'mono') {
+  function setFontFamily(f: SettingsConfig['fontFamily']) {
     config.fontFamily = f;
     save();
   }
 
-  function setHeaderFont(f: 'space-grotesk' | 'inter' | 'system') {
+  function setHeaderFont(f: SettingsConfig['headerFont']) {
     config.headerFont = f;
     save();
   }
@@ -284,6 +300,27 @@
           >
             Mono
           </button>
+          <button
+            class="option-btn"
+            class:active={config.fontFamily === 'geist'}
+            onclick={() => setFontFamily('geist')}
+          >
+            Geist
+          </button>
+          <button
+            class="option-btn"
+            class:active={config.fontFamily === 'dm-sans'}
+            onclick={() => setFontFamily('dm-sans')}
+          >
+            DM Sans
+          </button>
+          <button
+            class="option-btn"
+            class:active={config.fontFamily === 'ibm-plex'}
+            onclick={() => setFontFamily('ibm-plex')}
+          >
+            IBM Plex
+          </button>
         </div>
       </div>
 
@@ -314,6 +351,29 @@
             style="font-family: -apple-system, sans-serif"
           >
             System
+          </button>
+          <button
+            class="option-btn"
+            class:active={config.headerFont === 'geist'}
+            onclick={() => setHeaderFont('geist')}
+          >
+            Geist
+          </button>
+          <button
+            class="option-btn"
+            class:active={config.headerFont === 'playfair'}
+            onclick={() => setHeaderFont('playfair')}
+            style="font-family: serif"
+          >
+            Playfair
+          </button>
+          <button
+            class="option-btn"
+            class:active={config.headerFont === 'mono'}
+            onclick={() => setHeaderFont('mono')}
+            style="font-family: 'JetBrains Mono', monospace"
+          >
+            Mono
           </button>
         </div>
       </div>
@@ -416,32 +476,35 @@
       <!-- Custom Colors -->
       <div class="setting-group">
         <label class="setting-label">Custom Colors</label>
-        <div class="color-overrides">
-          {#each COLOR_OVERRIDES as co}
-            <div class="color-override-row">
-              <span class="color-label">{co.label}</span>
-              <input
-                type="color"
-                class="color-picker"
-                value={config.customColors[co.key] || '#888888'}
-                oninput={(e) => {
-                  config.customColors[co.key] = (e.currentTarget as HTMLInputElement).value;
-                  save();
-                }}
-              />
-              {#if config.customColors[co.key]}
-                <button
-                  class="color-reset"
-                  onclick={() => {
-                    delete config.customColors[co.key];
-                    config.customColors = { ...config.customColors };
+        {#each ['Brand', 'Text', 'Surface'] as group}
+          <span class="color-group-label">{group}</span>
+          <div class="color-overrides">
+            {#each COLOR_OVERRIDES.filter((c) => c.group === group) as co}
+              <div class="color-override-row">
+                <span class="color-label">{co.label}</span>
+                <input
+                  type="color"
+                  class="color-picker"
+                  value={config.customColors[co.key] || '#888888'}
+                  oninput={(e) => {
+                    config.customColors[co.key] = (e.currentTarget as HTMLInputElement).value;
                     save();
-                  }}>Reset</button
-                >
-              {/if}
-            </div>
-          {/each}
-        </div>
+                  }}
+                />
+                {#if config.customColors[co.key]}
+                  <button
+                    class="color-reset"
+                    onclick={() => {
+                      delete config.customColors[co.key];
+                      config.customColors = { ...config.customColors };
+                      save();
+                    }}>Reset</button
+                  >
+                {/if}
+              </div>
+            {/each}
+          </div>
+        {/each}
       </div>
 
       <!-- Reset -->
@@ -719,6 +782,16 @@
     color: var(--text-muted);
     min-width: 32px;
     text-align: right;
+  }
+
+  .color-group-label {
+    display: block;
+    font-size: 0.62rem;
+    font-weight: 600;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin: 8px 0 4px;
   }
 
   /* Color overrides */

@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { json } from '@sveltejs/kit';
 import { getTaskStatuses, saveTaskConfig, deleteTaskConfig, runTask, getSystemDiskUsage } from '$lib/server/operator';
 import { unscheduleTask, getScheduledTaskCount } from '$lib/server/scheduler';
@@ -19,7 +20,7 @@ export const GET: RequestHandler = async () => {
 export const POST: RequestHandler = async ({ request }) => {
   const body = await request.json();
   const config: TaskConfig = {
-    id: body.id || Math.random().toString(36).slice(2, 10),
+    id: body.id || crypto.randomUUID().slice(0, 8),
     name: body.name,
     command: body.command,
     cwd: body.cwd || undefined,

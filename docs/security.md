@@ -25,14 +25,14 @@ Tailscale VPN ──────────► │  Home Server (0.0.0.0:5555) 
 
 ### Who can access?
 
-| Actor | Access? | Risk |
-|-------|---------|------|
-| Public internet | No (no port forwarding, Tailscale only) | None |
-| Tailscale node you own | Yes | Trusted — this is you |
-| Shared Tailscale node (friend/family) | Yes, if on same tailnet | Medium — full access to everything |
-| Compromised Tailscale device | Yes | High — attacker has full server access |
-| Local network (same WiFi) | Yes, if not firewalled | Medium — depends on network trust |
-| Malicious website (CSRF) | Partially blocked | Low — SvelteKit CSRF checks origin |
+| Actor                                 | Access?                                 | Risk                                   |
+| ------------------------------------- | --------------------------------------- | -------------------------------------- |
+| Public internet                       | No (no port forwarding, Tailscale only) | None                                   |
+| Tailscale node you own                | Yes                                     | Trusted — this is you                  |
+| Shared Tailscale node (friend/family) | Yes, if on same tailnet                 | Medium — full access to everything     |
+| Compromised Tailscale device          | Yes                                     | High — attacker has full server access |
+| Local network (same WiFi)             | Yes, if not firewalled                  | Medium — depends on network trust      |
+| Malicious website (CSRF)              | Partially blocked                       | Low — SvelteKit CSRF checks origin     |
 
 ### Key assumption
 
@@ -50,27 +50,33 @@ Tailscale VPN ──────────► │  Home Server (0.0.0.0:5555) 
 These are secure or acceptable under the Tailscale-only model:
 
 ### Network encryption
+
 - Tailscale uses WireGuard — all traffic is encrypted end-to-end between nodes
 - No need for TLS/HTTPS on top (Tailscale handles it)
 - MagicDNS provides stable hostnames
 
 ### CSRF protection
+
 - SvelteKit's built-in CSRF checks origin headers against trusted origins
 - Configured to trust only Tailscale IPs (`100.*`) and private ranges
 - POST/PUT/DELETE requests from foreign origins are rejected
 
 ### File path traversal protection
+
 - `src/lib/server/files.ts` has `safePath()` function that validates resolved paths stay within `UPLOAD_DIR`
 - `src/routes/api/files/stream/[...path]/+server.ts` checks `filePath.startsWith(resolvedBase)`
 - Upload directory is configurable via `UPLOAD_DIR` env var (default: `./uploads`)
 
 ### Process signal validation
+
 - `src/lib/server/processes.ts` validates PIDs (integer, positive) and signals against a whitelist (`TERM`, `KILL`, `HUP`, etc.)
 
 ### Smart bulb communication
+
 - Wiz protocol uses UDP on the local network only — no external API calls, no credentials
 
 ### `.env` file
+
 - Gitignored (`.gitignore` lines 16-19) — not committed to repo
 - Contains `ANTHROPIC_API_KEY` — only risk is local file access (covered by Tailscale)
 
@@ -88,18 +94,19 @@ These are secure or acceptable under the Tailscale-only model:
 **Risk under current model:** LOW — Tailscale restricts who can connect
 
 **When this becomes a problem:**
+
 - Sharing the tailnet with others who shouldn't have full access
 - Adding the server to a subnet router that exposes it to a broader network
 - Running on a local network without Tailscale
 
 **Recommendation:** If you ever need per-user access control, add a lightweight auth layer. Options:
 
-| Approach | Complexity | Best for |
-|----------|-----------|----------|
-| Tailscale ACL tags | None (config only) | Restricting which tailnet nodes can reach the server |
-| `tailscale whois` header check | Low | Identifying which Tailscale user is connecting |
-| Simple shared password (cookie) | Low | Quick single-user gate |
-| Tailscale Serve + Funnel auth | Medium | Exposing to internet safely |
+| Approach                        | Complexity         | Best for                                             |
+| ------------------------------- | ------------------ | ---------------------------------------------------- |
+| Tailscale ACL tags              | None (config only) | Restricting which tailnet nodes can reach the server |
+| `tailscale whois` header check  | Low                | Identifying which Tailscale user is connecting       |
+| Simple shared password (cookie) | Low                | Quick single-user gate                               |
+| Tailscale Serve + Funnel auth   | Medium             | Exposing to internet safely                          |
 
 #### V2: Terminal gives full shell access — no auth on WebSocket upgrade
 
@@ -113,6 +120,7 @@ These are secure or acceptable under the Tailscale-only model:
 The terminal is the single most powerful feature — it's equivalent to SSH. If any other vulnerability allows reaching this endpoint, game over. Unlike other endpoints that return JSON, the terminal gives persistent interactive shell access.
 
 **Recommendation (even for personal use):**
+
 - Consider requiring a confirmation step (PIN, button press) before terminal sessions start
 - Terminal session IDs use `Math.random()` (weak entropy) — switch to `crypto.randomUUID()` in `terminal.ts:25`
 - Consider filtering env vars passed to PTY (strip `ANTHROPIC_API_KEY`, etc.)
@@ -136,17 +144,18 @@ These would be exploitable if an attacker can reach the API (e.g., via CSRF bypa
 
 Multiple `execSync` calls interpolate user input with only regex filtering:
 
-| Endpoint | File:Line | Command | Input | Filtering |
-|----------|-----------|---------|-------|-----------|
-| traceroute | `api/network:301` | `` `traceroute -m 20 ${target}` `` | `body.target` | `replace(/[^a-zA-Z0-9.\-:]/g, '')` |
-| whois | `api/network:333` | `` `whois ${target}` `` | `body.target` | Same regex |
-| SSL cert | `api/network:408` | `` `openssl s_client -connect ${domain}:443` `` | `body.domain` | `replace(/[^a-zA-Z0-9.\-]/g, '')` |
-| ping (WOL) | `src/lib/server/wol.ts:51` | `` `ping -c 1 -W 1 ${ip}` `` | function param | No validation |
-| blueutil | `api/peripherals:524` | `` `blueutil ${flag} "${address}"` `` | `body.address` | No validation |
+| Endpoint   | File:Line                  | Command                                         | Input          | Filtering                          |
+| ---------- | -------------------------- | ----------------------------------------------- | -------------- | ---------------------------------- |
+| traceroute | `api/network:301`          | `` `traceroute -m 20 ${target}` ``              | `body.target`  | `replace(/[^a-zA-Z0-9.\-:]/g, '')` |
+| whois      | `api/network:333`          | `` `whois ${target}` ``                         | `body.target`  | Same regex                         |
+| SSL cert   | `api/network:408`          | `` `openssl s_client -connect ${domain}:443` `` | `body.domain`  | `replace(/[^a-zA-Z0-9.\-]/g, '')`  |
+| ping (WOL) | `src/lib/server/wol.ts:51` | `` `ping -c 1 -W 1 ${ip}` ``                    | function param | No validation                      |
+| blueutil   | `api/peripherals:524`      | `` `blueutil ${flag} "${address}"` ``           | `body.address` | No validation                      |
 
 **Current mitigation:** The regex filtering blocks most shell metacharacters (`;`, `|`, `` ` ``, `$`, etc.), but the approach is a denylist (fragile) rather than an allowlist.
 
 **Recommendation:** Switch to `spawn()` with array args instead of `execSync` with string interpolation:
+
 ```typescript
 // BAD:  execSync(`traceroute -m 20 ${target}`)
 // GOOD: spawnSync('traceroute', ['-m', '20', target])
@@ -175,7 +184,7 @@ Using `spawn` with arrays is safer than `execSync`, but the unvalidated `interfa
 
 **File:** `src/routes/api/files/search/+server.ts:69`
 **Input:** `?q=` query param passed to `find` via `execSync` after partial sanitization
-**Issue:** Sanitization strips `; | \` ` etc. but allows `"` which could break the quoting
+**Issue:** Sanitization strips `; | \` `etc. but allows`"` which could break the quoting
 
 **Recommendation:** Use Node.js `fs.readdir` recursive search instead of shelling out to `find`.
 
@@ -213,16 +222,16 @@ Using `spawn` with arrays is safer than `execSync`, but the unvalidated `interfa
 
 ### LOW — Acceptable risks for personal use
 
-| # | Issue | File | Notes |
-|---|-------|------|-------|
-| V12 | Clipboard stored in-memory unencrypted | `api/clipboard/+server.ts` | Volatile — lost on restart |
-| V13 | Screenshots stored on disk unencrypted | `api/screenshots/+server.ts` | In `~/.home-server/screenshots/` |
-| V14 | Task output history may contain secrets | `src/lib/server/operator.ts` | In `~/.home-server/task-history.json` |
-| V15 | Agent/keeper logs unencrypted | `src/lib/server/agent-runner.ts` | In `~/.home-server/keeper-logs/` |
-| V16 | Backup configs reveal directory structure | `src/lib/server/backups.ts` | In `~/.home-server/backups.json` |
-| V17 | Weak terminal session IDs | `src/lib/server/terminal.ts:25` | `Math.random()` — 8 chars base-36 |
-| V18 | No rate limiting on any endpoint | All API routes | DoS possible from tailnet |
-| V19 | No security headers (CSP, HSTS, X-Frame-Options) | `hooks.server.ts` | SvelteKit defaults only |
+| #   | Issue                                            | File                             | Notes                                 |
+| --- | ------------------------------------------------ | -------------------------------- | ------------------------------------- |
+| V12 | Clipboard stored in-memory unencrypted           | `api/clipboard/+server.ts`       | Volatile — lost on restart            |
+| V13 | Screenshots stored on disk unencrypted           | `api/screenshots/+server.ts`     | In `~/.home-server/screenshots/`      |
+| V14 | Task output history may contain secrets          | `src/lib/server/operator.ts`     | In `~/.home-server/task-history.json` |
+| V15 | Agent/keeper logs unencrypted                    | `src/lib/server/agent-runner.ts` | In `~/.home-server/keeper-logs/`      |
+| V16 | Backup configs reveal directory structure        | `src/lib/server/backups.ts`      | In `~/.home-server/backups.json`      |
+| V17 | Weak terminal session IDs                        | `src/lib/server/terminal.ts:25`  | `Math.random()` — 8 chars base-36     |
+| V18 | No rate limiting on any endpoint                 | All API routes                   | DoS possible from tailnet             |
+| V19 | No security headers (CSP, HSTS, X-Frame-Options) | `hooks.server.ts`                | SvelteKit defaults only               |
 
 ---
 
@@ -231,6 +240,7 @@ Using `spawn` with arrays is safer than `execSync`, but the unvalidated `interfa
 ### For personal-only Tailscale use: **No, but with caveats**
 
 Tailscale effectively acts as your auth layer:
+
 - Only your authenticated devices can reach the server
 - WireGuard encryption protects traffic
 - Tailscale identity is verified via OAuth (Google, Microsoft, etc.)
@@ -239,28 +249,28 @@ Tailscale effectively acts as your auth layer:
 
 ### When you DO need auth:
 
-| Scenario | Need auth? | Recommended approach |
-|----------|-----------|---------------------|
-| Only your devices on Tailscale | No | Current setup is fine |
-| Shared tailnet (family/roommates) | Yes, for terminal/tasks/files | Tailscale ACL tags + `whois` header |
-| Exposed via Tailscale Funnel | Yes, full auth | OAuth or Tailscale built-in auth |
-| Running on open local network | Yes, full auth | Session-based auth with login page |
-| Public internet (never recommended) | Yes, everything | Full auth + rate limiting + WAF |
+| Scenario                            | Need auth?                    | Recommended approach                |
+| ----------------------------------- | ----------------------------- | ----------------------------------- |
+| Only your devices on Tailscale      | No                            | Current setup is fine               |
+| Shared tailnet (family/roommates)   | Yes, for terminal/tasks/files | Tailscale ACL tags + `whois` header |
+| Exposed via Tailscale Funnel        | Yes, full auth                | OAuth or Tailscale built-in auth    |
+| Running on open local network       | Yes, full auth                | Session-based auth with login page  |
+| Public internet (never recommended) | Yes, everything               | Full auth + rate limiting + WAF     |
 
 ### Should specific modules require auth?
 
 Even under Tailscale-only, these modules have outsized blast radius:
 
-| Module | Risk level | Recommendation |
-|--------|-----------|----------------|
-| **Terminal** | Highest — full shell | Consider a PIN/confirmation gate |
-| **Tasks** | High — arbitrary commands | Fine for personal use |
-| **Files** | High — filesystem read/write | Fine within UPLOAD_DIR |
-| **Browse** | High — any directory readable | Consider restricting to home dir |
-| **Processes** | Medium — can kill processes | Fine for personal use |
-| **Network tools** | Medium — recon capabilities | Fine for personal use |
-| **Lights/WiFi/Peripherals** | Low — local devices | Fine |
-| **AI Chat** | Low — uses API credits | Fine for personal use |
+| Module                      | Risk level                    | Recommendation                   |
+| --------------------------- | ----------------------------- | -------------------------------- |
+| **Terminal**                | Highest — full shell          | Consider a PIN/confirmation gate |
+| **Tasks**                   | High — arbitrary commands     | Fine for personal use            |
+| **Files**                   | High — filesystem read/write  | Fine within UPLOAD_DIR           |
+| **Browse**                  | High — any directory readable | Consider restricting to home dir |
+| **Processes**               | Medium — can kill processes   | Fine for personal use            |
+| **Network tools**           | Medium — recon capabilities   | Fine for personal use            |
+| **Lights/WiFi/Peripherals** | Low — local devices           | Fine                             |
+| **AI Chat**                 | Low — uses API credits        | Fine for personal use            |
 
 ---
 
@@ -294,27 +304,28 @@ Even under Tailscale-only, these modules have outsized blast radius:
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   ```
 - [ ] Sanitize error messages (don't leak file paths)
-- [ ] Use `crypto.randomUUID()` for terminal session IDs
-- [ ] Filter environment variables passed to terminal PTY
-- [ ] Validate `interface` parameter in packets API against `os.networkInterfaces()`
+- [x] Use `crypto.randomUUID()` for terminal session IDs ✅ (v4.3.1)
+- [x] Filter environment variables passed to terminal PTY ✅ (v4.3.1)
+- [x] Validate `interface` parameter in packets API against `os.networkInterfaces()` ✅ (v4.3.1)
+- [x] Add security response headers (X-Frame-Options, X-Content-Type-Options, etc.) ✅ (v4.3.1)
 
 ---
 
 ## Tech Debt: Security Items
 
-| ID | Item | Priority | Effort |
-|----|------|----------|--------|
-| S1 | Replace `execSync` string interpolation with `spawn` array args in network tools | P1 | Medium |
-| S2 | Validate/allowlist `interface` param in packets API | P1 | Low |
-| S3 | Use `crypto.randomUUID()` for terminal session IDs | P2 | Low |
-| S4 | Filter env vars passed to terminal PTY and agent runner | P2 | Low |
-| S5 | Restrict `/api/browse` to configurable allowlist of directories | P2 | Low |
-| S6 | Mask sensitive env vars in process detail endpoint | P2 | Low |
-| S7 | Replace `find` shell-out in file search with Node.js `fs.readdir` | P2 | Medium |
-| S8 | Add security response headers in `hooks.server.ts` | P3 | Low |
-| S9 | Sanitize error messages to not leak file paths | P3 | Low |
-| S10 | Add optional PIN gate for terminal WebSocket | P3 | Medium |
-| S11 | Rate limiting on expensive endpoints | P3 | Medium |
+| ID     | Item                                                                                                   | Priority | Effort  |
+| ------ | ------------------------------------------------------------------------------------------------------ | -------- | ------- |
+| S1     | Replace `execSync` string interpolation with `spawn` array args in network tools                       | P1       | Medium  |
+| ~~S2~~ | ~~Validate/allowlist `interface` param in packets API~~ ✅ Done (v4.3.1)                               | ~~P1~~   | ~~Low~~ |
+| ~~S3~~ | ~~Use `crypto.randomUUID()` for terminal session IDs~~ ✅ Done (v4.3.1) — all 11 server files migrated | ~~P2~~   | ~~Low~~ |
+| ~~S4~~ | ~~Filter env vars passed to terminal PTY~~ ✅ Done (v4.3.1) — blacklist + pattern matching             | ~~P2~~   | ~~Low~~ |
+| S5     | Restrict `/api/browse` to configurable allowlist of directories                                        | P2       | Low     |
+| ~~S6~~ | ~~Mask sensitive env vars in process detail endpoint~~ ✅ N/A — no env vars exposed                    | ~~P2~~   | ~~Low~~ |
+| S7     | Replace `find` shell-out in file search with Node.js `fs.readdir`                                      | P2       | Medium  |
+| ~~S8~~ | ~~Add security response headers in `hooks.server.ts`~~ ✅ Done (v4.3.1)                                | ~~P3~~   | ~~Low~~ |
+| S9     | Sanitize error messages to not leak file paths                                                         | P3       | Low     |
+| S10    | Add optional PIN gate for terminal WebSocket                                                           | P3       | Medium  |
+| S11    | Rate limiting on expensive endpoints                                                                   | P3       | Medium  |
 
 ---
 

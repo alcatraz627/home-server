@@ -29,7 +29,7 @@ export function sanitizePath(userPath: string, basePath: string): string {
  * Prefer spawn with an args array over execSync when possible.
  */
 export function sanitizeShellArg(arg: string): string {
-  return arg.replace(/[;|`$(){}/<>&\n\r\\]/g, '');
+  return arg.replace(/[;|`$(){}<>&\n\r\\]/g, '');
 }
 
 /**

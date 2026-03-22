@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -54,7 +55,7 @@ export async function addNotification(
 ): Promise<AppNotification> {
   const notifications = await getNotifications();
   const notification: AppNotification = {
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    id: `${Date.now()}-${crypto.randomUUID().slice(0, 4)}`,
     type,
     title,
     message,

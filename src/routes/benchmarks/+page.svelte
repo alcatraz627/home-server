@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { PageData } from './$types';
   import { toast } from '$lib/toast';
+  import { fetchApi } from '$lib/api';
 
   interface BenchmarkResult {
     id: string;
@@ -27,7 +28,7 @@
     try {
       // CPU
       phase = 'cpu';
-      const cpuRes = await fetch('/api/benchmarks', {
+      const cpuRes = await fetchApi('/api/benchmarks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ _action: 'run', benchmark: 'cpu' }),
@@ -37,7 +38,7 @@
 
       // Memory
       phase = 'memory';
-      const memRes = await fetch('/api/benchmarks', {
+      const memRes = await fetchApi('/api/benchmarks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ _action: 'run', benchmark: 'memory' }),
@@ -47,7 +48,7 @@
 
       // Disk
       phase = 'disk';
-      const diskRes = await fetch('/api/benchmarks', {
+      const diskRes = await fetchApi('/api/benchmarks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ _action: 'run', benchmark: 'disk' }),
@@ -56,7 +57,7 @@
       current = { ...current, disk: diskData.disk };
 
       // Save full run
-      const saveRes = await fetch('/api/benchmarks', {
+      const saveRes = await fetchApi('/api/benchmarks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ _action: 'run', benchmark: 'all' }),
@@ -97,7 +98,7 @@
 
   async function clearHistory() {
     try {
-      const res = await fetch('/api/benchmarks', {
+      const res = await fetchApi('/api/benchmarks', {
         method: 'DELETE',
       });
       if (!res.ok) throw new Error('Failed to clear history');

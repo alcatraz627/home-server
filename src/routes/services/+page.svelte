@@ -2,6 +2,7 @@
   import type { PageData } from './$types';
   import type { ServiceStatus } from '$lib/server/services';
   import { toast } from '$lib/toast';
+  import { fetchApi } from '$lib/api';
   import Button from '$lib/components/Button.svelte';
   import Badge from '$lib/components/Badge.svelte';
   import Icon from '$lib/components/Icon.svelte';
@@ -40,7 +41,7 @@
 
   async function refresh() {
     try {
-      const res = await fetch('/api/services');
+      const res = await fetchApi('/api/services');
       const data = await res.json();
       statuses = data.statuses;
     } catch {
@@ -76,7 +77,7 @@
 
     adding = true;
     try {
-      const res = await fetch('/api/services', {
+      const res = await fetchApi('/api/services', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -100,7 +101,7 @@
 
   async function removeService(id: string, name: string) {
     try {
-      const res = await fetch('/api/services', {
+      const res = await fetchApi('/api/services', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'remove', id }),
@@ -116,7 +117,7 @@
   async function checkNow(id: string) {
     checkingId = id;
     try {
-      await fetch('/api/services', {
+      await fetchApi('/api/services', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'check', id }),

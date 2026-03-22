@@ -1,0 +1,311 @@
+<script lang="ts">
+  import { goto } from '$app/navigation';
+  import { page } from '$app/stores';
+  import { NAV_GROUPS } from '$lib/constants/nav';
+  import type { NavItem } from '$lib/constants/nav';
+  import Icon from './Icon.svelte';
+
+  let { open = $bindable(false) }: { open: boolean } = $props();
+
+  let query = $state('');
+  let selectedIndex = $state(0);
+  let inputEl = $state<HTMLInputElement | null>(null);
+
+  // Flatten all nav items with their group label
+  const allItems: (NavItem & { group: string })[] = NAV_GROUPS.flatMap((g) =>
+    g.items.map((item) => ({ ...item, group: g.label })),
+  );
+
+  let results = $derived.by(() => {
+    const q = query.toLowerCase().trim();
+    if (!q) return allItems;
+    return allItems.filter(
+      (item) =>
+        item.label.toLowerCase().includes(q) ||
+        item.desc.toLowerCase().includes(q) ||
+        item.group.toLowerCase().includes(q) ||
+        item.href.toLowerCase().includes(q),
+    );
+  });
+
+  // Reset selection when results change
+  $effect(() => {
+    results; // track
+    selectedIndex = 0;
+  });
+
+  // Auto-focus input when opened
+  $effect(() => {
+    if (open) {
+      query = '';
+      selectedIndex = 0;
+      // Tick delay for DOM render
+      setTimeout(() => inputEl?.focus(), 10);
+    }
+  });
+
+  function close() {
+    open = false;
+  }
+
+  function navigate(href: string) {
+    close();
+    goto(href);
+  }
+
+  function handleKeydown(e: KeyboardEvent) {
+    if (!open) return;
+
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      close();
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      selectedIndex = Math.min(selectedIndex + 1, results.length - 1);
+      scrollToSelected();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      selectedIndex = Math.max(selectedIndex - 1, 0);
+      scrollToSelected();
+    } else if (e.key === 'Enter' && results.length > 0) {
+      e.preventDefault();
+      navigate(results[selectedIndex].href);
+    }
+  }
+
+  function scrollToSelected() {
+    setTimeout(() => {
+      const el = document.querySelector('.cp-item.selected');
+      el?.scrollIntoView({ block: 'nearest' });
+    }, 0);
+  }
+
+  function isActive(href: string): boolean {
+    const path = $page.url.pathname;
+    if (href === '/') return path === '/';
+    return path.startsWith(href);
+  }
+
+  function handleOverlayClick(e: MouseEvent) {
+    if (e.target === e.currentTarget) close();
+  }
+</script>
+
+<svelte:window onkeydown={handleKeydown} />
+
+{#if open}
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="cp-backdrop" onclick={handleOverlayClick} role="presentation">
+    <div class="cp-container" role="dialog" aria-label="Command palette">
+      <div class="cp-input-wrap">
+        <Icon name="search" size={16} />
+        <input bind:this={inputEl} type="text" class="cp-input" placeholder="Search pages..." bind:value={query} />
+        <kbd class="cp-kbd">Esc</kbd>
+      </div>
+
+      <div class="cp-results">
+        {#if results.length === 0}
+          <div class="cp-empty">No matching pages</div>
+        {:else}
+          {#each results as item, i (item.href)}
+            <!-- svelte-ignore a11y_no_static_element_interactions -->
+            <button
+              class="cp-item"
+              class:selected={i === selectedIndex}
+              class:active={isActive(item.href)}
+              onclick={() => navigate(item.href)}
+              onmouseenter={() => (selectedIndex = i)}
+            >
+              <span class="cp-item-icon"><Icon name={item.icon} size={16} /></span>
+              <span class="cp-item-text">
+                <span class="cp-item-label">{item.label}</span>
+                <span class="cp-item-desc">{item.desc}</span>
+              </span>
+              <span class="cp-item-group">{item.group}</span>
+            </button>
+          {/each}
+        {/if}
+      </div>
+
+      <div class="cp-footer">
+        <span class="cp-hint"><kbd>↑↓</kbd> navigate</span>
+        <span class="cp-hint"><kbd>↵</kbd> open</span>
+        <span class="cp-hint"><kbd>esc</kbd> close</span>
+      </div>
+    </div>
+  </div>
+{/if}
+
+<style>
+  .cp-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 300;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 15vh;
+    animation: cp-fade 0.15s ease-out;
+  }
+
+  @keyframes cp-fade {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  .cp-container {
+    width: 90%;
+    max-width: 520px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: 0 16px 50px rgba(0, 0, 0, 0.4);
+    overflow: hidden;
+    animation: cp-slide 0.2s ease-out;
+  }
+
+  @keyframes cp-slide {
+    from {
+      opacity: 0;
+      transform: translateY(-10px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  .cp-input-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-faint);
+  }
+
+  .cp-input {
+    flex: 1;
+    border: none;
+    background: none;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    font-family: inherit;
+    outline: none;
+  }
+
+  .cp-input::placeholder {
+    color: var(--text-faint);
+  }
+
+  .cp-kbd {
+    font-size: 0.65rem;
+    font-family: 'JetBrains Mono', monospace;
+    padding: 2px 6px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-faint);
+    background: var(--bg-primary);
+  }
+
+  .cp-results {
+    max-height: 340px;
+    overflow-y: auto;
+    padding: 6px;
+  }
+
+  .cp-empty {
+    padding: 24px 16px;
+    text-align: center;
+    color: var(--text-faint);
+    font-size: 0.82rem;
+  }
+
+  .cp-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 12px;
+    border: none;
+    background: none;
+    border-radius: 8px;
+    cursor: pointer;
+    text-align: left;
+    color: var(--text-secondary);
+    transition: background 0.1s;
+    font-family: inherit;
+  }
+
+  .cp-item:hover,
+  .cp-item.selected {
+    background: var(--bg-hover);
+  }
+
+  .cp-item.active {
+    border-left: 2px solid var(--accent);
+  }
+
+  .cp-item-icon {
+    display: flex;
+    color: var(--text-faint);
+    flex-shrink: 0;
+  }
+
+  .cp-item-text {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+  }
+
+  .cp-item-label {
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  .cp-item-desc {
+    font-size: 0.7rem;
+    color: var(--text-faint);
+  }
+
+  .cp-item-group {
+    font-size: 0.65rem;
+    color: var(--text-faint);
+    flex-shrink: 0;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .cp-footer {
+    display: flex;
+    gap: 16px;
+    padding: 8px 16px;
+    border-top: 1px solid var(--border);
+    background: var(--bg-primary);
+  }
+
+  .cp-hint {
+    font-size: 0.65rem;
+    color: var(--text-faint);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .cp-hint kbd {
+    font-size: 0.6rem;
+    font-family: 'JetBrains Mono', monospace;
+    padding: 1px 4px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    background: var(--bg-secondary);
+  }
+</style>

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { toast } from '$lib/toast';
+  import { fetchApi } from '$lib/api';
   import Icon from '$lib/components/Icon.svelte';
 
   interface ClipEntry {
@@ -39,7 +40,7 @@
 
   async function fetchEntries() {
     try {
-      const res = await fetch('/api/clipboard');
+      const res = await fetchApi('/api/clipboard');
       if (res.ok) entries = await res.json();
     } catch {
       // silent
@@ -87,7 +88,7 @@
       return;
     }
     try {
-      const res = await fetch('/api/clipboard', {
+      const res = await fetchApi('/api/clipboard', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -108,7 +109,7 @@
 
   async function deleteEntry(id: string) {
     try {
-      await fetch('/api/clipboard', {
+      await fetchApi('/api/clipboard', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ _action: 'delete', id }),
@@ -121,7 +122,7 @@
 
   async function clearAll() {
     try {
-      await fetch('/api/clipboard', {
+      await fetchApi('/api/clipboard', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ _action: 'clear' }),

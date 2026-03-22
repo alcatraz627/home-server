@@ -10,5 +10,5 @@
  */
 export const APP = {
   title: 'Home Server',
-  version: '3.10.1-calm-route-19',
+  version: '4.5.0-bold-cedar-63',
 } as const;

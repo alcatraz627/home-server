@@ -3,7 +3,9 @@
   import SearchInput from '$lib/components/SearchInput.svelte';
   import Button from '$lib/components/Button.svelte';
   import Badge from '$lib/components/Badge.svelte';
+  import Icon from '$lib/components/Icon.svelte';
   import { toast } from '$lib/toast';
+  import { fetchApi } from '$lib/api';
   import { onMount, onDestroy } from 'svelte';
 
   interface AppInfo {
@@ -14,9 +16,22 @@
   let { data } = $props<{ data: PageData }>();
   let apps = $state<AppInfo[]>(data.apps);
   let search = $state('');
+  interface AppDetail {
+    name: string;
+    pids: number[];
+    cpu: number;
+    mem: number;
+    memMB: number;
+    openFiles: number;
+    path: string;
+    version: string;
+  }
+
   let launching = $state<string | null>(null);
   let runningApps = $state<Set<string>>(new Set());
   let runningPollInterval: ReturnType<typeof setInterval> | null = null;
+  let expandedApp = $state<string | null>(null);
+  let appDetails = $state<Record<string, AppDetail>>({});
 
   let filtered = $derived.by(() => {
     if (!search) return apps;
@@ -38,7 +53,7 @@
   async function launchApp(app: AppInfo) {
     launching = app.path;
     try {
-      const res = await fetch('/api/apps', {
+      const res = await fetchApi('/api/apps', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ path: app.path }),
@@ -57,7 +72,7 @@
 
   async function fetchRunning() {
     try {
-      const res = await fetch('/api/apps');
+      const res = await fetchApi('/api/apps');
       if (!res.ok) throw new Error('Failed to fetch apps');
       const data = await res.json();
       apps = data.apps;
@@ -69,13 +84,52 @@
 
   async function refreshApps() {
     try {
-      const res = await fetch('/api/apps');
+      const res = await fetchApi('/api/apps');
       if (!res.ok) throw new Error('Failed to fetch apps');
       const data = await res.json();
       apps = data.apps;
       runningApps = new Set(data.running ?? []);
     } catch (e: any) {
       toast.error(e.message || 'Failed to refresh apps');
+    }
+  }
+
+  let killing = $state<string | null>(null);
+  let confirmKill = $state<{ name: string; force: boolean } | null>(null);
+
+  async function toggleDetails(appName: string) {
+    if (expandedApp === appName) {
+      expandedApp = null;
+      return;
+    }
+    expandedApp = appName;
+    if (!appDetails[appName]) {
+      try {
+        const res = await fetchApi(`/api/apps/${encodeURIComponent(appName)}`);
+        if (res.ok) {
+          appDetails[appName] = await res.json();
+        }
+      } catch {}
+    }
+  }
+
+  async function killApp(name: string, force: boolean) {
+    killing = name;
+    confirmKill = null;
+    try {
+      const res = await fetchApi('/api/apps', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, force }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Kill failed');
+      toast.success(force ? `Force-killed ${name}` : `Quit ${name}`);
+      setTimeout(fetchRunning, 1000);
+    } catch (e: any) {
+      toast.error(e.message || `Failed to kill ${name}`);
+    } finally {
+      killing = null;
     }
   }
 
@@ -119,32 +173,231 @@
       <div class="group-letter">{letter}</div>
       <div class="app-grid">
         {#each groupApps as app}
-          <button
-            class="app-card"
-            class:launching={launching === app.path}
-            class:running={runningApps.has(app.name)}
-            onclick={() => launchApp(app)}
-            title={app.path}
-          >
-            <div class="app-icon">
-              <span class="icon-placeholder">{app.name[0]?.toUpperCase() || '?'}</span>
-            </div>
-            <div class="app-name">{app.name}</div>
-            {#if launching === app.path}
-              <div class="app-status">Launching...</div>
-            {:else if runningApps.has(app.name)}
-              <div class="app-badge">
-                <Badge variant="success" dot pulse>Running</Badge>
+          <div class="app-card-wrap" class:expanded={expandedApp === app.name}>
+            <button
+              class="app-card"
+              class:launching={launching === app.path}
+              class:running={runningApps.has(app.name)}
+              onclick={() => launchApp(app)}
+              title={app.path}
+            >
+              <div class="app-icon">
+                <img
+                  src="/api/apps/icon/{encodeURIComponent(app.name)}"
+                  alt=""
+                  class="app-icon-img"
+                  loading="lazy"
+                  onerror={(e) => {
+                    (e.currentTarget as HTMLImageElement).style.display = 'none';
+                  }}
+                />
+                <span class="icon-placeholder">{app.name[0]?.toUpperCase() || '?'}</span>
+              </div>
+              <div class="app-name">{app.name}</div>
+              {#if launching === app.path}
+                <div class="app-status">Launching...</div>
+              {:else if killing === app.name}
+                <div class="app-status">Stopping...</div>
+              {:else if runningApps.has(app.name)}
+                <div class="app-badge">
+                  <Badge variant="success" dot pulse>Running</Badge>
+                </div>
+                <div class="app-kill-actions" onclick={(e) => e.stopPropagation()}>
+                  <button
+                    class="kill-btn"
+                    title="Quit gracefully"
+                    onclick={(e) => {
+                      e.stopPropagation();
+                      killApp(app.name, false);
+                    }}
+                  >
+                    <Icon name="close" size={12} /> Quit
+                  </button>
+                  <button
+                    class="kill-btn force"
+                    title="Force kill (SIGKILL)"
+                    onclick={(e) => {
+                      e.stopPropagation();
+                      confirmKill = { name: app.name, force: true };
+                    }}
+                  >
+                    <Icon name="close" size={12} /> Force
+                  </button>
+                </div>
+              {/if}
+            </button>
+            {#if runningApps.has(app.name)}
+              <button
+                class="info-toggle"
+                title="Process details"
+                onclick={(e) => {
+                  e.stopPropagation();
+                  toggleDetails(app.name);
+                }}
+              >
+                <Icon name={expandedApp === app.name ? 'chevron-down' : 'chevron-right'} size={12} />
+              </button>
+            {/if}
+            {#if expandedApp === app.name && appDetails[app.name]}
+              {@const d = appDetails[app.name]}
+              <div class="app-details">
+                <div class="detail-row"><span class="dl">CPU</span><span>{d.cpu}%</span></div>
+                <div class="detail-row"><span class="dl">MEM</span><span>{d.mem}% ({d.memMB}MB)</span></div>
+                <div class="detail-row"><span class="dl">PIDs</span><span>{d.pids.join(', ')}</span></div>
+                <div class="detail-row"><span class="dl">Files</span><span>{d.openFiles}</span></div>
+                {#if d.version}<div class="detail-row"><span class="dl">Ver</span><span>{d.version}</span></div>{/if}
+                <div class="detail-row"><span class="dl">Path</span><span class="mono">{d.path}</span></div>
               </div>
             {/if}
-          </button>
+          </div>
         {/each}
       </div>
     </div>
   {/each}
 {/if}
 
+{#if confirmKill}
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="confirm-overlay" onclick={() => (confirmKill = null)} role="presentation">
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <div class="confirm-dialog" onclick={(e) => e.stopPropagation()} role="dialog">
+      <h3>Force Kill "{confirmKill.name}"?</h3>
+      <p>This will immediately terminate the app without saving. Unsaved work may be lost.</p>
+      <div class="confirm-actions">
+        <Button onclick={() => (confirmKill = null)}>Cancel</Button>
+        <Button variant="danger" onclick={() => confirmKill && killApp(confirmKill.name, true)}>Force Kill</Button>
+      </div>
+    </div>
+  </div>
+{/if}
+
 <style>
+  .app-kill-actions {
+    display: flex;
+    gap: 4px;
+    margin-top: 2px;
+  }
+
+  .kill-btn {
+    font-size: 0.6rem;
+    padding: 2px 6px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--bg-primary);
+    color: var(--text-muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    font-family: inherit;
+    transition:
+      border-color 0.15s,
+      color 0.15s;
+  }
+
+  .kill-btn:hover {
+    border-color: var(--warning);
+    color: var(--warning);
+  }
+
+  .kill-btn.force:hover {
+    border-color: var(--danger);
+    color: var(--danger);
+  }
+
+  .confirm-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .confirm-dialog {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 24px;
+    max-width: 400px;
+    width: 90%;
+  }
+
+  .confirm-dialog h3 {
+    font-size: 0.95rem;
+    margin: 0 0 8px 0;
+  }
+
+  .confirm-dialog p {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin: 0 0 16px 0;
+  }
+
+  .confirm-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+  }
+
+  .app-card-wrap {
+    position: relative;
+  }
+
+  .app-card-wrap.expanded {
+    grid-column: span 2;
+    grid-row: span 2;
+  }
+
+  .info-toggle {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background: none;
+    border: none;
+    color: var(--text-faint);
+    cursor: pointer;
+    padding: 2px;
+    border-radius: 3px;
+    font-family: inherit;
+  }
+
+  .info-toggle:hover {
+    color: var(--accent);
+    background: var(--bg-hover);
+  }
+
+  .app-details {
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    padding: 8px 12px;
+    font-size: 0.68rem;
+  }
+
+  .detail-row {
+    display: flex;
+    gap: 8px;
+    padding: 2px 0;
+    color: var(--text-secondary);
+  }
+
+  .detail-row .dl {
+    color: var(--text-faint);
+    font-weight: 600;
+    min-width: 36px;
+    text-transform: uppercase;
+    font-size: 0.6rem;
+  }
+
+  .detail-row .mono {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    word-break: break-all;
+  }
+
   .page-header {
     display: flex;
     flex-direction: row;
@@ -221,32 +474,36 @@
 
   .app-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-    gap: 10px;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 8px;
   }
 
   .app-card {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 8px;
-    padding: 16px 10px;
+    gap: 6px;
+    padding: 14px 10px 10px;
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius: 10px;
     background: var(--bg-secondary);
     cursor: pointer;
     font-family: inherit;
     color: var(--text-primary);
+    min-height: 110px;
+    justify-content: center;
     transition:
       border-color 0.15s,
       background 0.15s,
-      transform 0.1s;
+      transform 0.1s,
+      box-shadow 0.15s;
   }
 
   .app-card:hover {
     border-color: var(--accent);
     background: var(--bg-inset);
-    transform: translateY(-1px);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   }
 
   .app-card:active {
@@ -271,6 +528,20 @@
     display: flex;
     align-items: center;
     justify-content: center;
+  }
+
+  .app-icon-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    border-radius: 8px;
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+  }
+
+  .app-icon {
+    position: relative;
   }
 
   .icon-placeholder {

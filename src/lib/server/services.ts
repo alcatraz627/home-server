@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -63,7 +64,7 @@ async function saveServices(services: ServiceConfig[]): Promise<void> {
 export async function addService(svc: Omit<ServiceConfig, 'id'>): Promise<ServiceConfig> {
   const services = await getServices();
   const config: ServiceConfig = {
-    id: Math.random().toString(36).slice(2, 10),
+    id: crypto.randomUUID().slice(0, 8),
     ...svc,
   };
   services.push(config);

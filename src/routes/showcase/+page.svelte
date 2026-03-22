@@ -7,6 +7,13 @@
   import Loading from '$lib/components/Loading.svelte';
   import Collapsible from '$lib/components/Collapsible.svelte';
   import Icon from '$lib/components/Icon.svelte';
+  import Card from '$lib/components/Card.svelte';
+  import PageHeader from '$lib/components/PageHeader.svelte';
+  import Toolbar from '$lib/components/Toolbar.svelte';
+  import DataChip from '$lib/components/DataChip.svelte';
+  import InteractiveChip from '$lib/components/InteractiveChip.svelte';
+  import InfoRow from '$lib/components/InfoRow.svelte';
+  import MiniChart from '$lib/components/MiniChart.svelte';
   import { toast } from '$lib/toast';
 
   // Component library demo state
@@ -22,6 +29,12 @@
   ]);
   let termInput = $state('');
   let termInputEl = $state<HTMLInputElement | null>(null);
+
+  // ── v4.3 Component state ──────────────────────────────────────────────────
+  let chipActive = $state(false);
+  let chipFilter = $state('all');
+  let compactTab = $state('a');
+  const chartData = [12, 28, 45, 32, 50, 67, 43, 55, 60, 48, 72, 65, 80, 75, 68];
 
   // ── Color Palette ──────────────────────────────────────────────────────────
   const bgVars = [
@@ -310,6 +323,123 @@
       <button class="btn btn-sm active">Small Active</button>
       <span class="btn-meta">btn-sm.active</span>
     </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════ v4.3 COMPONENTS ═══════════════════════════ -->
+<section class="section">
+  <h3 class="section-heading">v4.3 Components</h3>
+
+  <div class="demo-block">
+    <h4 class="demo-label">PageHeader</h4>
+    <PageHeader title="Dashboard" description="System overview and quick stats.">
+      <Button size="sm">Refresh</Button>
+    </PageHeader>
+  </div>
+
+  <div class="demo-block">
+    <h4 class="demo-label">Card (default / outlined / elevated)</h4>
+    <div class="demo-row">
+      <Card>Default card with body content</Card>
+      <Card variant="outlined">Outlined card</Card>
+      <Card variant="elevated">Elevated card with shadow</Card>
+    </div>
+  </div>
+
+  <div class="demo-block">
+    <h4 class="demo-label">Card with header + footer</h4>
+    <Card>
+      {#snippet header()}<strong>Service Health</strong>{/snippet}
+      3 services running, 1 degraded
+      {#snippet footer()}<Badge variant="success">Healthy</Badge>{/snippet}
+    </Card>
+  </div>
+
+  <div class="demo-block">
+    <h4 class="demo-label">Toolbar</h4>
+    <Toolbar justify="space-between">
+      <div style="display:flex;gap:6px;">
+        <Button size="sm">Filter</Button>
+        <Button size="sm">Sort</Button>
+      </div>
+      <SearchInput bind:value={demoSearch} placeholder="Search..." size="sm" />
+    </Toolbar>
+  </div>
+
+  <div class="demo-block">
+    <h4 class="demo-label">DataChip</h4>
+    <div class="demo-row">
+      <DataChip label="CPU" value="42%" icon="cpu" />
+      <DataChip label="MEM" value="6.2GB" color="var(--success)" />
+      <DataChip label="DISK" value="78%" color="var(--warning)" />
+      <DataChip label="Uptime" value="12d 4h" size="md" />
+    </div>
+  </div>
+
+  <div class="demo-block">
+    <h4 class="demo-label">InteractiveChip</h4>
+    <div class="demo-row">
+      <InteractiveChip active={chipFilter === 'all'} onclick={() => (chipFilter = 'all')}>All</InteractiveChip>
+      <InteractiveChip
+        active={chipFilter === 'running'}
+        dot
+        color="var(--success)"
+        onclick={() => (chipFilter = 'running')}>Running</InteractiveChip
+      >
+      <InteractiveChip
+        active={chipFilter === 'stopped'}
+        dot
+        color="var(--danger)"
+        onclick={() => (chipFilter = 'stopped')}>Stopped</InteractiveChip
+      >
+      <InteractiveChip active={chipActive} onclick={() => (chipActive = !chipActive)} count={7}>Alerts</InteractiveChip>
+      <InteractiveChip dot pulse color="var(--warning)">Live</InteractiveChip>
+    </div>
+  </div>
+
+  <div class="demo-block">
+    <h4 class="demo-label">InfoRow</h4>
+    <Card padding="sm">
+      <InfoRow label="Host" value="homelab-pi" />
+      <InfoRow label="IP" value="100.74.12.5" mono />
+      <InfoRow label="OS" value="Raspbian 12 (bookworm)" />
+      <InfoRow label="Status"><Badge variant="success" dot>Online</Badge></InfoRow>
+    </Card>
+  </div>
+
+  <div class="demo-block">
+    <h4 class="demo-label">MiniChart</h4>
+    <div class="demo-row" style="gap: 24px;">
+      <div style="flex:1">
+        <MiniChart data={chartData} label="CPU" unit="%" color="var(--accent)" height={50} showAxis />
+      </div>
+      <div style="flex:1">
+        <MiniChart data={chartData.map((v) => v * 0.6)} label="Memory" unit="%" color="var(--success)" height={50} />
+      </div>
+      <div style="flex:1">
+        <MiniChart
+          data={chartData.map((v) => v * 1.2)}
+          label="Network"
+          unit="KB/s"
+          color="var(--cyan)"
+          height={50}
+          showAxis
+        />
+      </div>
+    </div>
+  </div>
+
+  <div class="demo-block">
+    <h4 class="demo-label">Tabs (compact mode)</h4>
+    <Tabs
+      tabs={[
+        { id: 'a', label: 'Overview' },
+        { id: 'b', label: 'Metrics' },
+        { id: 'c', label: 'Logs' },
+      ]}
+      bind:active={compactTab}
+      compact
+    />
   </div>
 </section>
 

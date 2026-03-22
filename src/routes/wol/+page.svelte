@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { PageData } from './$types';
   import { toast } from '$lib/toast';
+  import { fetchApi } from '$lib/api';
 
   interface WolDevice {
     id: string;
@@ -60,7 +61,7 @@
     }
 
     try {
-      const res = await fetch('/api/wol', {
+      const res = await fetchApi('/api/wol', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -84,7 +85,7 @@
 
   async function deleteDevice(id: string) {
     try {
-      const res = await fetch('/api/wol', {
+      const res = await fetchApi('/api/wol', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ _action: 'delete', id }),
@@ -101,7 +102,7 @@
   async function wakeDevice(d: WolDevice) {
     waking = d.id;
     try {
-      const res = await fetch('/api/wol', {
+      const res = await fetchApi('/api/wol', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ _action: 'wake', mac: d.mac }),
@@ -123,7 +124,7 @@
     if (!d.ip) return;
     pingStatus = { ...pingStatus, [d.id]: null };
     try {
-      const res = await fetch(`/api/wol?action=ping&ip=${encodeURIComponent(d.ip)}`);
+      const res = await fetchApi(`/api/wol?action=ping&ip=${encodeURIComponent(d.ip)}`);
       const result = await res.json();
       pingStatus = { ...pingStatus, [d.id]: result.alive };
     } catch {

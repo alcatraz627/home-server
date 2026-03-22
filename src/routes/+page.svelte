@@ -832,8 +832,14 @@
   /* ── Dashboard Grid ─────────────────────────────────────────────────── */
   .dashboard-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr));
     gap: 16px;
+  }
+
+  @media (max-width: 400px) {
+    .dashboard-grid {
+      grid-template-columns: 1fr;
+    }
   }
 
   /* ── Section sizing ─────────────────────────────────────────────────── */
@@ -938,7 +944,7 @@
   /* ── System Stats ───────────────────────────────────────────────────── */
   .stats-row {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(150px, 100%), 1fr));
     gap: 12px;
   }
 

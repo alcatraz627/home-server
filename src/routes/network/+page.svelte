@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { toast } from '$lib/toast';
+  import { fetchApi } from '$lib/api';
   import Button from '$lib/components/Button.svelte';
   import Tabs from '$lib/components/Tabs.svelte';
   import Collapsible from '$lib/components/Collapsible.svelte';
@@ -102,7 +103,7 @@
     trHops = [];
     trRaw = '';
     try {
-      const res = await fetch('/api/network', {
+      const res = await fetchApi('/api/network', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tool: 'traceroute', target: trTarget.trim() }),
@@ -129,7 +130,7 @@
     pingLoading = true;
     pingResults = [];
     try {
-      const res = await fetch('/api/network', {
+      const res = await fetchApi('/api/network', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tool: 'ping-sweep', subnet: pingSubnet.trim() }),
@@ -156,7 +157,7 @@
   async function fetchArp() {
     arpLoading = true;
     try {
-      const res = await fetch('/api/network?tool=arp');
+      const res = await fetchApi('/api/network?tool=arp');
       const data = await res.json();
       arpEntries = data.entries || [];
       toast.success(`${arpEntries.length} ARP entries loaded`);
@@ -177,7 +178,7 @@
     whoisLoading = true;
     whoisResult = '';
     try {
-      const res = await fetch('/api/network', {
+      const res = await fetchApi('/api/network', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tool: 'whois', target: whoisTarget.trim() }),
@@ -203,7 +204,7 @@
   async function fetchBandwidth() {
     try {
       const now = Date.now();
-      const res = await fetch('/api/network?tool=bandwidth');
+      const res = await fetchApi('/api/network?tool=bandwidth');
       const data = await res.json();
       const stats: InterfaceStats[] = data.stats || [];
 
@@ -296,7 +297,7 @@
     sslCert = null;
     sslError = '';
     try {
-      const res = await fetch('/api/network', {
+      const res = await fetchApi('/api/network', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tool: 'ssl', domain: sslDomain.trim() }),
@@ -328,7 +329,7 @@
     httpResult = null;
     httpError = '';
     try {
-      const res = await fetch('/api/network', {
+      const res = await fetchApi('/api/network', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tool: 'http-headers', url: httpUrl.trim() }),

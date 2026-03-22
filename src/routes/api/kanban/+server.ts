@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { json } from '@sveltejs/kit';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -10,10 +11,13 @@ const FILE = path.join(DATA_DIR, 'kanban.json');
 interface KanbanCard {
   id: string;
   title: string;
+  description: string;
   color: string;
   dueDate: string | null;
-  column: 'todo' | 'doing' | 'done';
+  column: 'todo' | 'doing' | 'done' | 'archive';
   order: number;
+  priority: 'P1' | 'P2' | 'P3' | '';
+  assignee: string;
   createdAt: string;
 }
 
@@ -63,20 +67,26 @@ export const POST: RequestHandler = async ({ request }) => {
     const idx = cards.findIndex((c) => c.id === body.id);
     if (idx === -1) return json({ error: 'Not found' }, { status: 404 });
     if (body.title !== undefined) cards[idx].title = body.title;
+    if (body.description !== undefined) cards[idx].description = body.description;
     if (body.color !== undefined) cards[idx].color = body.color;
     if (body.dueDate !== undefined) cards[idx].dueDate = body.dueDate || null;
+    if (body.priority !== undefined) cards[idx].priority = body.priority;
+    if (body.assignee !== undefined) cards[idx].assignee = body.assignee;
     writeCards(cards);
     return json(cards[idx]);
   }
 
   // Create
   const card: KanbanCard = {
-    id: Math.random().toString(36).slice(2, 10),
+    id: crypto.randomUUID().slice(0, 8),
     title: body.title || 'Untitled',
+    description: body.description || '',
     color: body.color || '',
     dueDate: body.dueDate || null,
     column: body.column || 'todo',
     order: cards.filter((c) => c.column === (body.column || 'todo')).length,
+    priority: body.priority || '',
+    assignee: body.assignee || '',
     createdAt: new Date().toISOString(),
   };
   cards.push(card);

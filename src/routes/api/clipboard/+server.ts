@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
@@ -32,7 +33,7 @@ export const POST: RequestHandler = async ({ request }) => {
 
   // Add new entry
   const entry: ClipboardEntry = {
-    id: Math.random().toString(36).slice(2, 10) + Date.now().toString(36),
+    id: crypto.randomUUID().slice(0, 8) + Date.now().toString(36),
     content: String(body.content || '').slice(0, 10000),
     deviceId: body.deviceId || 'unknown',
     deviceName: body.deviceName || 'Unknown Device',

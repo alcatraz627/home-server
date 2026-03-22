@@ -17,16 +17,22 @@
   import type { NavItem } from '$lib/constants/nav';
   import Icon from '$lib/components/Icon.svelte';
   import SearchInput from '$lib/components/SearchInput.svelte';
+  import CommandPalette from '$lib/components/CommandPalette.svelte';
 
   let { data, children } = $props<{ data: LayoutData; children: any }>();
   let sidebarOpen = $state(false);
   let navSearch = $state('');
+  let commandPaletteOpen = $state(false);
+  let navSearchEl = $state<HTMLElement | null>(null);
+  let unreadNotifications = $state(0);
+  let healthStatus = $state<'green' | 'yellow' | 'red' | 'unknown'>('unknown');
+  let healthLatency = $state(0);
 
   // ── Stats config ─────────────────────────────────────────────────────────────
   type CpuMode = 'percent' | 'load';
   type RefreshInterval = 2 | 5 | 10 | 30 | 0;
 
-  type StatKey = 'mem' | 'cpu' | 'uptime' | 'swap' | 'procs' | 'net' | 'netSpeed' | 'diskIO';
+  type StatKey = 'mem' | 'cpu' | 'uptime' | 'swap' | 'procs' | 'net' | 'netSpeed' | 'diskIO' | 'fds' | 'tcp' | 'ctxSw';
   const ALL_STATS: { key: StatKey; label: string; desc: string }[] = [
     { key: 'mem', label: 'Memory', desc: 'RAM usage percentage' },
     { key: 'cpu', label: 'CPU', desc: 'Processor load or utilization' },
@@ -36,6 +42,9 @@
     { key: 'net', label: 'Network', desc: 'Cumulative bytes in/out' },
     { key: 'netSpeed', label: 'Net Speed', desc: 'Live bytes/sec throughput' },
     { key: 'diskIO', label: 'Disk I/O', desc: 'Disk read/write throughput' },
+    { key: 'fds', label: 'File Desc', desc: 'Open file descriptors' },
+    { key: 'tcp', label: 'TCP', desc: 'Established TCP connections' },
+    { key: 'ctxSw', label: 'Ctx Switch', desc: 'Context switches (cumulative)' },
   ];
   const DEFAULT_VISIBLE_STATS: StatKey[] = ['mem', 'cpu', 'uptime'];
 
@@ -90,6 +99,27 @@
   let newDeviceIp = $state('');
   let newDevicePort = $state('5173');
   let newDeviceLabel = $state('');
+  let tailscaleDevices = $state<{ hostname: string; ipv4: string; online: boolean; isSelf: boolean }[]>([]);
+  let tsDevicesLoaded = $state(false);
+
+  async function fetchTailscaleDevices() {
+    if (tsDevicesLoaded) return;
+    try {
+      const res = await fetch('/api/tailscale');
+      if (res.ok) {
+        const data = await res.json();
+        tailscaleDevices = (data.devices || []).filter((d: any) => !d.isSelf && d.ipv4);
+        tsDevicesLoaded = true;
+      }
+    } catch {}
+  }
+
+  function selectTailscaleDevice(dev: { hostname: string; ipv4: string }) {
+    newDeviceHostname = dev.hostname;
+    newDeviceIp = dev.ipv4;
+    newDeviceLabel = dev.hostname;
+    newDevicePort = '5173';
+  }
 
   function isStatVisible(key: StatKey): boolean {
     return statsConfig.visibleStats.includes(key);
@@ -272,16 +302,65 @@
     return ratio >= 0.9 ? 'var(--danger)' : ratio >= 0.7 ? 'var(--warning)' : 'var(--success)';
   }
 
+  async function fetchHealth() {
+    try {
+      const target = $targetDevice === 'local' ? '' : $targetDevice;
+      const url = target ? `/api/health?target=${encodeURIComponent(target)}` : '/api/health';
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        healthStatus = data.status;
+        healthLatency = data.latency ?? 0;
+      } else {
+        healthStatus = 'red';
+      }
+    } catch {
+      healthStatus = 'red';
+    }
+  }
+
+  async function fetchUnreadCount() {
+    try {
+      const res = await fetch('/api/notifications');
+      if (res.ok) {
+        const data = await res.json();
+        unreadNotifications = data.unreadCount ?? 0;
+      }
+    } catch {}
+  }
+
   onMount(() => {
     initTheme();
     updateNetSpeed();
+    fetchUnreadCount();
+    fetchHealth();
     const speedInterval = setInterval(updateNetSpeed, 5000);
-    return () => clearInterval(speedInterval);
+    const notifInterval = setInterval(fetchUnreadCount, 30000);
+    const healthInterval = setInterval(fetchHealth, 15000);
+    return () => {
+      clearInterval(speedInterval);
+      clearInterval(notifInterval);
+      clearInterval(healthInterval);
+    };
   });
 
   function handleGlobalKeydown(e: KeyboardEvent) {
+    // Cmd/Ctrl+K → command palette
+    if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      commandPaletteOpen = !commandPaletteOpen;
+      return;
+    }
+
+    // Skip shortcuts when focused on input/textarea/contenteditable
+    const tag = (e.target as HTMLElement)?.tagName;
+    const isEditable =
+      tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (e.target as HTMLElement)?.isContentEditable;
+
     if (e.key === 'Escape') {
-      if (settingsOpen) {
+      if (commandPaletteOpen) {
+        commandPaletteOpen = false;
+      } else if (settingsOpen) {
         settingsOpen = false;
       } else if (manageDevicesOpen) {
         manageDevicesOpen = false;
@@ -290,6 +369,19 @@
       } else if (sidebarOpen) {
         sidebarOpen = false;
       }
+      return;
+    }
+
+    if (isEditable) return;
+
+    // / → focus sidebar search
+    if (e.key === '/') {
+      e.preventDefault();
+      sidebarOpen = true;
+      setTimeout(() => {
+        const input = navSearchEl?.querySelector('input');
+        input?.focus();
+      }, 50);
     }
   }
 </script>
@@ -387,6 +479,24 @@
         </span>
       {/if}
 
+      {#if isStatVisible('fds')}
+        <span class="stat" title="Open file descriptors">
+          FD {data.system.openFDs}
+        </span>
+      {/if}
+
+      {#if isStatVisible('tcp')}
+        <span class="stat" title="Established TCP connections">
+          TCP {data.system.tcpConnections}
+        </span>
+      {/if}
+
+      {#if isStatVisible('ctxSw')}
+        <span class="stat" title="Context switches (cumulative)">
+          CTX {formatNetBytes(data.system.contextSwitches)}
+        </span>
+      {/if}
+
       <!-- Stats settings gear -->
       <div class="stats-gear-wrap">
         <button class="icon-btn" aria-label="Stats settings" onclick={() => (statsDropdownOpen = !statsDropdownOpen)}
@@ -463,6 +573,16 @@
       <button class="icon-btn" aria-label="Help" onclick={() => goto(helpUrl())}><Icon name="help" size={16} /></button>
     </Tooltip>
 
+    <!-- Notification bell -->
+    <Tooltip text="Notifications" position="bottom">
+      <button class="icon-btn notif-btn" aria-label="Notifications" onclick={() => goto('/notifications')}>
+        <Icon name="bell" size={16} />
+        {#if unreadNotifications > 0}
+          <span class="notif-badge">{unreadNotifications > 99 ? '99+' : unreadNotifications}</span>
+        {/if}
+      </button>
+    </Tooltip>
+
     <Tooltip text="Settings" position="bottom">
       <button class="icon-btn" aria-label="Settings" onclick={() => (settingsOpen = true)}
         ><Icon name="settings" size={16} /></button
@@ -470,12 +590,30 @@
     </Tooltip>
 
     <div class="device-selector">
+      <Tooltip
+        text="{healthStatus === 'green'
+          ? 'Healthy'
+          : healthStatus === 'yellow'
+            ? 'Degraded'
+            : healthStatus === 'red'
+              ? 'Unhealthy'
+              : 'Checking...'}{healthLatency ? ` (${healthLatency}ms)` : ''}"
+        position="bottom"
+      >
+        <span
+          class="health-dot"
+          class:green={healthStatus === 'green'}
+          class:yellow={healthStatus === 'yellow'}
+          class:red={healthStatus === 'red'}
+        ></span>
+      </Tooltip>
       <select
         value={$targetDevice}
         onchange={(e) => {
           const v = (e.currentTarget as HTMLSelectElement).value;
           if (v === '__manage__') {
             manageDevicesOpen = true;
+            fetchTailscaleDevices();
             // Reset the select back to current value
             (e.currentTarget as HTMLSelectElement).value = $targetDevice;
           } else {
@@ -498,8 +636,9 @@
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <nav class:open={sidebarOpen}>
-      <div class="nav-search">
+      <div class="nav-search" bind:this={navSearchEl}>
         <SearchInput bind:value={navSearch} placeholder="Search..." size="sm" clearable />
+        <span class="nav-search-hint"><kbd>/</kbd></span>
       </div>
       {#if pinnedItems.length > 0 && !navSearch}
         <div class="nav-group">
@@ -641,6 +780,26 @@
           <p class="device-empty">No remote devices configured.</p>
         {/if}
 
+        {#if tailscaleDevices.length > 0}
+          <div class="ts-devices-section">
+            <span class="dropdown-label">Tailscale Devices</span>
+            <div class="ts-device-list">
+              {#each tailscaleDevices as td}
+                <button
+                  class="ts-device-btn"
+                  class:offline={!td.online}
+                  onclick={() => selectTailscaleDevice(td)}
+                  title="{td.hostname} ({td.ipv4})"
+                >
+                  <span class="ts-dot" class:online={td.online}></span>
+                  <span class="ts-name">{td.hostname}</span>
+                  <code class="ts-ip">{td.ipv4}</code>
+                </button>
+              {/each}
+            </div>
+          </div>
+        {/if}
+
         <div class="device-add-form">
           <span class="dropdown-label">Add Device</span>
           <div class="device-add-fields">
@@ -659,6 +818,7 @@
 <Toast />
 <AiChat currentPage={$page.url.pathname} />
 <SettingsPanel bind:open={settingsOpen} />
+<CommandPalette bind:open={commandPaletteOpen} />
 
 <style>
   .app {
@@ -689,9 +849,46 @@
     letter-spacing: -0.01em;
   }
 
+  .health-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--text-faint);
+    flex-shrink: 0;
+    transition: background 0.3s;
+  }
+
+  .health-dot.green {
+    background: var(--success);
+    box-shadow: 0 0 4px var(--success);
+  }
+
+  .health-dot.yellow {
+    background: var(--warning);
+    box-shadow: 0 0 4px var(--warning);
+    animation: healthPulse 2s ease-in-out infinite;
+  }
+
+  .health-dot.red {
+    background: var(--danger);
+    box-shadow: 0 0 4px var(--danger);
+    animation: healthPulse 1s ease-in-out infinite;
+  }
+
+  @keyframes healthPulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.4;
+    }
+  }
+
   .device-selector {
     display: flex;
     align-items: center;
+    gap: 6px;
   }
 
   .device-select {
@@ -758,6 +955,27 @@
     border-color: var(--border);
     color: var(--text-secondary);
     background: var(--bg-hover);
+  }
+
+  .notif-btn {
+    position: relative;
+  }
+
+  .notif-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    font-size: 0.55rem;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--danger);
+    color: white;
+    padding: 1px 4px;
+    border-radius: 8px;
+    min-width: 14px;
+    text-align: center;
+    line-height: 1.2;
+    pointer-events: none;
   }
 
   .stats-dropdown {
@@ -972,6 +1190,29 @@
   .nav-search {
     padding: 8px 12px;
     border-bottom: 1px solid var(--border-subtle);
+    position: relative;
+  }
+
+  .nav-search-hint {
+    position: absolute;
+    right: 18px;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+  }
+
+  .nav-search-hint kbd {
+    font-size: 0.6rem;
+    font-family: 'JetBrains Mono', monospace;
+    padding: 1px 5px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--text-faint);
+    background: var(--bg-primary);
+  }
+
+  .nav-search:focus-within .nav-search-hint {
+    display: none;
   }
 
   .nav-group-header {
@@ -1311,6 +1552,67 @@
     color: var(--text-faint);
     text-align: center;
     padding: 12px;
+  }
+
+  .ts-devices-section {
+    margin-bottom: 12px;
+  }
+
+  .ts-device-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 6px;
+    max-height: 180px;
+    overflow-y: auto;
+  }
+
+  .ts-device-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-primary);
+    cursor: pointer;
+    font-family: inherit;
+    color: var(--text-primary);
+    transition:
+      border-color 0.15s,
+      background 0.15s;
+  }
+
+  .ts-device-btn:hover {
+    border-color: var(--accent);
+    background: var(--bg-hover);
+  }
+
+  .ts-device-btn.offline {
+    opacity: 0.5;
+  }
+
+  .ts-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--text-faint);
+    flex-shrink: 0;
+  }
+
+  .ts-dot.online {
+    background: var(--success);
+  }
+
+  .ts-name {
+    font-size: 0.78rem;
+    font-weight: 500;
+  }
+
+  .ts-ip {
+    font-size: 0.68rem;
+    color: var(--text-faint);
+    margin-left: auto;
   }
 
   .device-add-form {

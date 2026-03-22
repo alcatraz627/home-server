@@ -1,9 +1,15 @@
 <script lang="ts">
   import type { PageData } from './$types';
   import { toast } from '$lib/toast';
+  import { fetchApi } from '$lib/api';
+  import Icon from '$lib/components/Icon.svelte';
+  import Badge from '$lib/components/Badge.svelte';
 
   interface Screenshot {
     filename: string;
+    label: string;
+    device: string;
+    platform: string;
     size: number;
     timestamp: string;
   }
@@ -14,11 +20,13 @@
   let capturing = $state(false);
   let modalImage = $state<string | null>(null);
   let confirmDeleteFile = $state<string | null>(null);
+  let renamingFile = $state<string | null>(null);
+  let renameValue = $state('');
 
   async function capture() {
     capturing = true;
     try {
-      const res = await fetch('/api/screenshots', {
+      const res = await fetchApi('/api/screenshots', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ _action: 'capture' }),
@@ -39,7 +47,7 @@
 
   async function deleteScreenshot(filename: string) {
     try {
-      const res = await fetch('/api/screenshots', {
+      const res = await fetchApi('/api/screenshots', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ _action: 'delete', filename }),
@@ -72,6 +80,31 @@
   function imageUrl(filename: string): string {
     return `/api/screenshots?action=image&file=${encodeURIComponent(filename)}`;
   }
+
+  function downloadUrl(filename: string): string {
+    return `/api/screenshots?action=image&file=${encodeURIComponent(filename)}&download=1`;
+  }
+
+  function startRename(shot: Screenshot) {
+    renamingFile = shot.filename;
+    renameValue = shot.label || shot.filename.replace(/\.(png|jpg|jpeg)$/i, '');
+  }
+
+  async function submitRename(filename: string) {
+    try {
+      const res = await fetchApi('/api/screenshots', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ _action: 'rename', filename, label: renameValue }),
+      });
+      if (!res.ok) throw new Error();
+      screenshots = screenshots.map((s) => (s.filename === filename ? { ...s, label: renameValue } : s));
+      renamingFile = null;
+      toast.success('Renamed');
+    } catch {
+      toast.error('Rename failed');
+    }
+  }
 </script>
 
 <div class="page">
@@ -95,15 +128,41 @@
             <img src={imageUrl(shot.filename)} alt={shot.filename} class="thumbnail" loading="lazy" />
           </button>
           <div class="item-info">
-            <span class="item-time">{formatTime(shot.timestamp)}</span>
-            <span class="item-size">{formatSize(shot.size)}</span>
+            {#if renamingFile === shot.filename}
+              <input
+                type="text"
+                class="rename-input"
+                bind:value={renameValue}
+                onkeydown={(e) => e.key === 'Enter' && submitRename(shot.filename)}
+                onblur={() => submitRename(shot.filename)}
+              />
+            {:else}
+              <span class="item-label" ondblclick={() => startRename(shot)}>
+                {shot.label || shot.filename.replace(/\.(png|jpg|jpeg)$/i, '')}
+              </span>
+            {/if}
+            <div class="item-meta">
+              <span class="item-time">{formatTime(shot.timestamp)}</span>
+              <span class="item-size">{formatSize(shot.size)}</span>
+              {#if shot.device}
+                <Badge size="sm">{shot.device}</Badge>
+              {/if}
+            </div>
           </div>
           <div class="item-actions">
+            <a href={downloadUrl(shot.filename)} class="btn-xs" download title="Download">
+              <Icon name="download" size={12} />
+            </a>
+            <button class="btn-xs" onclick={() => startRename(shot)} title="Rename">
+              <Icon name="edit" size={12} />
+            </button>
             {#if confirmDeleteFile === shot.filename}
               <button class="btn-xs btn-danger" onclick={() => deleteScreenshot(shot.filename)}>Confirm</button>
               <button class="btn-xs" onclick={() => (confirmDeleteFile = null)}>Cancel</button>
             {:else}
-              <button class="btn-xs btn-danger" onclick={() => (confirmDeleteFile = shot.filename)}>Delete</button>
+              <button class="btn-xs btn-danger" onclick={() => (confirmDeleteFile = shot.filename)}>
+                <Icon name="close" size={12} />
+              </button>
             {/if}
           </div>
         </div>
@@ -178,14 +237,42 @@
     background: var(--bg-primary);
   }
   .item-info {
-    padding: 0.6rem 0.75rem;
+    padding: 0.5rem 0.75rem;
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    flex-direction: column;
+    gap: 3px;
   }
+
+  .item-label {
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    cursor: text;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .rename-input {
+    font-size: 0.78rem;
+    padding: 2px 6px;
+    border: 1px solid var(--accent);
+    border-radius: 4px;
+    background: var(--input-bg);
+    color: var(--text-primary);
+    font-family: inherit;
+    width: 100%;
+  }
+
+  .item-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
   .item-time {
-    font-size: 0.8rem;
-    color: var(--text-secondary);
+    font-size: 0.72rem;
+    color: var(--text-muted);
   }
   .item-size {
     font-size: 0.75rem;

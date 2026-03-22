@@ -234,6 +234,16 @@
         const msg = JSON.parse(event.data);
         if (msg.type === 'output') {
           tab.terminal?.write(msg.data);
+        } else if (msg.type === 'scrollback') {
+          // Scrollback from a reconnected session — write then reflow
+          tab.terminal?.write(msg.data);
+          setTimeout(() => {
+            const t = tab.terminal;
+            if (t) {
+              t.resize(t.cols, t.rows);
+              t.scrollToBottom();
+            }
+          }, 50);
         } else if (msg.type === 'session') {
           tab.sessionId = msg.id;
           if (msg.shell) tab.shellType = msg.shell;

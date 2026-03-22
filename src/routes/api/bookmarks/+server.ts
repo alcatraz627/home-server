@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { json } from '@sveltejs/kit';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -60,7 +61,7 @@ export const POST: RequestHandler = async ({ request }) => {
 
   // Create
   const bookmark: Bookmark = {
-    id: Math.random().toString(36).slice(2, 10),
+    id: crypto.randomUUID().slice(0, 8),
     url: body.url,
     title: body.title || body.url,
     description: body.description || '',

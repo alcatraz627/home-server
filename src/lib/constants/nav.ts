@@ -41,6 +41,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/wol', label: 'Wake-on-LAN', desc: 'Wake devices', icon: 'wol' },
       { href: '/dns', label: 'DNS Lookup', desc: 'Domain resolver', icon: 'dns' },
       { href: '/ports', label: 'Port Scanner', desc: 'Scan ports', icon: 'port' },
+      { href: '/dns-trace', label: 'DNS Trace', desc: 'Path trace', icon: 'dns' },
       { href: '/services', label: 'Services', desc: 'Health monitor', icon: 'activity' },
     ],
   },
@@ -60,6 +61,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/screenshots', label: 'Screenshots', desc: 'Screen gallery', icon: 'screenshot' },
       { href: '/benchmarks', label: 'Benchmarks', desc: 'System bench', icon: 'benchmark' },
       { href: '/docker', label: 'Docker', desc: 'Containers', icon: 'docker' },
+      { href: '/databases', label: 'Databases', desc: 'DB & services', icon: 'database' },
     ],
   },
   {

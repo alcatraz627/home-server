@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { toast } from '$lib/toast';
+  import { fetchApi } from '$lib/api';
   import Button from '$lib/components/Button.svelte';
   import Badge from '$lib/components/Badge.svelte';
   import Tabs from '$lib/components/Tabs.svelte';
@@ -36,6 +37,23 @@
   let files = $state<LogFile[]>([]);
   let stats = $state<LogStats | null>(null);
   let loading = $state(true);
+  let previewFile = $state<string | null>(null);
+  let previewContent = $state('');
+  let previewTotalLines = $state(0);
+
+  async function openPreview(filename: string) {
+    previewFile = filename;
+    previewContent = 'Loading...';
+    try {
+      const res = await fetchApi(`/api/logs?action=raw&file=${encodeURIComponent(filename)}`);
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      previewContent = data.content;
+      previewTotalLines = data.totalLines;
+    } catch {
+      previewContent = 'Failed to load file';
+    }
+  }
 
   // Filters
   let search = $state('');
@@ -54,7 +72,7 @@
       if (moduleFilter) params.set('module', moduleFilter);
       if (search) params.set('search', search);
       params.set('limit', String(limit));
-      const res = await fetch(`/api/logs?${params}`);
+      const res = await fetchApi(`/api/logs?${params}`);
       const data = await res.json();
       entries = data.entries || [];
     } catch (e: any) {
@@ -66,7 +84,7 @@
 
   async function fetchFiles() {
     try {
-      const res = await fetch('/api/logs?action=files');
+      const res = await fetchApi('/api/logs?action=files');
       const data = await res.json();
       files = data.files || [];
     } catch {}
@@ -74,7 +92,7 @@
 
   async function fetchStats() {
     try {
-      const res = await fetch('/api/logs?action=stats');
+      const res = await fetchApi('/api/logs?action=stats');
       stats = await res.json();
     } catch {}
   }
@@ -257,6 +275,7 @@
             <th>File</th>
             <th>Size</th>
             <th>Last Modified</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -265,6 +284,14 @@
               <td class="file-name">{file.name}</td>
               <td>{formatBytes(file.size)}</td>
               <td>{formatTime(file.modified)}</td>
+              <td class="file-actions">
+                <Button size="xs" onclick={() => openPreview(file.name)}>
+                  <Icon name="eye" size={12} /> View
+                </Button>
+                <a href="/api/logs?action=download&file={encodeURIComponent(file.name)}" class="btn-download" download>
+                  <Icon name="download" size={12} />
+                </a>
+              </td>
             </tr>
           {/each}
         </tbody>
@@ -273,7 +300,104 @@
   </div>
 {/if}
 
+{#if previewFile}
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="preview-overlay" onclick={() => (previewFile = null)} role="presentation">
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <div class="preview-panel" onclick={(e) => e.stopPropagation()} role="dialog">
+      <div class="preview-header">
+        <h3>{previewFile}</h3>
+        <span class="preview-meta">{previewTotalLines} lines</span>
+        <a href="/api/logs?action=download&file={encodeURIComponent(previewFile)}" class="btn-download" download>
+          <Icon name="download" size={14} />
+        </a>
+        <button class="icon-btn" onclick={() => (previewFile = null)}><Icon name="close" size={16} /></button>
+      </div>
+      <pre class="preview-content">{previewContent}</pre>
+    </div>
+  </div>
+{/if}
+
 <style>
+  .preview-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .preview-panel {
+    width: 90%;
+    max-width: 900px;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .preview-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .preview-header h3 {
+    font-size: 0.85rem;
+    margin: 0;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .preview-meta {
+    font-size: 0.7rem;
+    color: var(--text-faint);
+    margin-right: auto;
+  }
+
+  .preview-content {
+    padding: 16px;
+    margin: 0;
+    font-size: 0.68rem;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-secondary);
+    overflow: auto;
+    flex: 1;
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 70vh;
+  }
+
+  .file-actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .btn-download {
+    display: flex;
+    align-items: center;
+    padding: 3px 6px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-muted);
+    text-decoration: none;
+    transition:
+      border-color 0.15s,
+      color 0.15s;
+  }
+
+  .btn-download:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
   .stats-bar {
     display: flex;
     gap: 12px;

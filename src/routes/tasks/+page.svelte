@@ -1485,25 +1485,99 @@
 
   let expandedTask = $state<string | null>(null);
 
-  // Task list search + pagination
+  // Task list search + pagination + sort + filter + hide
   let taskSearch = $state('');
   let taskPage = $state(0);
   const TASKS_PER_PAGE = 10;
+  let taskSortKey = $state<'name' | 'status' | 'lastRun'>('name');
+  let taskSortDir = $state<'asc' | 'desc'>('asc');
+  let taskStatusFilter = $state<'' | 'running' | 'success' | 'failed' | 'never'>('');
+  let showHiddenTasks = $state(false);
+
+  const HIDDEN_TASKS_KEY = 'hs:hidden-tasks';
+  let hiddenTaskIds = $state<Set<string>>(new Set());
+
+  function loadHiddenTasks() {
+    try {
+      const raw = localStorage.getItem(HIDDEN_TASKS_KEY);
+      if (raw) hiddenTaskIds = new Set(JSON.parse(raw));
+    } catch {}
+  }
+
+  function saveHiddenTasks() {
+    try {
+      localStorage.setItem(HIDDEN_TASKS_KEY, JSON.stringify([...hiddenTaskIds]));
+    } catch {}
+  }
+
+  function toggleHideTask(id: string) {
+    if (hiddenTaskIds.has(id)) {
+      hiddenTaskIds.delete(id);
+    } else {
+      hiddenTaskIds.add(id);
+    }
+    hiddenTaskIds = new Set(hiddenTaskIds);
+    saveHiddenTasks();
+  }
+
+  if (typeof window !== 'undefined') loadHiddenTasks();
+
+  function getTaskStatusLabel(s: TaskStatus): string {
+    if (s.isRunning) return 'running';
+    if (!s.lastRun) return 'never';
+    return s.lastRun.status;
+  }
 
   let filteredStatuses = $derived.by(() => {
-    if (!taskSearch) return statuses;
-    const q = taskSearch.toLowerCase();
-    return statuses.filter(
-      (s) => s.config.name.toLowerCase().includes(q) || s.config.command.toLowerCase().includes(q),
-    );
+    let arr = [...statuses];
+
+    // Hide
+    if (!showHiddenTasks) {
+      arr = arr.filter((s) => !hiddenTaskIds.has(s.config.id));
+    }
+
+    // Search
+    if (taskSearch) {
+      const q = taskSearch.toLowerCase();
+      arr = arr.filter((s) => s.config.name.toLowerCase().includes(q) || s.config.command.toLowerCase().includes(q));
+    }
+
+    // Filter by status
+    if (taskStatusFilter) {
+      arr = arr.filter((s) => getTaskStatusLabel(s) === taskStatusFilter);
+    }
+
+    // Sort
+    arr.sort((a, b) => {
+      let av: any, bv: any;
+      if (taskSortKey === 'name') {
+        av = a.config.name.toLowerCase();
+        bv = b.config.name.toLowerCase();
+      } else if (taskSortKey === 'status') {
+        av = getTaskStatusLabel(a);
+        bv = getTaskStatusLabel(b);
+      } else {
+        av = a.lastRun?.completedAt || '';
+        bv = b.lastRun?.completedAt || '';
+      }
+      if (av < bv) return taskSortDir === 'asc' ? -1 : 1;
+      if (av > bv) return taskSortDir === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    return arr;
   });
 
+  let hiddenCount = $derived(statuses.filter((s) => hiddenTaskIds.has(s.config.id)).length);
   let taskTotalPages = $derived(Math.max(1, Math.ceil(filteredStatuses.length / TASKS_PER_PAGE)));
   let pagedStatuses = $derived(filteredStatuses.slice(taskPage * TASKS_PER_PAGE, (taskPage + 1) * TASKS_PER_PAGE));
 
   // Reset task page on filter change
   $effect(() => {
     taskSearch;
+    taskStatusFilter;
+    taskSortKey;
+    showHiddenTasks;
     taskPage = 0;
   });
 
@@ -1926,12 +2000,47 @@
   {#if statuses.length > 3}
     <div class="task-search-bar">
       <SearchInput bind:value={taskSearch} placeholder="Search tasks..." clearable />
+      <select class="task-filter-select" bind:value={taskStatusFilter}>
+        <option value="">All statuses</option>
+        <option value="running">Running</option>
+        <option value="success">Success</option>
+        <option value="failed">Failed</option>
+        <option value="never">Never run</option>
+      </select>
+      <select
+        class="task-filter-select"
+        value={taskSortKey}
+        onchange={(e) => {
+          const v = (e.currentTarget as HTMLSelectElement).value as typeof taskSortKey;
+          if (v === taskSortKey) {
+            taskSortDir = taskSortDir === 'asc' ? 'desc' : 'asc';
+          } else {
+            taskSortKey = v;
+            taskSortDir = v === 'lastRun' ? 'desc' : 'asc';
+          }
+        }}
+      >
+        <option value="name">Sort: Name</option>
+        <option value="status">Sort: Status</option>
+        <option value="lastRun">Sort: Last Run</option>
+      </select>
+      {#if hiddenCount > 0}
+        <label class="task-hidden-toggle">
+          <input type="checkbox" bind:checked={showHiddenTasks} />
+          Show hidden ({hiddenCount})
+        </label>
+      {/if}
       <span class="task-count">{filteredStatuses.length} of {statuses.length} tasks</span>
     </div>
   {/if}
   <div class="task-list">
     {#each pagedStatuses as status, i}
-      <div class="task-card" class:task-running={status.isRunning} style="animation-delay: {i * 40}ms">
+      <div
+        class="task-card"
+        class:task-running={status.isRunning}
+        class:task-hidden={hiddenTaskIds.has(status.config.id)}
+        style="animation-delay: {i * 40}ms"
+      >
         <div class="task-top">
           <div class="task-info">
             <div class="task-title-row">
@@ -1991,6 +2100,11 @@
               confirmText="Delete?"
               onclick={() => requestDeleteTask(status.config.id)}><Icon name="close" size={14} /></Button
             >
+            <span title={hiddenTaskIds.has(status.config.id) ? 'Unhide' : 'Hide'}>
+              <Button size="sm" onclick={() => toggleHideTask(status.config.id)}>
+                <Icon name={hiddenTaskIds.has(status.config.id) ? 'eye' : 'eye-off'} size={14} />
+              </Button>
+            </span>
           </div>
         </div>
 
@@ -2158,11 +2272,41 @@
     align-items: center;
     gap: 10px;
     margin-bottom: 12px;
+    flex-wrap: wrap;
   }
+
+  .task-filter-select {
+    font-size: 0.75rem;
+    padding: 4px 8px;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    background: var(--bg-primary);
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-family: inherit;
+  }
+
+  .task-hidden-toggle {
+    display: flex;
+    flex-direction: row !important;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.72rem;
+    color: var(--text-faint);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .task-card.task-hidden {
+    opacity: 0.5;
+    border-style: dashed;
+  }
+
   .task-count {
     font-size: 0.75rem;
     color: var(--text-muted);
     white-space: nowrap;
+    margin-left: auto;
   }
 
   .disk-section {

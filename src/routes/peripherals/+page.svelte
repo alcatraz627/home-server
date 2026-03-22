@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { browser } from '$app/environment';
   import { toast } from '$lib/toast';
+  import { fetchApi } from '$lib/api';
   import Button from '$lib/components/Button.svelte';
   import Badge from '$lib/components/Badge.svelte';
   import Tabs from '$lib/components/Tabs.svelte';
@@ -175,7 +176,7 @@
   async function refresh() {
     loading = true;
     try {
-      const res = await fetch('/api/peripherals');
+      const res = await fetchApi('/api/peripherals');
       const data = await res.json();
       wifi = data.wifi;
       bluetooth = data.bluetooth;
@@ -198,7 +199,7 @@
     btToggling = dev.address;
     const action = dev.connected ? 'bt-disconnect' : 'bt-connect';
     try {
-      const res = await fetch('/api/peripherals', {
+      const res = await fetchApi('/api/peripherals', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action, address: dev.address }),

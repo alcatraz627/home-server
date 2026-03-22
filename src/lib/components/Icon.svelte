@@ -97,6 +97,7 @@
     Bell,
     Activity,
     Box,
+    Database,
   } from 'lucide-svelte';
 
   let {
@@ -215,6 +216,7 @@
     bell: Bell,
     activity: Activity,
     docker: Box,
+    database: Database,
   };
 
   const component = $derived(ICON_MAP[name] || HelpCircle);

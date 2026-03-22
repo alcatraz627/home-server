@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { execSync } from 'child_process';
 import os from 'os';
+import { getPrimaryInterface } from '$lib/server/network-utils';
 
 interface WifiNetwork {
   ssid: string;
@@ -10,6 +11,12 @@ interface WifiNetwork {
   signal: number;
   security: string;
   isInsecure: boolean;
+  noise?: number;
+  snr?: number;
+  phyMode?: string;
+  channelWidth?: string;
+  channelBand?: string;
+  vendor?: string;
 }
 
 interface CurrentConnection {
@@ -19,6 +26,131 @@ interface CurrentConnection {
   signal: number;
   ip: string;
   interface: string;
+}
+
+/** Extract channel width from system_profiler channel string like "44 (5GHz, 40MHz)" */
+function extractChannelWidth(channelStr: string): string | undefined {
+  const match = channelStr.match(/(\d+MHz)/);
+  return match?.[1] || undefined;
+}
+
+/** Extract band from channel info */
+function extractChannelBand(channelStr: string): string | undefined {
+  if (channelStr.includes('5GHz') || channelStr.includes('5 GHz')) return '5 GHz';
+  if (channelStr.includes('6GHz') || channelStr.includes('6 GHz')) return '6 GHz';
+  if (channelStr.includes('2.4GHz') || channelStr.includes('2.4 GHz')) return '2.4 GHz';
+  // Infer from channel number
+  const ch = parseInt(channelStr);
+  if (ch >= 1 && ch <= 14) return '2.4 GHz';
+  if (ch >= 32 && ch <= 177) return '5 GHz';
+  return undefined;
+}
+
+/** Simple OUI vendor lookup from first 3 octets of BSSID */
+const OUI_TABLE: Record<string, string> = {
+  '00:1A:2B': 'Ayecom',
+  '00:50:F2': 'Microsoft',
+  '00:0C:29': 'VMware',
+  '00:1B:63': 'Apple',
+  '3C:22:FB': 'Apple',
+  '70:56:81': 'Apple',
+  'A8:51:5B': 'Apple',
+  'AC:BC:32': 'Apple',
+  'F0:B3:EC': 'Apple',
+  'DC:A6:32': 'Raspberry Pi',
+  '28:CD:C1': 'Raspberry Pi',
+  'B8:27:EB': 'Raspberry Pi',
+  'E4:5F:01': 'Raspberry Pi',
+  '00:14:22': 'Dell',
+  '00:1E:68': 'Quanta',
+  '00:25:00': 'Apple',
+  '10:DD:B1': 'Apple',
+  '14:7D:DA': 'Apple',
+  '18:AF:8F': 'Apple',
+  '20:78:F0': 'Apple',
+  '38:F9:D3': 'Apple',
+  '40:CB:C0': 'Apple',
+  '5C:F9:38': 'Apple',
+  '78:7B:8A': 'Apple',
+  '84:FC:FE': 'Apple',
+  '88:66:A5': 'Apple',
+  '8C:85:90': 'Apple',
+  '94:E9:79': 'Apple',
+  'A4:D1:D2': 'Apple',
+  'C8:69:CD': 'Apple',
+  'D0:03:4B': 'Apple',
+  'F4:5C:89': 'Apple',
+  'FC:E9:98': 'Apple',
+  '00:17:88': 'Philips',
+  '44:39:C4': 'Universal Global Scientific',
+  '50:C7:BF': 'TP-Link',
+  '60:32:B1': 'TP-Link',
+  'B0:4E:26': 'TP-Link',
+  'C0:06:C3': 'TP-Link',
+  'E8:48:B8': 'TP-Link',
+  '08:36:C9': 'NETGEAR',
+  '20:E5:2A': 'NETGEAR',
+  '6C:B0:CE': 'NETGEAR',
+  'A4:2B:8C': 'NETGEAR',
+  'E4:F4:C6': 'NETGEAR',
+  '00:24:B2': 'NETGEAR',
+  '04:A1:51': 'NETGEAR',
+  '34:68:95': 'Linksys',
+  '58:EF:68': 'Linksys',
+  'C0:56:27': 'Linksys',
+  '00:1D:7E': 'Linksys',
+  '14:91:82': 'Linksys',
+  '10:DA:43': 'NETGEAR',
+  '2C:B0:5D': 'NETGEAR',
+  '00:18:E7': 'Asus',
+  '08:60:6E': 'Asus',
+  '1C:87:2C': 'Asus',
+  '2C:FD:A1': 'Asus',
+  '50:46:5D': 'Asus',
+  'B0:6E:BF': 'Asus',
+  'F8:32:E4': 'Asus',
+  '00:26:F2': 'NETGEAR',
+  '3C:37:86': 'NETGEAR',
+  '00:23:69': 'Cisco',
+  '00:24:14': 'Cisco',
+  '00:90:0B': 'Cisco',
+  'EC:44:76': 'Cisco',
+  '70:3A:CB': 'Google',
+  '94:EB:2C': 'Google',
+  'F4:F5:D8': 'Google',
+  '54:60:09': 'Google',
+  '24:5A:4C': 'Ubiquiti',
+  '68:D7:9A': 'Ubiquiti',
+  '78:8A:20': 'Ubiquiti',
+  'B4:FB:E4': 'Ubiquiti',
+  'E0:63:DA': 'Ubiquiti',
+  'FC:EC:DA': 'Ubiquiti',
+  '6C:0B:84': 'Wiz',
+  'D8:A0:11': 'Wiz',
+  '44:4F:8E': 'Wiz',
+  '00:1A:22': 'eQ-3',
+  '34:CE:00': 'Xiaomi',
+  '64:CC:2E': 'Xiaomi',
+  '78:11:DC': 'Xiaomi',
+  '7C:49:EB': 'Xiaomi',
+  '04:CF:8C': 'Xiaomi',
+  '28:6C:07': 'Xiaomi',
+  'EC:FA:BC': 'Amazon',
+  '40:B4:CD': 'Amazon',
+  '68:54:FD': 'Amazon',
+  'A0:02:DC': 'Amazon',
+  '74:C2:46': 'Amazon',
+  '00:FC:8B': 'Amazon',
+  '44:00:49': 'Samsung',
+  '8C:77:12': 'Samsung',
+  'CC:3A:61': 'Samsung',
+  'F0:5B:7B': 'Samsung',
+  '08:AE:D6': 'Samsung',
+};
+
+function lookupVendor(bssid: string): string | undefined {
+  const oui = bssid.substring(0, 8).toUpperCase();
+  return OUI_TABLE[oui];
 }
 
 function parseMacOSAirportScan(output: string): WifiNetwork[] {
@@ -119,14 +251,15 @@ function getCurrentConnection(): CurrentConnection | null {
       }
 
       // Get IP from ifconfig
+      const wifiIface = getPrimaryInterface();
       let ip = '';
       try {
-        const ifOut = execSync('ifconfig en0 2>/dev/null', { timeout: 3000 }).toString();
+        const ifOut = execSync(`ifconfig ${wifiIface} 2>/dev/null`, { timeout: 3000 }).toString();
         ip = ifOut.match(/inet\s+(\d+\.\d+\.\d+\.\d+)/)?.[1] || '';
       } catch {}
 
       if (ssid) {
-        return { ssid, bssid, channel, signal: rssi, ip, interface: 'en0' };
+        return { ssid, bssid, channel, signal: rssi, ip, interface: wifiIface };
       }
     } else {
       // Linux: nmcli
@@ -169,14 +302,27 @@ export const GET: RequestHandler = async () => {
         const airportData = data?.SPAirPortDataType?.[0];
         const iface = airportData?.spairport_airport_interfaces?.[0];
         const nearbyNetworks = iface?.spairport_airport_other_local_wireless_networks || [];
-        networks = nearbyNetworks.map((net: any) => ({
-          ssid: net?._name || '(Hidden)',
-          bssid: net?.spairport_network_bssid || '',
-          channel: net?.spairport_network_channel?.split?.(' ')?.[0] || '',
-          signal: parseInt(net?.spairport_signal_noise_ratio || net?.spairport_network_signal || '-70') || -70,
-          security: net?.spairport_security_mode || 'NONE',
-          isInsecure: !net?.spairport_security_mode || net?.spairport_security_mode === 'Open',
-        }));
+        networks = nearbyNetworks.map((net: any) => {
+          const channelInfo = net?.spairport_network_channel || '';
+          const signal = parseInt(net?.spairport_signal_noise_ratio || net?.spairport_network_signal || '-70') || -70;
+          const noise = parseInt(net?.spairport_network_noise || '0') || undefined;
+          const bssid = net?.spairport_network_bssid || '';
+
+          return {
+            ssid: net?._name || '(Hidden)',
+            bssid,
+            channel: channelInfo.split?.(' ')?.[0] || '',
+            signal,
+            security: net?.spairport_security_mode || 'NONE',
+            isInsecure: !net?.spairport_security_mode || net?.spairport_security_mode === 'Open',
+            noise,
+            snr: noise !== undefined ? signal - noise : undefined,
+            phyMode: net?.spairport_network_phymode || undefined,
+            channelWidth: extractChannelWidth(channelInfo),
+            channelBand: extractChannelBand(channelInfo),
+            vendor: bssid ? lookupVendor(bssid) : undefined,
+          };
+        });
       } catch {
         // Fallback: airport binary (older macOS)
         const airportPath = '/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport';

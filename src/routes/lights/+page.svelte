@@ -532,6 +532,29 @@
     if (renameValue.trim()) saveName(mac, renameValue.trim());
     renamingMac = null;
   }
+
+  // Reconcile: clean up stale name entries
+  let reconciling = $state(false);
+  async function reconcileNames() {
+    reconciling = true;
+    try {
+      const activeMacs = bulbs.map((b) => b.mac);
+      const res = await fetchApi('/api/lights/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reconcile', activeMacs, names: bulbNames }),
+      });
+      if (!res.ok) throw new Error('Reconcile failed');
+      const result = await res.json();
+      bulbNames = result.names;
+      cacheConfig({ names: result.names, rooms, presets: customPresets });
+      const removed = result.removed?.length ?? 0;
+      toast.success(removed > 0 ? `Cleaned ${removed} stale name(s)` : 'All names are current');
+    } catch (e: any) {
+      toast.error(e.message || 'Reconcile failed');
+    }
+    reconciling = false;
+  }
 </script>
 
 <svelte:head>
@@ -556,6 +579,11 @@
     <Button variant={polling ? 'accent' : 'default'} onclick={togglePolling}>
       Poll {polling ? 'ON' : 'OFF'}
     </Button>
+    {#if Object.keys(bulbNames).length > 0}
+      <Button size="sm" onclick={reconcileNames} disabled={reconciling || bulbs.length === 0} loading={reconciling}>
+        Reconcile
+      </Button>
+    {/if}
   </div>
 </div>
 <p class="page-desc">

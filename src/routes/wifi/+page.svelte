@@ -1,8 +1,10 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { toast } from '$lib/toast';
+  import { fetchApi } from '$lib/api';
   import Button from '$lib/components/Button.svelte';
   import Badge from '$lib/components/Badge.svelte';
+  import Icon from '$lib/components/Icon.svelte';
 
   interface WifiNetwork {
     ssid: string;
@@ -11,7 +13,15 @@
     signal: number;
     security: string;
     isInsecure: boolean;
+    noise?: number;
+    snr?: number;
+    phyMode?: string;
+    channelWidth?: string;
+    channelBand?: string;
+    vendor?: string;
   }
+
+  let showExtended = $state(false);
 
   interface CurrentConnection {
     ssid: string;
@@ -81,7 +91,7 @@
     loading = true;
     error = '';
     try {
-      const res = await fetch('/api/wifi');
+      const res = await fetchApi('/api/wifi');
       const data = await res.json();
       if (data.error) {
         error = data.error;
@@ -110,6 +120,36 @@
     }
   }
 
+  // Inline diagnostics
+  interface DiagResult {
+    test: string;
+    status: 'pass' | 'fail' | 'warn';
+    output: string;
+    latency?: number;
+  }
+
+  let diagResults = $state<DiagResult[]>([]);
+  let diagRunning = $state(false);
+  let diagGateway = $state('');
+
+  async function runDiagnostics() {
+    diagRunning = true;
+    diagResults = [];
+    try {
+      const res = await fetchApi('/api/wifi/diagnostics', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ test: 'all' }),
+      });
+      const data = await res.json();
+      diagResults = data.results;
+      diagGateway = data.gateway || '';
+    } catch {
+      toast.error('Diagnostics failed');
+    }
+    diagRunning = false;
+  }
+
   onMount(() => {
     scan();
   });
@@ -126,6 +166,10 @@
 <div class="header">
   <h2 class="page-title">WiFi Scanner</h2>
   <div class="header-actions">
+    <label class="auto-toggle">
+      <input type="checkbox" bind:checked={showExtended} />
+      Extended
+    </label>
     <label class="auto-toggle">
       <input type="checkbox" checked={autoRefresh} onchange={toggleAutoRefresh} />
       Auto-refresh
@@ -191,6 +235,14 @@
           <th class="sortable" onclick={() => toggleSort('channel')}>Channel{sortIndicator('channel')}</th>
           <th class="sortable" onclick={() => toggleSort('signal')}>Signal{sortIndicator('signal')}</th>
           <th>Strength</th>
+          {#if showExtended}
+            <th>SNR</th>
+            <th>Noise</th>
+            <th>Band</th>
+            <th>Width</th>
+            <th>PHY</th>
+            <th>Vendor</th>
+          {/if}
           <th class="sortable" onclick={() => toggleSort('security')}>Security{sortIndicator('security')}</th>
         </tr>
       </thead>
@@ -214,6 +266,14 @@
                 {/each}
               </div>
             </td>
+            {#if showExtended}
+              <td class="center">{net.snr != null ? `${net.snr} dB` : '—'}</td>
+              <td class="center">{net.noise != null ? `${net.noise} dBm` : '—'}</td>
+              <td class="center">{net.channelBand || '—'}</td>
+              <td class="center">{net.channelWidth || '—'}</td>
+              <td class="center">{net.phyMode || '—'}</td>
+              <td>{net.vendor || '—'}</td>
+            {/if}
             <td>
               <Badge variant={net.isInsecure ? 'danger' : 'default'}>
                 {net.security}
@@ -225,6 +285,37 @@
     </table>
   </div>
   <p class="count">{networks.length} network{networks.length !== 1 ? 's' : ''} found</p>
+{/if}
+
+<!-- Network Diagnostics -->
+{#if current}
+  <div class="diag-section">
+    <div class="diag-header">
+      <h3>Network Diagnostics</h3>
+      <Button size="sm" onclick={runDiagnostics} disabled={diagRunning} loading={diagRunning}>
+        {diagRunning ? 'Running...' : 'Run All'}
+      </Button>
+    </div>
+    {#if diagGateway}
+      <p class="diag-gateway">Gateway: <code>{diagGateway}</code></p>
+    {/if}
+    {#if diagResults.length > 0}
+      <div class="diag-results">
+        {#each diagResults as result}
+          <div class="diag-result" class:pass={result.status === 'pass'} class:fail={result.status === 'fail'}>
+            <div class="diag-result-header">
+              <Icon name={result.status === 'pass' ? 'check' : 'close'} size={14} />
+              <span class="diag-test-name">{result.test}</span>
+              {#if result.latency != null}
+                <span class="diag-latency">{result.latency}ms</span>
+              {/if}
+            </div>
+            <pre class="diag-output">{result.output}</pre>
+          </div>
+        {/each}
+      </div>
+    {/if}
+  </div>
 {/if}
 
 <style>
@@ -406,5 +497,98 @@
     .wifi-table td:nth-child(2) {
       display: none;
     }
+  }
+  /* Diagnostics */
+  .diag-section {
+    margin-top: 24px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    background: var(--bg-secondary);
+  }
+
+  .diag-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+
+  .diag-header h3 {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .diag-gateway {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+  }
+
+  .diag-gateway code {
+    font-size: 0.72rem;
+    background: var(--code-bg);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+
+  .diag-results {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .diag-result {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    background: var(--bg-primary);
+  }
+
+  .diag-result.pass {
+    border-left: 3px solid var(--success);
+  }
+
+  .diag-result.fail {
+    border-left: 3px solid var(--danger);
+  }
+
+  .diag-result-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+
+  .diag-result.pass .diag-result-header {
+    color: var(--success);
+  }
+
+  .diag-result.fail .diag-result-header {
+    color: var(--danger);
+  }
+
+  .diag-test-name {
+    font-weight: 600;
+    font-size: 0.8rem;
+  }
+
+  .diag-latency {
+    font-size: 0.7rem;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-faint);
+    margin-left: auto;
+  }
+
+  .diag-output {
+    font-size: 0.7rem;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-muted);
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 120px;
+    overflow-y: auto;
   }
 </style>

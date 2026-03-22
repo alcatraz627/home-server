@@ -407,14 +407,45 @@
     editingPath = false;
   }
 
+  let browseMode = $state<'uploads' | 'system'>('uploads');
+
   async function submitPathInput() {
-    const raw = pathInputValue.trim().replace(/^\/+/, '').replace(/\/+$/, '');
+    const raw = pathInputValue.trim();
     editingPath = false;
+
+    // If path starts with / or ~, switch to system browse mode
+    if (raw.startsWith('/') || raw.startsWith('~')) {
+      browseMode = 'system';
+      try {
+        const res = await fetchApi(`/api/browse?path=${encodeURIComponent(raw)}`);
+        if (!res.ok) throw new Error('Invalid path');
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        currentPath = data.current;
+        files = data.entries.map((e: any) => ({
+          name: e.name,
+          size: e.size,
+          modified: '',
+          created: '',
+          isDirectory: e.isDir,
+          permissions: '',
+          mime: e.isDir ? 'inode/directory' : '',
+          meta: null,
+        }));
+      } catch (e: any) {
+        toast.error(e.message || 'Invalid path', { key: 'path-nav' });
+      }
+      return;
+    }
+
+    // Normal upload dir mode
+    browseMode = 'uploads';
+    const cleaned = raw.replace(/^\/+/, '').replace(/\/+$/, '');
     try {
-      const params = raw ? `?path=${encodeURIComponent(raw)}` : '';
+      const params = cleaned ? `?path=${encodeURIComponent(cleaned)}` : '';
       const res = await fetchApi(`/api/files${params}`);
       if (!res.ok) throw new Error('Invalid path');
-      currentPath = raw;
+      currentPath = cleaned;
       files = await res.json();
     } catch {
       toast.error('Invalid path — directory not found', { key: 'path-nav' });
@@ -427,12 +458,34 @@
   }
 
   // Navigate into directory (validates path first)
-  async function navigateTo(path: string) {
+  async function navigateTo(navPath: string) {
+    if (browseMode === 'system') {
+      try {
+        const res = await fetchApi(`/api/browse?path=${encodeURIComponent(navPath)}`);
+        if (!res.ok) throw new Error('Directory not found');
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        currentPath = data.current;
+        files = data.entries.map((e: any) => ({
+          name: e.name,
+          size: e.size,
+          modified: '',
+          created: '',
+          isDirectory: e.isDir,
+          permissions: '',
+          mime: e.isDir ? 'inode/directory' : '',
+          meta: null,
+        }));
+      } catch {
+        toast.error('Invalid path — directory not found', { key: 'path-nav' });
+      }
+      return;
+    }
     try {
-      const params = path ? `?path=${encodeURIComponent(path)}` : '';
+      const params = navPath ? `?path=${encodeURIComponent(navPath)}` : '';
       const res = await fetchApi(`/api/files${params}`);
       if (!res.ok) throw new Error('Directory not found');
-      currentPath = path;
+      currentPath = navPath;
       files = await res.json();
     } catch {
       toast.error('Invalid path — directory not found', { key: 'path-nav' });

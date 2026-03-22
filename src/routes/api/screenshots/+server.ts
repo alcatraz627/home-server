@@ -8,8 +8,30 @@ import type { RequestHandler } from './$types';
 const DATA_DIR = path.join(os.homedir(), '.home-server');
 const SCREENSHOTS_DIR = path.join(DATA_DIR, 'screenshots');
 
+const META_FILE = path.join(DATA_DIR, 'screenshots-meta.json');
+
 function ensureDir() {
   if (!fs.existsSync(SCREENSHOTS_DIR)) fs.mkdirSync(SCREENSHOTS_DIR, { recursive: true });
+}
+
+interface ScreenshotMeta {
+  [filename: string]: {
+    label?: string;
+    device?: string;
+    platform?: string;
+    takenAt?: string;
+  };
+}
+
+function readMeta(): ScreenshotMeta {
+  try {
+    if (fs.existsSync(META_FILE)) return JSON.parse(fs.readFileSync(META_FILE, 'utf-8'));
+  } catch {}
+  return {};
+}
+
+function writeMeta(meta: ScreenshotMeta) {
+  fs.writeFileSync(META_FILE, JSON.stringify(meta, null, 2));
 }
 
 export const GET: RequestHandler = async ({ url }) => {
@@ -35,24 +57,32 @@ export const GET: RequestHandler = async ({ url }) => {
     const mime =
       ext === '.png' ? 'image/png' : ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : 'application/octet-stream';
 
-    return new Response(data, {
-      headers: {
-        'Content-Type': mime,
-        'Cache-Control': 'public, max-age=3600',
-      },
-    });
+    const download = url.searchParams.get('download') === '1';
+    const headers: Record<string, string> = {
+      'Content-Type': mime,
+      'Cache-Control': 'public, max-age=3600',
+    };
+    if (download) {
+      headers['Content-Disposition'] = `attachment; filename="${safeName}"`;
+    }
+    return new Response(data, { headers });
   }
 
-  // List all screenshots
+  // List all screenshots with metadata
+  const meta = readMeta();
   const files = fs
     .readdirSync(SCREENSHOTS_DIR)
     .filter((f) => /\.(png|jpg|jpeg)$/i.test(f))
     .map((f) => {
       const stat = fs.statSync(path.join(SCREENSHOTS_DIR, f));
+      const m = meta[f] || {};
       return {
         filename: f,
+        label: m.label || '',
+        device: m.device || '',
+        platform: m.platform || '',
         size: stat.size,
-        timestamp: stat.mtime.toISOString(),
+        timestamp: m.takenAt || stat.mtime.toISOString(),
       };
     })
     .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
@@ -113,10 +143,20 @@ export const POST: RequestHandler = async ({ request }) => {
       }
 
       const stat = fs.statSync(filePath);
+      // Store metadata
+      const meta = readMeta();
+      meta[filename] = {
+        device: os.hostname(),
+        platform: os.platform(),
+        takenAt: new Date().toISOString(),
+      };
+      writeMeta(meta);
       return json(
         {
           filename,
           size: stat.size,
+          device: os.hostname(),
+          platform: os.platform(),
           timestamp: stat.mtime.toISOString(),
         },
         { status: 201 },
@@ -126,12 +166,26 @@ export const POST: RequestHandler = async ({ request }) => {
     }
   }
 
+  if (body._action === 'rename') {
+    const safeName = path.basename(body.filename);
+    const newLabel = body.label?.trim() || '';
+    const meta = readMeta();
+    if (!meta[safeName]) meta[safeName] = {};
+    meta[safeName].label = newLabel;
+    writeMeta(meta);
+    return json({ ok: true, label: newLabel });
+  }
+
   if (body._action === 'delete') {
     const safeName = path.basename(body.filename);
     const filePath = path.join(SCREENSHOTS_DIR, safeName);
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
     }
+    // Clean up metadata
+    const meta = readMeta();
+    delete meta[safeName];
+    writeMeta(meta);
     return json({ ok: true });
   }
 

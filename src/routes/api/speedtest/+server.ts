@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import crypto from 'node:crypto';
+import { execSync } from 'node:child_process';
 import type { RequestHandler } from './$types';
 
 /** GET: generate random blob for download speed test */
@@ -21,6 +22,52 @@ export const GET: RequestHandler = async ({ url }) => {
         'Cache-Control': 'no-store',
       },
     });
+  }
+
+  if (action === 'external') {
+    try {
+      // Download test: fetch 10MB from Cloudflare
+      const dlStart = Date.now();
+      const dlOut = execSync(
+        'curl -s -o /dev/null -w "%{speed_download}" --max-time 15 https://speed.cloudflare.com/__down?bytes=10000000 2>/dev/null',
+        { encoding: 'utf-8', timeout: 20000 },
+      );
+      const dlTime = Date.now() - dlStart;
+      const dlBytesPerSec = parseFloat(dlOut.trim()) || 0;
+      const dlMbps = (dlBytesPerSec * 8) / 1_000_000;
+
+      // Upload test: send 2MB to Cloudflare
+      const ulStart = Date.now();
+      const ulOut = execSync(
+        'curl -s -o /dev/null -w "%{speed_upload}" --max-time 15 -X POST --data-binary @/dev/urandom https://speed.cloudflare.com/__up 2>/dev/null | head -c 2097152',
+        { encoding: 'utf-8', timeout: 20000, shell: '/bin/sh' },
+      );
+      const ulTime = Date.now() - ulStart;
+      const ulBytesPerSec = parseFloat(ulOut.trim()) || 0;
+      const ulMbps = (ulBytesPerSec * 8) / 1_000_000;
+
+      // Latency: ping Cloudflare
+      let extLatency = 0;
+      try {
+        const pingOut = execSync('ping -c 3 -W 2 1.1.1.1 2>/dev/null', {
+          encoding: 'utf-8',
+          timeout: 10000,
+        });
+        const avgMatch = pingOut.match(/avg\s*=\s*([\d.]+)/);
+        extLatency = avgMatch ? Math.round(parseFloat(avgMatch[1])) : 0;
+      } catch {}
+
+      return json({
+        download: Math.round(dlMbps * 100) / 100,
+        upload: Math.round(ulMbps * 100) / 100,
+        latency: extLatency,
+        server: 'Cloudflare (speed.cloudflare.com)',
+        downloadTime: dlTime,
+        uploadTime: ulTime,
+      });
+    } catch (e: any) {
+      return json({ error: e.message || 'External speed test failed' }, { status: 500 });
+    }
   }
 
   return json({ error: 'Invalid action' }, { status: 400 });

@@ -118,6 +118,32 @@ function getRunningApps(): string[] {
   }
 }
 
+function getRunningAppPids(appName: string): number[] {
+  try {
+    if (isMac) {
+      const output = execSync(`pgrep -f "/Applications/${sanitizeShellArg(appName)}.app" 2>/dev/null`, {
+        encoding: 'utf-8',
+      });
+      return output
+        .trim()
+        .split('\n')
+        .map((s) => parseInt(s, 10))
+        .filter((n) => !isNaN(n));
+    } else {
+      const output = execSync(`pgrep -f "${sanitizeShellArg(appName)}" 2>/dev/null`, {
+        encoding: 'utf-8',
+      });
+      return output
+        .trim()
+        .split('\n')
+        .map((s) => parseInt(s, 10))
+        .filter((n) => !isNaN(n));
+    }
+  } catch {
+    return [];
+  }
+}
+
 /** GET — list all apps + running apps */
 export const GET: RequestHandler = async () => {
   const apps = scanApps();
@@ -191,5 +217,60 @@ export const POST: RequestHandler = async ({ request }) => {
         }
       });
     });
+  }
+};
+
+/** DELETE — kill a running app */
+export const DELETE: RequestHandler = async ({ request }) => {
+  const body = await request.json();
+  const appName = body.name;
+  const force = body.force === true;
+
+  if (!appName || typeof appName !== 'string') {
+    return json({ error: 'name is required' }, { status: 400 });
+  }
+
+  try {
+    if (isMac) {
+      // Use osascript for graceful quit, kill -9 for force
+      if (force) {
+        const pids = getRunningAppPids(appName);
+        if (pids.length === 0) {
+          return json({ error: `${appName} is not running` }, { status: 404 });
+        }
+        for (const pid of pids) {
+          try {
+            process.kill(pid, 'SIGKILL');
+          } catch {}
+        }
+        return json({ ok: true, killed: appName, force: true, pids });
+      } else {
+        const safeAppName = sanitizeShellArg(appName);
+        return new Promise((resolve) => {
+          exec(`osascript -e 'tell application "${safeAppName}" to quit'`, (error) => {
+            if (error) {
+              resolve(json({ error: `Failed to quit: ${error.message}` }, { status: 500 }));
+            } else {
+              resolve(json({ ok: true, killed: appName, force: false }));
+            }
+          });
+        });
+      }
+    } else {
+      // Linux: use pkill
+      const signal = force ? 'SIGKILL' : 'SIGTERM';
+      const safeAppName = sanitizeShellArg(appName);
+      return new Promise((resolve) => {
+        exec(`pkill -${force ? '9' : '15'} -f "${safeAppName}" 2>/dev/null`, (error) => {
+          if (error && error.code !== 1) {
+            resolve(json({ error: `Failed to kill: ${error.message}` }, { status: 500 }));
+          } else {
+            resolve(json({ ok: true, killed: appName, force }));
+          }
+        });
+      });
+    }
+  } catch (e: any) {
+    return json({ error: e.message || 'Kill failed' }, { status: 500 });
   }
 };

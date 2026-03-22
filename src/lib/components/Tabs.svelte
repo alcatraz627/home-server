@@ -1,16 +1,19 @@
 <script lang="ts">
   import { browser } from '$app/environment';
+  import { tick } from 'svelte';
 
   let {
     tabs,
     active = $bindable((tabs[0] as { id: string })?.id ?? ''),
     size = 'md',
+    compact = false,
     syncHash = false,
     class: className = '',
   } = $props<{
     tabs: { id: string; label: string; count?: number }[];
     active: string;
     size?: 'sm' | 'md';
+    compact?: boolean;
     syncHash?: boolean;
     class?: string;
   }>();
@@ -22,6 +25,26 @@
       active = hash;
     }
   }
+
+  let tabsEl = $state<HTMLElement | null>(null);
+  let indicatorStyle = $state('');
+
+  function updateIndicator() {
+    if (!tabsEl) return;
+    const activeEl = tabsEl.querySelector('.hs-tab.active') as HTMLElement;
+    if (!activeEl) {
+      indicatorStyle = 'opacity: 0;';
+      return;
+    }
+    const left = activeEl.offsetLeft;
+    const width = activeEl.offsetWidth;
+    indicatorStyle = `left: ${left}px; width: ${width}px; opacity: 1;`;
+  }
+
+  $effect(() => {
+    active; // track
+    tick().then(updateIndicator);
+  });
 
   function setActive(id: string) {
     active = id;
@@ -53,7 +76,13 @@
 
 <svelte:window onpopstate={handlePopState} />
 
-<div class="hs-tabs hs-tabs-{size} {className}" role="tablist" onkeydown={handleKeydown}>
+<div
+  class="hs-tabs hs-tabs-{size} {className}"
+  class:compact
+  role="tablist"
+  onkeydown={handleKeydown}
+  bind:this={tabsEl}
+>
   {#each tabs as tab (tab.id)}
     <button
       class="hs-tab"
@@ -69,6 +98,7 @@
       {/if}
     </button>
   {/each}
+  <span class="hs-tab-indicator" style={indicatorStyle}></span>
 </div>
 
 <style>
@@ -79,6 +109,7 @@
     margin-bottom: 16px;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    position: relative;
   }
 
   .hs-tab {
@@ -91,7 +122,9 @@
     font-weight: 500;
     cursor: pointer;
     white-space: nowrap;
-    transition: all 0.15s;
+    transition:
+      color 0.15s,
+      background 0.15s;
     border-radius: 0;
   }
 
@@ -103,13 +136,52 @@
     font-size: 0.82rem;
   }
 
+  /* Compact mode */
+  .hs-tabs.compact {
+    gap: 0;
+    border-bottom: none;
+    background: var(--bg-hover);
+    border-radius: 8px;
+    padding: 3px;
+  }
+
+  .compact .hs-tab {
+    border-bottom: none;
+    border-radius: 6px;
+    padding: 5px 12px;
+    font-size: 0.72rem;
+  }
+
+  .compact .hs-tab.active {
+    background: var(--bg-secondary);
+    color: var(--accent);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  }
+
+  .compact .hs-tab-indicator {
+    display: none;
+  }
+
   .hs-tab:hover {
     color: var(--text-primary);
   }
 
   .hs-tab.active {
     color: var(--accent);
-    border-bottom-color: var(--accent);
+    border-bottom-color: transparent;
+  }
+
+  /* Sliding indicator */
+  .hs-tab-indicator {
+    position: absolute;
+    bottom: 0;
+    height: 2px;
+    background: var(--accent);
+    border-radius: 2px 2px 0 0;
+    transition:
+      left 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+      width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    opacity: 0;
   }
 
   .hs-tab-count {

@@ -3,26 +3,64 @@ import net from 'node:net';
 import type { RequestHandler } from './$types';
 
 const COMMON_SERVICES: Record<number, string> = {
+  20: 'FTP Data',
   21: 'FTP',
   22: 'SSH',
   23: 'Telnet',
   25: 'SMTP',
   53: 'DNS',
+  67: 'DHCP Server',
+  68: 'DHCP Client',
+  69: 'TFTP',
   80: 'HTTP',
+  88: 'Kerberos',
   110: 'POP3',
+  111: 'RPCBind',
+  119: 'NNTP',
+  123: 'NTP',
+  135: 'MS RPC',
+  137: 'NetBIOS Name',
+  138: 'NetBIOS Datagram',
+  139: 'NetBIOS Session',
   143: 'IMAP',
+  161: 'SNMP',
+  389: 'LDAP',
   443: 'HTTPS',
+  445: 'SMB',
   465: 'SMTPS',
+  514: 'Syslog',
+  515: 'LPD',
   587: 'SMTP (submission)',
+  631: 'IPP/CUPS',
+  636: 'LDAPS',
+  873: 'rsync',
   993: 'IMAPS',
   995: 'POP3S',
+  1080: 'SOCKS',
+  1433: 'MSSQL',
+  1521: 'Oracle DB',
+  1883: 'MQTT',
+  2049: 'NFS',
+  2181: 'ZooKeeper',
+  3000: 'Dev Server',
   3306: 'MySQL',
   3389: 'RDP',
+  4443: 'HTTPS Alt',
+  5000: 'Flask/Docker Registry',
+  5173: 'Vite Dev',
   5432: 'PostgreSQL',
+  5555: 'Home Server',
+  5672: 'AMQP/RabbitMQ',
   5900: 'VNC',
   6379: 'Redis',
+  6443: 'Kubernetes API',
   8080: 'HTTP Proxy',
   8443: 'HTTPS Alt',
+  8883: 'MQTT TLS',
+  9090: 'Prometheus',
+  9200: 'Elasticsearch',
+  9418: 'Git',
+  11211: 'Memcached',
   27017: 'MongoDB',
 };
 
@@ -60,7 +98,48 @@ export const POST: RequestHandler = async ({ request }) => {
 
   let portsToScan: number[];
 
-  if (preset === 'common') {
+  if (preset === 'all') {
+    // Full scan 1-65535 — use streaming response
+    const concurrency = 50;
+    const timeout = 800;
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      async start(controller) {
+        let openCount = 0;
+        const total = 65535;
+        for (let batch = 1; batch <= total; batch += concurrency) {
+          const end = Math.min(batch + concurrency - 1, total);
+          const ports = Array.from({ length: end - batch + 1 }, (_, i) => batch + i);
+          const batchResults = await Promise.all(
+            ports.map(async (port) => {
+              const open = await scanPort(host, port, timeout);
+              return { port, open, service: COMMON_SERVICES[port] || '' };
+            }),
+          );
+          for (const r of batchResults) {
+            if (r.open) {
+              openCount++;
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify(r)}\n\n`));
+            }
+          }
+          // Send progress every batch
+          controller.enqueue(
+            encoder.encode(`data: ${JSON.stringify({ _progress: true, scanned: end, total, open: openCount })}\n\n`),
+          );
+        }
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ _done: true, total, open: openCount })}\n\n`));
+        controller.close();
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+      },
+    });
+  } else if (preset === 'common') {
     portsToScan = COMMON_PORTS;
   } else if (portList) {
     // Parse range like "1-100" or comma-separated "80,443,8080"
@@ -87,8 +166,11 @@ export const POST: RequestHandler = async ({ request }) => {
     return json({ error: 'No valid ports specified' }, { status: 400 });
   }
 
-  // Limit to 1024 ports
-  portsToScan = portsToScan.slice(0, 1024);
+  // For "all" mode, allow up to 65535 but use streaming via GET
+  const isLargeRange = portsToScan.length > 1024;
+  if (isLargeRange && body.preset !== 'all') {
+    portsToScan = portsToScan.slice(0, 1024);
+  }
 
   // Scan with limited concurrency
   const concurrency = 20;

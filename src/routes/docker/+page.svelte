@@ -11,6 +11,7 @@
     created: string;
   }
   import { toast } from '$lib/toast';
+  import { fetchApi } from '$lib/api';
   import Button from '$lib/components/Button.svelte';
   import Badge from '$lib/components/Badge.svelte';
   import Icon from '$lib/components/Icon.svelte';
@@ -35,7 +36,7 @@
 
   async function refresh() {
     try {
-      const res = await fetch('/api/docker');
+      const res = await fetchApi('/api/docker');
       const data = await res.json();
       containers = data.containers ?? [];
     } catch {
@@ -46,7 +47,7 @@
   async function containerAction(id: string, action: 'start' | 'stop' | 'restart') {
     actionLoading = `${id}-${action}`;
     try {
-      const res = await fetch('/api/docker', {
+      const res = await fetchApi('/api/docker', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action, id }),

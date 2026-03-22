@@ -1,5 +1,6 @@
 <script lang="ts">
   import { toast } from '$lib/toast';
+  import { fetchApi } from '$lib/api';
 
   interface DnsResult {
     provider: string;
@@ -53,7 +54,7 @@
     loading = true;
     result = null;
     try {
-      const res = await fetch('/api/dns', {
+      const res = await fetchApi('/api/dns', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ domain: domain.trim(), type: recordType }),

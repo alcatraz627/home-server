@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -77,7 +78,7 @@ export async function createRequest(data: {
   const maxPriority = requests.reduce((max, r) => Math.max(max, r.priority), 0);
 
   const request: FeatureRequest = {
-    id: Math.random().toString(36).slice(2, 10),
+    id: crypto.randomUUID().slice(0, 8),
     title: data.title,
     goal: data.goal,
     scope: data.scope,

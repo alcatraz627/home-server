@@ -247,37 +247,68 @@
 - [x] fetchApi wrapper for multi-device proxying
 - [x] Toast behavior: errors persist, info 2s
 
-### v4.3 — Planned (Next)
+### v4.3 — Keyboard, Components, & Bug Fixes
 
-- [ ] Keyboard accessibility: `/` focus sidebar, `Cmd+K` page search, Notion-style hints
-- [ ] Keeper keyboard navigation: arrow keys, inline editing, keyboard shortcuts for status
-- [ ] Component consolidation phase 2: Card, Toolbar, PageHeader, DataChip, InteractiveChip, InfoLabel audit, Tab animations
-- [ ] Smart lights name persistence fix (MAC-based reconciliation)
-- [ ] WiFi scanner: extended info, inline network commands
-- [ ] System monitor: more data (disk I/O, FDs, TCP), better chart UI
-- [ ] Apps: kill/force-kill, process details, macOS .icns icon extraction
-- [ ] Kanban board UI improvements: descriptions, priority, archive, drag animation
+- [x] Keyboard accessibility: `/` focus sidebar, `Cmd+K` command palette, Notion-style hints
+- [x] Keeper keyboard navigation: j/k/arrows, Enter expand, e/r/d/n shortcuts
+- [x] Component consolidation phase 2: Card, Toolbar, PageHeader, DataChip, InteractiveChip, InfoRow, MiniChart, Tab slide animation + compact mode
+- [x] Smart lights name persistence fix (MAC-based reconciliation)
+- [x] WiFi scanner: extended info (SNR, noise, PHY, band, width, vendor OUI), inline diagnostics (ping, DNS, traceroute, internet)
+- [x] System monitor: more data (FDs, TCP connections, context switches), MiniChart component
+- [x] Apps: kill/force-kill with confirmation, process details (CPU/MEM/PIDs/files/version), macOS .icns icon extraction + cache
+- [x] Kanban board: descriptions, assignees, P1/P2/P3 priority, archive column, drag animation with insertion indicator
+- [x] macOS memory fix: vm_stat for accurate available memory
+- [x] Process count fix: multi-fallback command chain
+- [x] Error boundary: hooks.client.ts + +error.svelte + POST /api/logs
+- [x] Notification badge wired to navbar header
+- [x] fetchApi adoption: all 27 pages migrated from raw fetch
+- [x] Terminal scrollback fix: clear + resize + reflow on reconnect
+
+### v4.4 — New Pages & Infrastructure
+
+- [x] DNS Path Trace page (`/dns-trace`) — full `dig +trace` with visual hop chain, expandable detail per server
+- [x] Port scanner overhaul — sort/search/filter table, "All (1-65535)" SSE streaming mode, 60+ service names
+- [x] Health API (`/api/health`) — green/yellow/red ping indicator in navbar, auto-refresh 15s
+- [x] Manage Devices modal — pre-select from Tailscale devices with online/offline indicators
+- [x] Tasks page — sort by name/status/lastRun, filter by status, hide/show toggle per task
+- [x] Security hardening: cross-platform network interface helper, crypto.randomUUID (11 files), PTY env filtering, security headers, interface validation
+
+### v4.5 — Polish & New Features
+
+- [x] Apps launch bug fix (sanitizeShellArg stripped `/` from paths)
+- [x] Apps page UI — uniform card size, hover shadow, improved grid
+- [x] Screenshots — download, rename (double-click), device/platform metadata storage
+- [x] Speed test external mode — Cloudflare download/upload via curl, mode selector
+- [x] Reusable history utility (`$lib/history.ts`), added to DNS trace and port scanner
+- [x] Databases & Services page (`/databases`) — PostgreSQL, Redis, MongoDB, PM2 management
+- [x] Log file preview — inline viewer modal with raw content, download button
+- [x] Dashboard zoom responsive — `min()` grid tracks, single-column at 400px
+- [x] Theme expansion — 17 color overrides (Brand/Text/Surface groups), 6 body fonts, 6 heading fonts
+- [x] Files page — system browse mode for arbitrary file paths (`/`, `~`)
 
 ## Release Summary
 
-| Version | Highlights                                                                       |
-| ------- | -------------------------------------------------------------------------------- |
-| v3.1    | Starring system, global theme/font control (10 themes), mobile PWA               |
-| v3.2    | Tailscale extended info, Keeper agent integration, multi-computer support        |
-| v3.3    | Animations plan, cross-device backup preview, media server                       |
-| v3.4    | Task page overhaul, 10 new fun pages (QR, bookmarks, kanban, etc.)               |
-| v3.5    | Security/network tools (WiFi, packets, network toolkit), AI chat polish          |
-| v3.6    | Component library (17 components), app launcher, 20 themes, documentation sprint |
-| v4.0    | Test suite, toast behavior, 25 themes, font/color customization                  |
-| v4.1    | Logging (all modules), security hardening, Linux support, lucide-svelte          |
-| v4.2    | Service health, notifications, Docker, fetchApi, /api/audit                      |
+| Version | Highlights                                                                                                     |
+| ------- | -------------------------------------------------------------------------------------------------------------- |
+| v3.1    | Starring system, global theme/font control (10 themes), mobile PWA                                             |
+| v3.2    | Tailscale extended info, Keeper agent integration, multi-computer support                                      |
+| v3.3    | Animations plan, cross-device backup preview, media server                                                     |
+| v3.4    | Task page overhaul, 10 new fun pages (QR, bookmarks, kanban, etc.)                                             |
+| v3.5    | Security/network tools (WiFi, packets, network toolkit), AI chat polish                                        |
+| v3.6    | Component library (17 components), app launcher, 20 themes, documentation sprint                               |
+| v4.0    | Test suite, toast behavior, 25 themes, font/color customization                                                |
+| v4.1    | Logging (all modules), security hardening, Linux support, lucide-svelte                                        |
+| v4.2    | Service health, notifications, Docker, fetchApi, /api/audit                                                    |
+| v4.3    | Command palette, 7 new components, keyboard nav, WiFi diagnostics, app icons, kanban enhancements, 6 bug fixes |
+| v4.4    | DNS trace page, port scanner SSE streaming, health API, Tailscale device picker, tasks filter/hide, security hardening |
+| v4.5    | Databases page, screenshots metadata, speed test external mode, log preview, theme expansion, files system browse |
 
 ## Architecture Notes
 
 - **Stack:** SvelteKit 2 + Svelte 5 (runes), adapter-node, Node v23
 - **Persistence:** JSON files in `~/.home-server/` — no database
 - **Themes:** 25 CSS custom property themes with custom color overrides
-- **Components:** 17 reusable Svelte components (7 shared primitives + 10 feature)
+- **Components:** 24 reusable Svelte components (14 shared primitives + 10 feature)
 - **Icons:** lucide-svelte with 80+ icon mappings
 - **Logging:** JSON Lines to `~/.home-server/logs/` with rotation + /logs viewer
 - **Security:** Input sanitization (path traversal, shell injection, body validation)

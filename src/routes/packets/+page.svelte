@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { toast } from '$lib/toast';
+  import { fetchApi } from '$lib/api';
 
   interface PacketEntry {
     id: number;
@@ -27,7 +28,7 @@
 
   async function fetchInterfaces() {
     try {
-      const res = await fetch('/api/packets?action=interfaces');
+      const res = await fetchApi('/api/packets?action=interfaces');
       const data = await res.json();
       interfaces = data.interfaces || [];
       if (interfaces.length > 0 && !interfaces.includes(selectedInterface)) {
@@ -41,7 +42,7 @@
   async function startCapture() {
     loading = true;
     try {
-      const res = await fetch('/api/packets', {
+      const res = await fetchApi('/api/packets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -70,7 +71,7 @@
 
   async function stopCapture() {
     try {
-      await fetch('/api/packets', {
+      await fetchApi('/api/packets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'stop' }),
@@ -84,7 +85,7 @@
   }
 
   async function clearPackets() {
-    await fetch('/api/packets', {
+    await fetchApi('/api/packets', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'clear' }),
@@ -95,7 +96,7 @@
 
   async function pollPackets() {
     try {
-      const res = await fetch(`/api/packets?action=packets&since=${lastSeenId}`);
+      const res = await fetchApi(`/api/packets?action=packets&since=${lastSeenId}`);
       const data = await res.json();
       if (data.packets?.length > 0) {
         packets = [...packets, ...data.packets];
@@ -144,7 +145,7 @@
   onMount(() => {
     fetchInterfaces();
     // Check if there's an active capture
-    fetch('/api/packets?action=status')
+    fetchApi('/api/packets?action=status')
       .then((r) => r.json())
       .then((d) => {
         if (d.running) {

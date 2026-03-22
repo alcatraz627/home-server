@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { PageData } from './$types';
   import { toast } from '$lib/toast';
+  import { fetchApi } from '$lib/api';
   import Button from '$lib/components/Button.svelte';
   import Badge from '$lib/components/Badge.svelte';
   import SearchInput from '$lib/components/SearchInput.svelte';
@@ -85,7 +86,7 @@
     }
 
     try {
-      const res = await fetch('/api/bookmarks', {
+      const res = await fetchApi('/api/bookmarks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -109,7 +110,7 @@
 
   async function deleteBookmark(id: string) {
     try {
-      const res = await fetch('/api/bookmarks', {
+      const res = await fetchApi('/api/bookmarks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ _action: 'delete', id }),
