@@ -1661,14 +1661,14 @@
       <span class="scheduled-count">({scheduledCount} scheduled)</span>{/if}
   </h2>
   <div class="controls">
-    <Button onclick={refresh}>&#x21bb; Refresh</Button>
+    <Button onclick={refresh}>↻ Refresh</Button>
     <Button
       onclick={() => {
         showTemplates = !showTemplates;
         if (showTemplates) showForm = false;
       }}
     >
-      &#x2630; Templates
+      ☰ Templates
     </Button>
     <Button
       onclick={() => {
@@ -1749,7 +1749,7 @@
                 onclick={(e) => {
                   e.stopPropagation();
                   if (customIdx >= 0) editCustomTemplate(customIdx);
-                }}>&#x270E;</button
+                }}>✎</button
               >
               <button
                 class="template-delete-btn"
@@ -1757,7 +1757,7 @@
                 onclick={(e) => {
                   e.stopPropagation();
                   if (customIdx >= 0) deleteCustomTemplate(customIdx);
-                }}>&#x2715;</button
+                }}>✕</button
               >
             </div>
           {/if}
@@ -1785,10 +1785,10 @@
     {/if}
     {#if templateTotalPages > 1}
       <div class="template-pagination">
-        <Button size="sm" disabled={templatePage === 0} onclick={() => templatePage--}>&#x2039; Prev</Button>
+        <Button size="sm" disabled={templatePage === 0} onclick={() => templatePage--}>‹ Prev</Button>
         <span class="page-info">{templatePage + 1} / {templateTotalPages}</span>
         <Button size="sm" disabled={templatePage >= templateTotalPages - 1} onclick={() => templatePage++}
-          >Next &#x203A;</Button
+          >Next ›</Button
         >
       </div>
     {/if}
@@ -1804,7 +1804,7 @@
         {terminalTaskName}
         {#if terminalRunning}<span class="terminal-spinner"></span>{/if}
       </span>
-      <Button size="xs" variant="ghost" onclick={closeTerminal} class="terminal-close">&#x2715;</Button>
+      <Button size="xs" variant="ghost" onclick={closeTerminal} class="terminal-close">✕</Button>
     </div>
     <pre class="terminal-output" bind:this={terminalEl}>{terminalOutput || 'Waiting for output...'}</pre>
   </div>
@@ -1830,7 +1830,7 @@
         {#if commandWarnings.length > 0}
           <div class="command-warnings">
             {#each commandWarnings as w}
-              <div class="warning-item">&#x26A0; {w}</div>
+              <div class="warning-item">⚠ {w}</div>
             {/each}
           </div>
         {/if}
@@ -1852,7 +1852,7 @@
 
       <div class="form-section form-advanced-toggle">
         <Button size="sm" onclick={() => (showAdvanced = !showAdvanced)}>
-          {showAdvanced ? '&#x25B2; Hide' : '&#x25BC; Show'} Advanced
+          {showAdvanced ? '▲ Hide' : '▼ Show'} Advanced
         </Button>
       </div>
 
@@ -1876,7 +1876,7 @@
     <div class="form-actions">
       {#if editingTemplateIdx !== null}
         <Button variant="primary" onclick={saveEditedTemplate} disabled={!formName || !formCommand}
-          >&#x1F4BE; Save Template</Button
+          >💾 Save Template</Button
         >
         <Button
           onclick={() => {
@@ -1929,15 +1929,15 @@
           <div class="task-info">
             <div class="task-title-row">
               {#if status.isRunning}
-                <span class="task-status-icon icon-running">&#x25CC;</span>
+                <span class="task-status-icon icon-running">◌</span>
               {:else if status.lastRun?.status === 'success'}
-                <span class="task-status-icon icon-success">&#x2713;</span>
+                <span class="task-status-icon icon-success">✓</span>
               {:else if status.lastRun?.status === 'failed' || status.lastRun?.status === 'timeout'}
-                <span class="task-status-icon icon-failed">&#x2717;</span>
+                <span class="task-status-icon icon-failed">✗</span>
               {:else if status.config.schedule}
-                <span class="task-status-icon icon-scheduled">&#x25F7;</span>
+                <span class="task-status-icon icon-scheduled">◷</span>
               {:else}
-                <span class="task-status-icon icon-idle">&#x25CB;</span>
+                <span class="task-status-icon icon-idle">○</span>
               {/if}
               <h3>{status.config.name}</h3>
               {#if status.isRunning}
@@ -1965,21 +1965,21 @@
           </div>
           <div class="task-actions">
             <Button size="sm" onclick={() => runTask(status.config.id)} disabled={status.isRunning}>
-              {status.isRunning ? '&#x23F3;' : '&#x25B6;'} Run
+              {status.isRunning ? '⏳' : '▶'} Run
             </Button>
             <Button
               size="sm"
               onclick={() => (expandedTask = expandedTask === status.config.id ? null : status.config.id)}
             >
-              {expandedTask === status.config.id ? '&#x25B2;' : '&#x25BC;'}
+              {expandedTask === status.config.id ? '▲' : '▼'}
             </Button>
-            <Button size="sm" onclick={() => saveAsTemplate(status)}>&#x1F4BE; Save</Button>
+            <Button size="sm" onclick={() => saveAsTemplate(status)}>💾 Save</Button>
             <Button
               size="sm"
               variant="danger"
               confirm
               confirmText="Delete?"
-              onclick={() => requestDeleteTask(status.config.id)}>&#x2715;</Button
+              onclick={() => requestDeleteTask(status.config.id)}>✕</Button
             >
           </div>
         </div>
@@ -2027,9 +2027,9 @@
   </div>
   {#if taskTotalPages > 1}
     <div class="template-pagination">
-      <Button size="sm" disabled={taskPage === 0} onclick={() => taskPage--}>&#x2039; Prev</Button>
+      <Button size="sm" disabled={taskPage === 0} onclick={() => taskPage--}>‹ Prev</Button>
       <span class="page-info">Page {taskPage + 1} of {taskTotalPages}</span>
-      <Button size="sm" disabled={taskPage >= taskTotalPages - 1} onclick={() => taskPage++}>Next &#x203A;</Button>
+      <Button size="sm" disabled={taskPage >= taskTotalPages - 1} onclick={() => taskPage++}>Next ›</Button>
     </div>
   {/if}
 {/if}
@@ -2042,7 +2042,7 @@
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <div class="cron-dialog" onclick={(e) => e.stopPropagation()}>
-      <div class="cron-dialog-icon">&#x26A0;</div>
+      <div class="cron-dialog-icon">⚠</div>
       <h3 class="cron-dialog-title">Delete Scheduled Task</h3>
       <p class="cron-dialog-text">
         <strong>{cronDeleteTarget.name}</strong> has an active cron schedule (<code>{cronDeleteTarget.schedule}</code>).

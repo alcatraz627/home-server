@@ -98,7 +98,7 @@
       {@const isCatOpen = categoryExpanded[cat.id] !== false}
       <div class="category-section" id="cat-{cat.id}">
         <button class="category-header" onclick={() => toggleCategory(cat.id)} aria-expanded={isCatOpen}>
-          <span class="category-chevron" class:expanded={isCatOpen}>&#9656;</span>
+          <span class="category-chevron" class:expanded={isCatOpen}>▸</span>
           <span class="category-label">{cat.label}</span>
           <span class="category-count">{cat.files.length}</span>
         </button>

@@ -735,28 +735,46 @@ User feedback + audit findings from the v3.0.0 sprint. Organized by area.
 ### D7 — Peripherals
 
 - [x] **More info per type** — expand each peripheral tab with additional data: WiFi (channel width, noise level, PHY mode), Bluetooth (battery level if available, device type icon), USB (bus number, port, power), Audio (sample format, channel count), Battery (health, temperature, power adapter wattage)
-- [ ] **Search across peripherals** — add a SearchInput at the top that filters across all tabs simultaneously. Show matching tab name as prefix in results
+- [x] **Search across peripherals** — add a SearchInput at the top that filters across all tabs simultaneously. Show matching tab name as prefix in results
 
 ### D8 — Files
 
 - [x] **Better checkbox styling** — the file selection checkbox looks odd. Use the global custom checkbox CSS or the existing `.hs-btn` pattern
 - [x] **Page header toolbar** — restructure the files page header: title + global actions (refresh, upload) in a toolbar bar. Move folder-specific actions (New Folder, search) to a secondary bar right above the file list
 - [x] **File path input position** — move the editable path bar below the file upload area. Add proper validation — always check if path exists before navigating. Show error toast + revert to last valid path on invalid
-- [ ] **Media player enhancements** — add: playback speed dropdown (0.25x to 3x), picture-in-picture button, download button, subtitle support indicator
-- [ ] **Inline terminal** — add a collapsible terminal panel at the bottom of the files page. Open with a "Terminal" button. Auto-set the PTY cwd to the current file browser directory. Reuse components from the terminal page
+- [x] **Media player enhancements** — add: playback speed dropdown (0.25x to 3x), picture-in-picture button, download button, subtitle support indicator
+- [x] **Inline terminal** — add a collapsible terminal panel at the bottom of the files page. Open with a "Terminal" button. Auto-set the PTY cwd to the current file browser directory. Reuse components from the terminal page
 - [x] **Folder view modes** — add view toggle: list (current), grid (card layout with thumbnails), tree (collapsible folder tree). Store preference in localStorage
-- [ ] **Wildcard search** — use `find` command on the backend for wildcard search (e.g., `find . -name "*.jpg"`). Pass the pattern as a query param to the search API
+- [x] **Wildcard search** — use `find` command on the backend for wildcard search (e.g., `find . -name "*.jpg"`). Pass the pattern as a query param to the search API
 
 ### D9 — Documentation
 
-- [ ] **Another docs refinement pass** — audit all docs, fix stale references, improve clarity, add links between related docs
-- [ ] **Improve README.md** — add actual screenshots (or instructions for generating them), link to specific doc sections for common concerns, add troubleshooting section
-- [ ] **Cross-reference links** — in README features table, add links to the relevant `docs/pages/` file for each feature
+- [x] **Another docs refinement pass** — audit all docs, fix stale references, improve clarity, add links between related docs
+- [x] **Improve README.md** — add actual screenshots (or instructions for generating them), link to specific doc sections for common concerns, add troubleshooting section
+- [x] **Cross-reference links** — in README features table, add links to the relevant `docs/pages/` file for each feature
 
 ### D10 — AI Chat + Dashboard + Terminal (additional)
 
 - [x] **AI chat page context** — pass `$page.url.pathname` from layout to AiChat as a prop. Include it in the `/api/ai/chat` request body. Update the API to inject the current page name into the Claude system prompt (e.g., "The user is currently viewing the Files page")
-- [ ] **Dashboard drag-and-drop layout** — replace the show/hide toggle with a full layout system. Store `{ section: string, order: number, visible: boolean, width: 'full' | 'half' }[]` in localStorage. Render sections sorted by `order`. Add drag-and-drop reordering (HTML5 drag API). Show a grid toggle: 1-column or 2-column layout
+- [x] **Dashboard drag-and-drop layout** — replace the show/hide toggle with a full layout system. Store `{ section: string, order: number, visible: boolean, width: 'full' | 'half' }[]` in localStorage. Render sections sorted by `order`. Add drag-and-drop reordering (HTML5 drag API). Show a grid toggle: 1-column or 2-column layout
 - [x] **Terminal: don't auto-start** — on mount, only restore saved sessions. If no saved sessions exist, show the empty state with "New Terminal" button. Do NOT auto-create a shell tab
 - [x] **Terminal: session summary bar** — add a summary row at the top showing all running shell processes (from server session map). Display: session ID (short), label, PID, uptime, status (connected/disconnected). Click to switch to that tab
 - [x] **Terminal: bottom status bar** — add a fixed-bottom bar in the terminal page showing: current session ID, shell type (bash/zsh), cols x rows, connection status (connected/reconnecting), PTY PID. Style as a thin monospace bar like a VS Code status bar
+
+---
+
+## v3.8 — UI Bugs & Polish
+
+### E1 — Icon & Display Bugs
+
+- [x] **File upload icon shows `\u2191`** — Unicode escape rendered as text. Replace with `↑` character or `<Icon name="upload">`
+- [x] **HTML entities everywhere** — audit all .svelte files for `&#x25B6;` etc. rendering as text. Replace with Unicode chars or Icon component
+- [x] **Tab button group border** — files page "This folder"/"All files" and list/grid toggles have outer border. Style as proper segmented control
+
+### E2 — URL-Synced Tabs
+
+- [x] **Tab state in URL** — for pages with sub-tabs (peripherals, network, docs), sync active tab with URL hash. Use `replaceState` for tab changes, read hash on initial load. Back/forward nav should switch tabs
+
+### E3 — Bluetooth Install Guide
+
+- [x] **Better blueutil install UX** — show step-by-step instructions with copy-to-clipboard button for install command. Hide connect/disconnect buttons until blueutil is available

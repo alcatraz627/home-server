@@ -260,7 +260,7 @@
   <!-- Entries -->
   {#if entries.length === 0}
     <div class="card empty-state">
-      <div class="empty-icon">&#9112;</div>
+      <div class="empty-icon">⎈</div>
       <h3>No entries yet</h3>
       <p>Paste content in the text area above to share it across your devices.</p>
       <div class="empty-tips">

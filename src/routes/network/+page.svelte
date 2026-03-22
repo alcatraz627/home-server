@@ -370,7 +370,7 @@
 </div>
 <p class="page-desc">Run traceroute, ping, whois, and other network diagnostic tools from your server.</p>
 
-<Tabs {tabs} bind:active={activeTab} />
+<Tabs {tabs} bind:active={activeTab} syncHash />
 
 <div class="tab-content">
   <!-- Traceroute -->

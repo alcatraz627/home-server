@@ -287,7 +287,7 @@
     {/if}
   </div>
 {:else}
-  <Tabs tabs={tabItems} bind:active={activeTab} />
+  <Tabs tabs={tabItems} bind:active={activeTab} syncHash />
 
   {#if activeTab === 'wifi'}
     <!-- Current connection -->
@@ -394,7 +394,7 @@
       <div class="device-list">
         {#each usb as dev, i}
           <div class="device-row card-stagger" style="animation-delay: {i * 30}ms">
-            <div class="device-icon">&#x1F50C;</div>
+            <div class="device-icon">🔌</div>
             <div class="device-info">
               <span class="device-name">{dev.name}</span>
               <span class="device-meta">
@@ -490,7 +490,7 @@
       <div class="device-list">
         {#each displays as disp, i}
           <div class="device-row card-stagger" style="animation-delay: {i * 30}ms">
-            <div class="device-icon">&#x1F5B5;</div>
+            <div class="device-icon">🖵</div>
             <div class="device-info">
               <span class="device-name">
                 {disp.name}
@@ -521,7 +521,7 @@
       <div class="device-list">
         {#each networkInterfaces as iface, i}
           <div class="device-row card-stagger" style="animation-delay: {i * 30}ms">
-            <div class="device-icon">&#x1F310;</div>
+            <div class="device-icon">🌐</div>
             <div class="device-info">
               <span class="device-name">{iface.port}</span>
               <span class="device-meta">

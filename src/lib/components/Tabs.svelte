@@ -1,27 +1,57 @@
 <script lang="ts">
+  import { browser } from '$app/environment';
+
   let {
     tabs,
     active = $bindable((tabs[0] as { id: string })?.id ?? ''),
     size = 'md',
+    syncHash = false,
     class: className = '',
   } = $props<{
     tabs: { id: string; label: string; count?: number }[];
     active: string;
     size?: 'sm' | 'md';
+    syncHash?: boolean;
     class?: string;
   }>();
+
+  // URL hash sync — read hash on mount, write on change
+  if (browser && syncHash) {
+    const hash = location.hash.slice(1);
+    if (hash && tabs.some((t: { id: string }) => t.id === hash)) {
+      active = hash;
+    }
+  }
+
+  function setActive(id: string) {
+    active = id;
+    if (browser && syncHash) {
+      history.replaceState(null, '', `#${id}`);
+    }
+  }
+
+  // Listen for popstate (back/forward) to sync tabs
+  function handlePopState() {
+    if (!syncHash || !browser) return;
+    const hash = location.hash.slice(1);
+    if (hash && tabs.some((t: { id: string }) => t.id === hash)) {
+      active = hash;
+    }
+  }
 
   function handleKeydown(e: KeyboardEvent) {
     const idx = tabs.findIndex((t: { id: string }) => t.id === active);
     if (e.key === 'ArrowRight' && idx < tabs.length - 1) {
-      active = tabs[idx + 1].id;
+      setActive(tabs[idx + 1].id);
       e.preventDefault();
     } else if (e.key === 'ArrowLeft' && idx > 0) {
-      active = tabs[idx - 1].id;
+      setActive(tabs[idx - 1].id);
       e.preventDefault();
     }
   }
 </script>
+
+<svelte:window onpopstate={handlePopState} />
 
 <div class="hs-tabs hs-tabs-{size} {className}" role="tablist" onkeydown={handleKeydown}>
   {#each tabs as tab (tab.id)}
@@ -31,7 +61,7 @@
       role="tab"
       aria-selected={active === tab.id}
       tabindex={active === tab.id ? 0 : -1}
-      onclick={() => (active = tab.id)}
+      onclick={() => setActive(tab.id)}
     >
       {tab.label}
       {#if tab.count !== undefined}

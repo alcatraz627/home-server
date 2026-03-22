@@ -835,7 +835,7 @@
     </div>
   {:else}
     <div class="upload-content">
-      <span class="upload-icon">\u2191</span>
+      <span class="upload-icon">↑</span>
       <p class="upload-main">
         Drop files or folders here, or
         <label class="file-label">browse files<input type="file" multiple onchange={handleFileInput} /></label>
@@ -886,7 +886,7 @@
         {/if}
       {/each}
     </div>
-    <button class="path-edit-btn" onclick={startEditingPath} title="Edit path">&#x270E;</button>
+    <button class="path-edit-btn" onclick={startEditingPath} title="Edit path">✎</button>
   {/if}
 </nav>
 
@@ -961,10 +961,10 @@
   {/if}
   <div class="view-toggle">
     <button class="view-btn" class:active={viewMode === 'list'} onclick={() => setViewMode('list')} title="List view"
-      >&#9776;</button
+      >☰</button
     >
     <button class="view-btn" class:active={viewMode === 'grid'} onclick={() => setViewMode('grid')} title="Grid view"
-      >&#9638;</button
+      >▦</button
     >
   </div>
 </div>
@@ -1001,7 +1001,7 @@
     <div class="bulk-actions">
       <Button size="sm" onclick={clearSelection}>Clear</Button>
       {#if selectedMediaCount > 0}
-        <Button size="sm" variant="accent" onclick={playSelected}>&#9654; Play {selectedMediaCount} Media</Button>
+        <Button size="sm" variant="accent" onclick={playSelected}>▶ Play {selectedMediaCount} Media</Button>
       {/if}
       <a href={zipDownloadUrl()} class="btn btn-sm" download="files.zip">Download Zip</a>
       <Button size="sm" variant="danger" confirm onclick={deleteSelected}>Delete Selected</Button>

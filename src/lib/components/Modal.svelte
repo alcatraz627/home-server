@@ -46,10 +46,10 @@
       {#if title}
         <div class="modal-header">
           <h3>{title}</h3>
-          <button class="modal-close" onclick={close} aria-label="Close">&#10005;</button>
+          <button class="modal-close" onclick={close} aria-label="Close">✕</button>
         </div>
       {:else}
-        <button class="modal-close modal-close-floating" onclick={close} aria-label="Close">&#10005;</button>
+        <button class="modal-close modal-close-floating" onclick={close} aria-label="Close">✕</button>
       {/if}
       <div class="modal-body">
         {@render children()}

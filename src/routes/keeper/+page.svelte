@@ -668,8 +668,7 @@
             {/if}
             {#if req.status !== 'running' && !runningAgents.includes(req.id)}
               <Button size="sm" onclick={() => startEdit(req)}>Edit</Button>
-              <Button size="sm" variant="danger" confirm confirmText="Sure?" onclick={() => deleteReq(req.id)}
-                >&#x2715;</Button
+              <Button size="sm" variant="danger" confirm confirmText="Sure?" onclick={() => deleteReq(req.id)}>✕</Button
               >
             {/if}
           </div>

@@ -666,7 +666,7 @@
       >
         <!-- Drag handle -->
         <div class="drag-handle" title="Drag to reorder" draggable="true" ondragstart={() => handleDragStart(bulb.mac)}>
-          &#x2261;
+          ≡
         </div>
         <!-- Color swatch header -->
         <div
