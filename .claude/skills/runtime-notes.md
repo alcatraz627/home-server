@@ -2,6 +2,20 @@
 
 Append-only log of skill run insights. Newest entries at top.
 
+## session: Network toolkit, peripherals, AI chat improvements (D6/D7/D10) — 2026-03-22
+
+**Purpose:** Added suggestion chips, collapsible docs, and guided UI to Network Toolkit; cross-tab search and extended device info to Peripherals; page context awareness to AI Chat.
+
+**Insights:**
+
+1. The peripherals API uses `system_profiler -json` which returns varied keys per macOS version -- fields like `device_batteryLevel`, `device_batteryLevelMain`, `spairport_network_noise`, `spairport_network_phymode` may or may not be present, so null-safety is essential.
+2. USB `location_id` from system_profiler provides bus/port info; the controller `_name` gives the bus name. Both passed through `walkUSB` recursive function.
+3. The `Collapsible` component uses `$bindable(open)` with default false, so no explicit `open={false}` needed when embedding doc sections.
+4. The peripherals search works by filtering all data arrays and returning unified `SearchResult` objects. When search is active, the entire tab panel is replaced with cross-tab results.
+5. AiChat `currentPage` prop flows layout -> component -> API -> system prompt, allowing Claude to give context-aware answers about whichever page the user is viewing.
+
+---
+
 ## session: App launcher page + files page improvements — 2026-03-22
 
 **Purpose:** Created the /apps page for launching macOS applications and improved the /files page with toolbar restructuring, view toggle, and path validation.
