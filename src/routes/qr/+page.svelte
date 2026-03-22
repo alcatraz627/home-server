@@ -424,6 +424,52 @@
       toast.error('Failed to copy to clipboard');
     }
   }
+
+  let canShare = $state(false);
+  let fillingWifi = $state(false);
+
+  if (typeof navigator !== 'undefined' && 'share' in navigator && 'canShare' in navigator) {
+    // Check if file sharing is supported
+    try {
+      const testFile = new File(['test'], 'test.png', { type: 'image/png' });
+      canShare = navigator.canShare?.({ files: [testFile] }) ?? false;
+    } catch {
+      canShare = false;
+    }
+  }
+
+  async function shareQR() {
+    if (!canvas) return;
+    try {
+      const blob = await new Promise<Blob>((resolve) => canvas!.toBlob((b) => resolve(b!), 'image/png'));
+      const file = new File([blob], 'qrcode.png', { type: 'image/png' });
+      await navigator.share({ files: [file], title: 'QR Code' });
+    } catch (e: any) {
+      if (e.name !== 'AbortError') {
+        toast.error('Failed to share');
+      }
+    }
+  }
+
+  async function fillFromWifi() {
+    fillingWifi = true;
+    try {
+      const res = await fetch('/api/wifi');
+      if (!res.ok) throw new Error('Failed to get WiFi info');
+      const data = await res.json();
+      if (data.currentConnection?.ssid) {
+        ssid = data.currentConnection.ssid;
+        mode = 'wifi';
+        toast.success(`Filled SSID: ${ssid}`);
+      } else {
+        toast.error('Could not detect current WiFi network');
+      }
+    } catch {
+      toast.error('Failed to get WiFi info');
+    } finally {
+      fillingWifi = false;
+    }
+  }
 </script>
 
 <div class="page">
@@ -442,10 +488,15 @@
           <input type="text" bind:value={text} placeholder="Enter text or URL..." />
         </label>
       {:else}
-        <label>
-          <span>SSID</span>
-          <input type="text" bind:value={ssid} placeholder="Network name" />
-        </label>
+        <div class="wifi-fill-row">
+          <label style="flex:1">
+            <span>SSID</span>
+            <input type="text" bind:value={ssid} placeholder="Network name" />
+          </label>
+          <button class="btn-fill-wifi" onclick={fillFromWifi} disabled={fillingWifi}>
+            {fillingWifi ? 'Detecting...' : 'Fill from WiFi'}
+          </button>
+        </div>
         <label>
           <span>Password</span>
           <input type="text" bind:value={password} placeholder="Password" />
@@ -481,6 +532,9 @@
       <div class="actions">
         <button class="btn-primary" onclick={downloadPNG}>Download PNG</button>
         <button class="btn-secondary" onclick={copyDataURL}>Copy Image</button>
+        {#if canShare}
+          <button class="btn-secondary" onclick={shareQR}>Share</button>
+        {/if}
       </div>
     </div>
 
@@ -571,9 +625,34 @@
   .wifi-preview code {
     color: var(--text-muted);
   }
+  .wifi-fill-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-end;
+  }
+  .btn-fill-wifi {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    cursor: pointer;
+    font-size: 0.8rem;
+    white-space: nowrap;
+    margin-bottom: 1px;
+  }
+  .btn-fill-wifi:hover:not(:disabled) {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .btn-fill-wifi:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
   .actions {
     display: flex;
     gap: 0.5rem;
+    flex-wrap: wrap;
   }
   .btn-primary,
   .btn-secondary {

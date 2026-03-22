@@ -1,6 +1,7 @@
 <script lang="ts">
   import { fly } from 'svelte/transition';
   import { browser } from '$app/environment';
+  import Icon from '$lib/components/Icon.svelte';
 
   interface Message {
     role: 'user' | 'assistant';
@@ -205,7 +206,9 @@
   }}
   title="AI Assistant"
 >
-  {#if open || fullscreen}<span class="fab-icon">✕</span>{:else}<span class="fab-icon fab-gradient">AI</span>{/if}
+  {#if open || fullscreen}<span class="fab-icon"><Icon name="close" size={18} /></span>{:else}<span
+      class="fab-icon fab-gradient">AI</span
+    >{/if}
 </button>
 
 <!-- Fullscreen modal -->
@@ -280,7 +283,9 @@
             <div class="ai-msg ai-{msg.role}">
               <div class="ai-msg-header">
                 <span class="ai-role">{msg.role === 'user' ? 'You' : 'Claude'}</span>
-                <button class="ai-copy-btn" onclick={() => copyMessage(msg.content)} title="Copy">&#x2398;</button>
+                <button class="ai-copy-btn" onclick={() => copyMessage(msg.content)} title="Copy"
+                  ><Icon name="copy" size={12} /></button
+                >
               </div>
               <div class="ai-content">{@html formatContent(msg.content)}</div>
             </div>
@@ -307,7 +312,7 @@
             rows="2"
           ></textarea>
           <button class="ai-send" onclick={send} disabled={loading || !input.trim()}>
-            {loading ? '...' : '→'}
+            {#if loading}...{:else}<Icon name="send" size={16} />{/if}
           </button>
         </div>
       </div>
@@ -332,7 +337,7 @@
             fullscreen = true;
             open = false;
           }}
-          title="Fullscreen">⛶</button
+          title="Fullscreen"><Icon name="maximize" size={14} /></button
         >
       </div>
     </div>
@@ -363,7 +368,9 @@
                 <span class="ai-history-meta">{convo.messages.length} messages</span>
               </button>
             {/if}
-            <button class="ai-history-delete" onclick={() => deleteConvo(convo.id)} title="Delete">✕</button>
+            <button class="ai-history-delete" onclick={() => deleteConvo(convo.id)} title="Delete"
+              ><Icon name="close" size={12} /></button
+            >
           </div>
         {/each}
       </div>
@@ -399,7 +406,7 @@
           rows="2"
         ></textarea>
         <button class="ai-send" onclick={send} disabled={loading || !input.trim()}>
-          {loading ? '...' : '→'}
+          {#if loading}...{:else}<Icon name="send" size={16} />{/if}
         </button>
       </div>
     {/if}

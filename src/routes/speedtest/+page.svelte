@@ -163,6 +163,32 @@
   <h1>Speed Test</h1>
   <p class="subtitle">Measures throughput between your browser and this server (LAN speed)</p>
 
+  <div class="phases-info card">
+    <div class="phase-step">
+      <span class="phase-num">1</span>
+      <div class="phase-desc">
+        <strong>Latency</strong>
+        <span>Pings the server 5 times and averages the round-trip time</span>
+      </div>
+    </div>
+    <div class="phase-arrow">&rarr;</div>
+    <div class="phase-step">
+      <span class="phase-num">2</span>
+      <div class="phase-desc">
+        <strong>Download</strong>
+        <span>Downloads test payloads of increasing size (512KB to 4MB)</span>
+      </div>
+    </div>
+    <div class="phase-arrow">&rarr;</div>
+    <div class="phase-step">
+      <span class="phase-num">3</span>
+      <div class="phase-desc">
+        <strong>Upload</strong>
+        <span>Uploads random data payloads (256KB to 2MB) to the server</span>
+      </div>
+    </div>
+  </div>
+
   <div class="test-area card">
     <div class="gauges">
       <div class="gauge-group">
@@ -236,6 +262,21 @@
         <div class="progress-bar">
           <div class="progress-fill" style="width: {progress}%"></div>
         </div>
+        <div class="phase-dots">
+          <span
+            class="phase-dot-item"
+            class:active={phase === 'latency'}
+            class:done={phase === 'download' || phase === 'upload' || phase === 'done'}>Latency</span
+          >
+          <span class="phase-dot-sep"></span>
+          <span
+            class="phase-dot-item"
+            class:active={phase === 'download'}
+            class:done={phase === 'upload' || phase === 'done'}>Download</span
+          >
+          <span class="phase-dot-sep"></span>
+          <span class="phase-dot-item" class:active={phase === 'upload'} class:done={phase === 'done'}>Upload</span>
+        </div>
       </div>
     {/if}
 
@@ -288,6 +329,60 @@
     font-size: 0.9rem;
     margin-bottom: 1.5rem;
   }
+  .phases-info {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    padding: 1rem 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  @media (max-width: 600px) {
+    .phases-info {
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .phase-arrow {
+      transform: rotate(90deg);
+    }
+  }
+  .phase-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    flex: 1;
+  }
+  .phase-num {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--accent-bg);
+    color: var(--accent);
+    font-size: 0.75rem;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .phase-desc {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+  .phase-desc strong {
+    font-size: 0.85rem;
+    color: var(--text-primary);
+  }
+  .phase-desc span {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+  }
+  .phase-arrow {
+    color: var(--text-faint);
+    font-size: 1rem;
+    flex-shrink: 0;
+  }
   .test-area {
     padding: 2rem;
     display: flex;
@@ -329,10 +424,11 @@
     height: 80px;
   }
   .gauge-value {
-    font-size: 1.1rem;
-    font-weight: 700;
+    font-size: 1.4rem;
+    font-weight: 800;
     color: var(--text-primary);
     margin-top: -0.5rem;
+    font-family: 'JetBrains Mono', monospace;
   }
   .gauge-label {
     font-size: 0.8rem;
@@ -380,6 +476,39 @@
     background: var(--accent);
     border-radius: 3px;
     transition: width 0.3s ease;
+  }
+  .phase-dots {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+  }
+  .phase-dot-item {
+    font-size: 0.75rem;
+    color: var(--text-faint);
+    font-weight: 500;
+  }
+  .phase-dot-item.active {
+    color: var(--accent);
+    animation: pulse-text 1s infinite;
+  }
+  .phase-dot-item.done {
+    color: var(--success);
+  }
+  .phase-dot-sep {
+    width: 20px;
+    height: 2px;
+    background: var(--border);
+  }
+  @keyframes pulse-text {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.4;
+    }
   }
   .btn-start {
     padding: 0.75rem 2.5rem;

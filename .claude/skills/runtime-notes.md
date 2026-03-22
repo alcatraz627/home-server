@@ -2,6 +2,17 @@
 
 Append-only log of skill run insights. Newest entries at top.
 
+## session: Create shared Tooltip and Modal components — 2026-03-22
+
+**Purpose:** Added reusable Tooltip and Modal Svelte 5 components and integrated Tooltip into the navbar header.
+
+**Insights:**
+
+1. In Svelte 5, `<svelte:window>` cannot be placed inside `{#if}` blocks — must be at the top level with a conditional guard inside the handler function.
+2. The layout file (`+layout.svelte`) is large (~1200 lines with styles). Navbar buttons (Help, Settings, Theme indicator) are around lines 364-395.
+3. The project already has inline modal markup in the layout for "Manage Devices" — the new Modal component could replace it in a future refactor.
+4. Tooltip `position="bottom"` is appropriate for header buttons since they're at the top of the viewport.
+
 ---
 
 ## session: Three feature additions (path bar, peripherals tabs, cron lifecycle) -- 2026-03-22

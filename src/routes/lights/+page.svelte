@@ -656,7 +656,15 @@
         style="animation-delay: {i * 40}ms"
         class:off={!bulb.state}
         class:selected={selectedBulbs.has(bulb.mac)}
+        class:drag-over={dragOverMac === bulb.mac}
+        draggable="true"
+        ondragstart={() => handleDragStart(bulb.mac)}
+        ondragover={(e) => handleDragOver(e, bulb.mac)}
+        ondrop={() => handleDrop(bulb.mac)}
+        ondragend={handleDragEnd}
       >
+        <!-- Drag handle -->
+        <div class="drag-handle" title="Drag to reorder">&#x2261;</div>
         <!-- Color swatch header -->
         <div
           class="bulb-swatch"
@@ -1089,6 +1097,7 @@
     padding: 0;
     overflow: hidden;
     transition: border-color 0.15s;
+    position: relative;
   }
   .bulb-card:hover {
     border-color: var(--text-faint);
@@ -1098,6 +1107,36 @@
   }
   .bulb-card.selected {
     border-color: var(--accent);
+  }
+  .bulb-card.drag-over {
+    border-color: var(--accent);
+    border-style: dashed;
+    opacity: 0.8;
+  }
+
+  /* Drag handle */
+  .drag-handle {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    color: var(--text-faint);
+    cursor: grab;
+    opacity: 0;
+    transition: opacity 0.15s;
+    z-index: 2;
+    user-select: none;
+  }
+  .drag-handle:active {
+    cursor: grabbing;
+  }
+  .bulb-card:hover .drag-handle {
+    opacity: 1;
   }
 
   /* Color swatch */

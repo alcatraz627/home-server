@@ -1,5 +1,6 @@
 <script lang="ts">
   import { toast } from '$lib/toast';
+  import Icon from '$lib/components/Icon.svelte';
 
   interface PlaylistItem {
     src: string;
@@ -231,12 +232,13 @@
             title="Toggle playlist"
             onclick={() => (showPlaylist = !showPlaylist)}
           >
-            &#9776;
+            <Icon name="menu" size={14} />
           </button>
         {/if}
         <button class="ctrl-btn" title="Open in VLC" onclick={openVlc}>VLC</button>
         <button class="ctrl-btn" title="Copy stream URL" onclick={copyStreamUrl}>URL</button>
-        <button class="ctrl-btn close-btn" title="Close (Esc)" onclick={onclose}>&times;</button>
+        <button class="ctrl-btn close-btn" title="Close (Esc)" onclick={onclose}><Icon name="close" size={16} /></button
+        >
       </div>
     </div>
 
@@ -325,13 +327,17 @@
           <div class="controls-row">
             <div class="controls-left">
               {#if hasPlaylist}
-                <button class="ctrl-btn" disabled={!canPrev} title="Previous (P)" onclick={prevTrack}>&#9198;</button>
+                <button class="ctrl-btn" disabled={!canPrev} title="Previous (P)" onclick={prevTrack}
+                  ><Icon name="arrow-left" size={14} /></button
+                >
               {/if}
               <button class="ctrl-btn play-btn" title="Play/Pause (Space)" onclick={togglePlay}>
-                {playing ? '⏸' : '▶'}
+                {#if playing}<Icon name="pause" size={18} />{:else}<Icon name="play" size={18} />{/if}
               </button>
               {#if hasPlaylist}
-                <button class="ctrl-btn" disabled={!canNext} title="Next (N)" onclick={nextTrack}>&#9197;</button>
+                <button class="ctrl-btn" disabled={!canNext} title="Next (N)" onclick={nextTrack}
+                  ><Icon name="arrow-right" size={14} /></button
+                >
               {/if}
             </div>
 
@@ -344,11 +350,9 @@
             <div class="controls-right">
               <button class="ctrl-btn vol-btn" title={muted ? 'Unmute' : 'Mute'} onclick={toggleMute}>
                 {#if muted || volume === 0}
-                  &#128263;
-                {:else if volume < 0.5}
-                  &#128264;
+                  <Icon name="eye-off" size={14} />
                 {:else}
-                  &#128266;
+                  <Icon name="eye" size={14} />
                 {/if}
               </button>
               <div class="volume-track">

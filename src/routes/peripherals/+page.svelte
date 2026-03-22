@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { browser } from '$app/environment';
   import { toast } from '$lib/toast';
 
   interface WifiNetwork {
@@ -37,13 +38,33 @@
     cycleCount: number | null;
   }
 
-  let wifi = $state<WifiNetwork[]>([]);
-  let bluetooth = $state<BluetoothDevice[]>([]);
-  let currentWifi = $state<{ ssid: string; rssi: number } | null>(null);
-  let usb = $state<USBDevice[]>([]);
-  let audio = $state<AudioDevice[]>([]);
-  let battery = $state<BatteryInfo | null>(null);
-  let loading = $state(true);
+  const CACHE_KEY = 'hs:peripherals-cache';
+
+  function loadCache(): any | null {
+    if (!browser) return null;
+    try {
+      const raw = sessionStorage.getItem(CACHE_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch {}
+    return null;
+  }
+
+  function saveCache(data: any) {
+    if (!browser) return;
+    try {
+      sessionStorage.setItem(CACHE_KEY, JSON.stringify(data));
+    } catch {}
+  }
+
+  const cached = loadCache();
+
+  let wifi = $state<WifiNetwork[]>(cached?.wifi || []);
+  let bluetooth = $state<BluetoothDevice[]>(cached?.bluetooth || []);
+  let currentWifi = $state<{ ssid: string; rssi: number } | null>(cached?.currentWifi || null);
+  let usb = $state<USBDevice[]>(cached?.usb || []);
+  let audio = $state<AudioDevice[]>(cached?.audio || []);
+  let battery = $state<BatteryInfo | null>(cached?.battery || null);
+  let loading = $state(!cached);
   let activeTab = $state<'wifi' | 'bluetooth' | 'usb' | 'audio' | 'battery'>('wifi');
   let wifiSort = $state<'rssi' | 'ssid' | 'channel'>('rssi');
 
@@ -58,6 +79,7 @@
       usb = data.usb || [];
       audio = data.audio || [];
       battery = data.battery || null;
+      saveCache(data);
     } catch (e: any) {
       toast.error(e.message || 'Failed to load peripherals');
     } finally {
@@ -146,8 +168,12 @@
     >
   </div>
 
-  {#if loading}
-    <div class="loading">Scanning networks...</div>
+  {#if loading && wifi.length === 0}
+    <div class="skeleton-list">
+      {#each Array(4) as _, i}
+        <div class="skeleton-card" style="animation-delay: {i * 60}ms; height: 52px; border-radius: 8px;"></div>
+      {/each}
+    </div>
   {:else if sortedWifi.length === 0}
     <div class="empty">No WiFi networks found</div>
   {:else}
@@ -181,8 +207,12 @@
     </div>
   {/if}
 {:else if activeTab === 'bluetooth'}
-  {#if loading}
-    <div class="loading">Scanning devices...</div>
+  {#if loading && bluetooth.length === 0}
+    <div class="skeleton-list">
+      {#each Array(3) as _, i}
+        <div class="skeleton-card" style="animation-delay: {i * 60}ms; height: 52px; border-radius: 8px;"></div>
+      {/each}
+    </div>
   {:else if bluetooth.length === 0}
     <div class="empty">No Bluetooth devices found</div>
   {:else}
@@ -202,8 +232,12 @@
     </div>
   {/if}
 {:else if activeTab === 'usb'}
-  {#if loading}
-    <div class="loading">Scanning USB devices...</div>
+  {#if loading && usb.length === 0}
+    <div class="skeleton-list">
+      {#each Array(3) as _, i}
+        <div class="skeleton-card" style="animation-delay: {i * 60}ms; height: 52px; border-radius: 8px;"></div>
+      {/each}
+    </div>
   {:else if usb.length === 0}
     <div class="empty">No USB devices found</div>
   {:else}
@@ -227,8 +261,12 @@
     </div>
   {/if}
 {:else if activeTab === 'audio'}
-  {#if loading}
-    <div class="loading">Scanning audio devices...</div>
+  {#if loading && audio.length === 0}
+    <div class="skeleton-list">
+      {#each Array(3) as _, i}
+        <div class="skeleton-card" style="animation-delay: {i * 60}ms; height: 52px; border-radius: 8px;"></div>
+      {/each}
+    </div>
   {:else if audio.length === 0}
     <div class="empty">No audio devices found</div>
   {:else}
@@ -252,8 +290,10 @@
     </div>
   {/if}
 {:else if activeTab === 'battery'}
-  {#if loading}
-    <div class="loading">Checking battery...</div>
+  {#if loading && !battery}
+    <div class="skeleton-list">
+      <div class="skeleton-card" style="height: 140px; border-radius: 8px; max-width: 400px;"></div>
+    </div>
   {:else if !battery}
     <div class="empty">No battery detected (desktop Mac or unavailable)</div>
   {:else}
@@ -638,6 +678,12 @@
     font-size: 0.85rem;
     color: var(--text-primary);
     font-family: 'JetBrains Mono', monospace;
+  }
+
+  .skeleton-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
   }
 
   @media (max-width: 640px) {

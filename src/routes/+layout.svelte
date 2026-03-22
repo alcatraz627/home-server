@@ -15,6 +15,7 @@
   import { targetDevice, remoteDevices, setTarget, addDevice, removeDevice, getApiBase } from '$lib/device-context';
   import { NAV_GROUPS } from '$lib/constants/nav';
   import type { NavItem } from '$lib/constants/nav';
+  import Icon from '$lib/components/Icon.svelte';
 
   let { data, children } = $props<{ data: LayoutData; children: any }>();
   let sidebarOpen = $state(false);
@@ -272,7 +273,9 @@
 
 <div class="app">
   <header>
-    <button class="menu-toggle" onclick={() => (sidebarOpen = !sidebarOpen)} aria-label="Toggle menu">☰</button>
+    <button class="menu-toggle" onclick={() => (sidebarOpen = !sidebarOpen)} aria-label="Toggle menu"
+      ><Icon name="menu" size={18} /></button
+    >
     <h1>Home Server</h1>
 
     <div class="system-stats">
@@ -329,7 +332,7 @@
       <!-- Stats settings gear -->
       <div class="stats-gear-wrap">
         <button class="icon-btn" aria-label="Stats settings" onclick={() => (statsDropdownOpen = !statsDropdownOpen)}
-          >⚙</button
+          ><Icon name="settings" size={14} /></button
         >
 
         {#if statsDropdownOpen}
@@ -391,11 +394,13 @@
 
     <!-- Help button -->
     <Tooltip text="Help" position="bottom">
-      <button class="icon-btn" aria-label="Help" onclick={() => goto(helpUrl())}>(?)</button>
+      <button class="icon-btn" aria-label="Help" onclick={() => goto(helpUrl())}><Icon name="help" size={16} /></button>
     </Tooltip>
 
     <Tooltip text="Settings" position="bottom">
-      <button class="icon-btn" aria-label="Settings" onclick={() => (settingsOpen = true)}>⚙</button>
+      <button class="icon-btn" aria-label="Settings" onclick={() => (settingsOpen = true)}
+        ><Icon name="settings" size={16} /></button
+      >
     </Tooltip>
 
     <div class="device-selector">
@@ -456,7 +461,7 @@
                     togglePin(item.href);
                   }}
                   aria-label="Unpin {item.label}"
-                  title="Unpin">&#9733;</button
+                  title="Unpin"><Icon name="star-filled" size={12} /></button
                 >
               </a>
             {/each}
@@ -468,7 +473,7 @@
         {@const isExpanded = expandedGroups[group.id] !== false}
         <div class="nav-group">
           <button class="nav-group-header" onclick={() => toggleGroup(group.id)}>
-            <span class="nav-group-chevron" class:expanded={isExpanded}>&#9656;</span>
+            <span class="nav-group-chevron" class:expanded={isExpanded}><Icon name="chevron-right" size={12} /></span>
             <span class="nav-group-label">{group.label}</span>
           </button>
           <div class="nav-group-items" class:collapsed={!isExpanded}>
@@ -493,7 +498,11 @@
                     togglePin(item.href);
                   }}
                   aria-label={isPinned(item.href) ? `Unpin ${item.label}` : `Pin ${item.label}`}
-                  title={isPinned(item.href) ? 'Unpin' : 'Pin'}>{isPinned(item.href) ? '\u2605' : '\u2606'}</button
+                  title={isPinned(item.href) ? 'Unpin' : 'Pin'}
+                  >{#if isPinned(item.href)}<Icon name="star-filled" size={12} />{:else}<Icon
+                      name="star"
+                      size={12}
+                    />{/if}</button
                 >
               </a>
             {/each}
@@ -530,7 +539,7 @@
       onclick={() => {
         showInstallBanner = false;
         localStorage.setItem('hs:install-dismissed', '1');
-      }}>✕</button
+      }}><Icon name="close" size={14} /></button
     >
   </div>
 {/if}
@@ -542,7 +551,7 @@
     <div class="modal-panel" onclick={(e) => e.stopPropagation()} role="dialog" aria-label="Manage Devices">
       <div class="modal-header">
         <h3>Manage Devices</h3>
-        <button class="icon-btn" onclick={() => (manageDevicesOpen = false)}>✕</button>
+        <button class="icon-btn" onclick={() => (manageDevicesOpen = false)}><Icon name="close" size={16} /></button>
       </div>
 
       <div class="modal-body">
