@@ -272,6 +272,9 @@
 
   onMount(() => {
     initTheme();
+    updateNetSpeed();
+    const speedInterval = setInterval(updateNetSpeed, 5000);
+    return () => clearInterval(speedInterval);
   });
 
   function handleGlobalKeydown(e: KeyboardEvent) {
@@ -353,6 +356,21 @@
         <span class="stat" title="Network throughput (cumulative)">
           NET {formatNetBytes(data.system.networkBytes.bytesIn)}↓ {formatNetBytes(data.system.networkBytes.bytesOut)}↑
         </span>
+      {/if}
+
+      {#if isStatVisible('netSpeed')}
+        <span class="stat" title="Network speed (bytes/sec)">
+          <span style="color: {netSpeedColor(netSpeed.inPerSec)}"
+            >{formatNetBytes(Math.round(netSpeed.inPerSec))}/s↓</span
+          >
+          <span style="color: {netSpeedColor(netSpeed.outPerSec)}"
+            >{formatNetBytes(Math.round(netSpeed.outPerSec))}/s↑</span
+          >
+        </span>
+      {/if}
+
+      {#if isStatVisible('diskIO')}
+        <span class="stat" title="Disk I/O (not available)"> DISK I/O n/a </span>
       {/if}
 
       <!-- Stats settings gear -->

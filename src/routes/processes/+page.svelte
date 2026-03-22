@@ -369,39 +369,86 @@
 {#if monitorOpen && monitorHistory.length > 0}
   <div class="monitor-grid">
     <!-- CPU Chart -->
-    <div class="monitor-card">
+    <div class="monitor-card" class:per-core-card={perCoreMode}>
       <div class="monitor-label">
         CPU <span class="monitor-value">{monitorHistory[monitorHistory.length - 1].cpu.avgUsage}%</span>
+        <button class="per-core-btn" class:active={perCoreMode} onclick={() => (perCoreMode = !perCoreMode)}>
+          {perCoreMode ? 'Avg' : 'Per Core'}
+        </button>
       </div>
-      <svg class="monitor-chart" viewBox="0 0 200 60" preserveAspectRatio="none">
-        <!-- Grid lines -->
-        <line x1="0" y1="15" x2="200" y2="15" stroke="var(--border-subtle)" stroke-width="0.5" stroke-dasharray="2,3" />
-        <line x1="0" y1="30" x2="200" y2="30" stroke="var(--border-subtle)" stroke-width="0.5" stroke-dasharray="2,3" />
-        <line x1="0" y1="45" x2="200" y2="45" stroke="var(--border-subtle)" stroke-width="0.5" stroke-dasharray="2,3" />
-        <!-- Filled area -->
-        <path
-          d={monitorArea(
-            monitorHistory.map((s) => s.cpu.avgUsage),
-            200,
-            60,
-            100,
-          )}
-          fill="var(--accent)"
-          opacity="0.15"
-        />
-        <!-- Line -->
-        <path
-          d={monitorPath(
-            monitorHistory.map((s) => s.cpu.avgUsage),
-            200,
-            60,
-            100,
-          )}
-          fill="none"
-          stroke="var(--accent)"
-          stroke-width="1.5"
-        />
-      </svg>
+      {#if perCoreMode}
+        {@const coreCount = monitorHistory[monitorHistory.length - 1].cpu.cores.length}
+        <div class="per-core-grid">
+          {#each Array(coreCount) as _, coreIdx}
+            {@const coreValues = monitorHistory.map((s) => s.cpu.cores[coreIdx]?.usage ?? 0)}
+            {@const latest = coreValues[coreValues.length - 1] ?? 0}
+            <div class="per-core-cell">
+              <div class="per-core-header">
+                <span class="per-core-label">C{coreIdx}</span>
+                <span class="per-core-value">{latest.toFixed(0)}%</span>
+              </div>
+              <svg class="per-core-chart" viewBox="0 0 80 40" preserveAspectRatio="none">
+                <path d={monitorArea(coreValues, 80, 40, 100)} fill="var(--accent)" opacity="0.15" />
+                <path d={monitorPath(coreValues, 80, 40, 100)} fill="none" stroke="var(--accent)" stroke-width="1.5" />
+              </svg>
+            </div>
+          {/each}
+        </div>
+      {:else}
+        <svg class="monitor-chart" viewBox="0 0 200 60" preserveAspectRatio="none">
+          <!-- Grid lines -->
+          <line
+            x1="0"
+            y1="15"
+            x2="200"
+            y2="15"
+            stroke="var(--border-subtle)"
+            stroke-width="0.5"
+            stroke-dasharray="2,3"
+          />
+          <line
+            x1="0"
+            y1="30"
+            x2="200"
+            y2="30"
+            stroke="var(--border-subtle)"
+            stroke-width="0.5"
+            stroke-dasharray="2,3"
+          />
+          <line
+            x1="0"
+            y1="45"
+            x2="200"
+            y2="45"
+            stroke="var(--border-subtle)"
+            stroke-width="0.5"
+            stroke-dasharray="2,3"
+          />
+          <!-- Filled area -->
+          <path
+            d={monitorArea(
+              monitorHistory.map((s) => s.cpu.avgUsage),
+              200,
+              60,
+              100,
+            )}
+            fill="var(--accent)"
+            opacity="0.15"
+          />
+          <!-- Line -->
+          <path
+            d={monitorPath(
+              monitorHistory.map((s) => s.cpu.avgUsage),
+              200,
+              60,
+              100,
+            )}
+            fill="none"
+            stroke="var(--accent)"
+            stroke-width="1.5"
+          />
+        </svg>
+      {/if}
     </div>
 
     <!-- Memory Chart -->
@@ -1227,6 +1274,77 @@
     border-radius: 4px;
     background: var(--bg-inset);
     border: 1px solid var(--border-subtle);
+  }
+
+  .swap-card {
+    border-left: 3px solid var(--orange);
+  }
+
+  .per-core-btn {
+    padding: 2px 8px;
+    font-size: 0.6rem;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: var(--btn-bg);
+    color: var(--text-muted);
+    cursor: pointer;
+    font-family: inherit;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin-left: 4px;
+  }
+  .per-core-btn.active {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-bg);
+  }
+  .per-core-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .per-core-card {
+    grid-column: 1 / -1;
+  }
+
+  .per-core-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+    gap: 6px;
+  }
+
+  .per-core-cell {
+    background: var(--bg-inset);
+    border: 1px solid var(--border-subtle);
+    border-radius: 4px;
+    padding: 4px 6px;
+  }
+
+  .per-core-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2px;
+  }
+
+  .per-core-label {
+    font-size: 0.6rem;
+    color: var(--text-faint);
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+  }
+
+  .per-core-value {
+    font-size: 0.6rem;
+    color: var(--text-primary);
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+  }
+
+  .per-core-chart {
+    width: 100%;
+    height: 40px;
+    border-radius: 2px;
   }
 
   .env-list div {
