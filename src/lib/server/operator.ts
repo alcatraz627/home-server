@@ -4,6 +4,9 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { notifyTaskComplete } from './notify';
+import { createLogger } from './logger';
+
+const log = createLogger('operator');
 
 // --- Types ---
 
@@ -133,6 +136,8 @@ export async function runTask(taskId: string, attempt = 1): Promise<TaskRun> {
   const config = configs.find((c) => c.id === taskId);
   if (!config) throw new Error('Task not found');
   if (runningTasks.has(taskId)) throw new Error('Task already running');
+
+  log.info(`Running task: ${config.name} (${taskId})`, { attempt, command: config.command });
 
   const run: TaskRun = {
     id: `${taskId}-${Date.now()}`,
