@@ -604,6 +604,156 @@
   --code-bg: #060609;
 }
 
+[data-theme='palenight'] {
+  --bg-primary: #292d3e;
+  --bg-secondary: #2f3344;
+  --bg-inset: #232635;
+  --bg-hover: #353a50;
+  --border: #44475a;
+  --border-subtle: #3a3d4e;
+  --text-primary: #bfc7d5;
+  --text-secondary: #a6accd;
+  --text-muted: #8087a2;
+  --text-faint: #676e95;
+  --accent: #82aaff;
+  --accent-bg: rgba(130, 170, 255, 0.1);
+  --success: #c3e88d;
+  --success-bg: rgba(195, 232, 141, 0.12);
+  --danger: #ff5370;
+  --danger-bg: rgba(255, 83, 112, 0.12);
+  --warning: #ffcb6b;
+  --warning-bg: rgba(255, 203, 107, 0.12);
+  --purple: #c792ea;
+  --purple-bg: rgba(199, 146, 234, 0.1);
+  --cyan: #89ddff;
+  --orange: #f78c6c;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --input-bg: #232635;
+  --btn-bg: #353a50;
+  --table-header-bg: #2f3344;
+  --code-bg: #232635;
+}
+
+[data-theme='horizon'] {
+  --bg-primary: #1c1e26;
+  --bg-secondary: #232530;
+  --bg-inset: #16181f;
+  --bg-hover: #2e303e;
+  --border: #3d3f4e;
+  --border-subtle: #333545;
+  --text-primary: #e0e0e0;
+  --text-secondary: #c8c8c8;
+  --text-muted: #9da0a2;
+  --text-faint: #6c6f93;
+  --accent: #e95678;
+  --accent-bg: rgba(233, 86, 120, 0.1);
+  --success: #27d797;
+  --success-bg: rgba(39, 215, 151, 0.12);
+  --danger: #e95678;
+  --danger-bg: rgba(233, 86, 120, 0.12);
+  --warning: #fac29a;
+  --warning-bg: rgba(250, 194, 154, 0.12);
+  --purple: #b877db;
+  --purple-bg: rgba(184, 119, 219, 0.1);
+  --cyan: #25b0bc;
+  --orange: #f09483;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+  --input-bg: #16181f;
+  --btn-bg: #2e303e;
+  --table-header-bg: #232530;
+  --code-bg: #16181f;
+}
+
+[data-theme='synthwave'] {
+  --bg-primary: #2b213a;
+  --bg-secondary: #332846;
+  --bg-inset: #241b32;
+  --bg-hover: #3e3254;
+  --border: #4e4165;
+  --border-subtle: #3e3254;
+  --text-primary: #f5e1ff;
+  --text-secondary: #dcc8e8;
+  --text-muted: #a98fb8;
+  --text-faint: #7a6488;
+  --accent: #ff7edb;
+  --accent-bg: rgba(255, 126, 219, 0.1);
+  --success: #72f1b8;
+  --success-bg: rgba(114, 241, 184, 0.12);
+  --danger: #fe4450;
+  --danger-bg: rgba(254, 68, 80, 0.12);
+  --warning: #fede5d;
+  --warning-bg: rgba(254, 222, 93, 0.12);
+  --purple: #c792ea;
+  --purple-bg: rgba(199, 146, 234, 0.1);
+  --cyan: #36f9f6;
+  --orange: #ff8b39;
+  --shadow: 0 1px 4px rgba(255, 126, 219, 0.1);
+  --input-bg: #241b32;
+  --btn-bg: #3e3254;
+  --table-header-bg: #332846;
+  --code-bg: #241b32;
+}
+
+[data-theme='night-owl'] {
+  --bg-primary: #011627;
+  --bg-secondary: #0b2942;
+  --bg-inset: #001122;
+  --bg-hover: #13344f;
+  --border: #1d3b5a;
+  --border-subtle: #153354;
+  --text-primary: #d6deeb;
+  --text-secondary: #b3c3d3;
+  --text-muted: #7e97b3;
+  --text-faint: #5f7e97;
+  --accent: #82aaff;
+  --accent-bg: rgba(130, 170, 255, 0.1);
+  --success: #addb67;
+  --success-bg: rgba(173, 219, 103, 0.12);
+  --danger: #ef5350;
+  --danger-bg: rgba(239, 83, 80, 0.12);
+  --warning: #ffcb6b;
+  --warning-bg: rgba(255, 203, 107, 0.12);
+  --purple: #c792ea;
+  --purple-bg: rgba(199, 146, 234, 0.1);
+  --cyan: #7fdbca;
+  --orange: #f78c6c;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  --input-bg: #001122;
+  --btn-bg: #13344f;
+  --table-header-bg: #0b2942;
+  --code-bg: #001122;
+}
+
+[data-theme='panda'] {
+  --bg-primary: #292a2b;
+  --bg-secondary: #313233;
+  --bg-inset: #242526;
+  --bg-hover: #3a3b3c;
+  --border: #484a4c;
+  --border-subtle: #3f4142;
+  --text-primary: #e6e6e6;
+  --text-secondary: #cdcdcd;
+  --text-muted: #9a9a9a;
+  --text-faint: #6d6d6d;
+  --accent: #19f9d8;
+  --accent-bg: rgba(25, 249, 216, 0.1);
+  --success: #19f9d8;
+  --success-bg: rgba(25, 249, 216, 0.12);
+  --danger: #ff2c6d;
+  --danger-bg: rgba(255, 44, 109, 0.12);
+  --warning: #ffb86c;
+  --warning-bg: rgba(255, 184, 108, 0.12);
+  --purple: #b084eb;
+  --purple-bg: rgba(176, 132, 235, 0.1);
+  --cyan: #19f9d8;
+  --orange: #ffb86c;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --input-bg: #242526;
+  --btn-bg: #3a3b3c;
+  --table-header-bg: #313233;
+  --code-bg: #242526;
+}
+
 /* ===== Reset & Base ===== */
 * {
   margin: 0;

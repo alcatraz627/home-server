@@ -21,7 +21,12 @@ export type Theme =
   | 'ayu-light'
   | 'material-dark'
   | 'kanagawa'
-  | 'cyberpunk';
+  | 'cyberpunk'
+  | 'palenight'
+  | 'horizon'
+  | 'synthwave'
+  | 'night-owl'
+  | 'panda';
 
 export interface ThemeDef {
   id: Theme;
@@ -50,6 +55,11 @@ export const THEMES: ThemeDef[] = [
   { id: 'material-dark', label: 'Material Dark', dark: true },
   { id: 'kanagawa', label: 'Kanagawa', dark: true },
   { id: 'cyberpunk', label: 'Cyberpunk', dark: true },
+  { id: 'palenight', label: 'Palenight', dark: true },
+  { id: 'horizon', label: 'Horizon Dark', dark: true },
+  { id: 'synthwave', label: "Synthwave '84", dark: true },
+  { id: 'night-owl', label: 'Night Owl', dark: true },
+  { id: 'panda', label: 'Panda', dark: true },
 ];
 
 export const THEME_SWATCHES: Record<Theme, { bg: string; accent: string; text: string }> = {
@@ -73,6 +83,11 @@ export const THEME_SWATCHES: Record<Theme, { bg: string; accent: string; text: s
   'material-dark': { bg: '#212121', accent: '#82aaff', text: '#eeffff' },
   kanagawa: { bg: '#1f1f28', accent: '#7e9cd8', text: '#dcd7ba' },
   cyberpunk: { bg: '#0a0a0f', accent: '#ff2a6d', text: '#e0e0ff' },
+  palenight: { bg: '#292d3e', accent: '#82aaff', text: '#bfc7d5' },
+  horizon: { bg: '#1c1e26', accent: '#e95678', text: '#e0e0e0' },
+  synthwave: { bg: '#2b213a', accent: '#ff7edb', text: '#f5e1ff' },
+  'night-owl': { bg: '#011627', accent: '#82aaff', text: '#d6deeb' },
+  panda: { bg: '#292a2b', accent: '#19f9d8', text: '#e6e6e6' },
 };
 
 const VALID_THEMES = new Set(THEMES.map((t) => t.id));
