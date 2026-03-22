@@ -2,6 +2,19 @@
 
 Append-only log of skill run insights. Newest entries at top.
 
+## session: Add structured logging to all server modules — 2026-03-22
+
+**Purpose:** Instrumented all 11 server-side modules and 3 API routes with the `createLogger` system for structured, file-based logging.
+
+**Insights:**
+
+1. The logger module at `$lib/server/logger.ts` uses relative imports internally, so server modules import via `./logger` while API routes use `$lib/server/logger`.
+2. In `backups.ts`, the rsync stats parsing happened after the log call — reordered to ensure log entries contain correct `filesTransferred`/`bytesTransferred` values.
+3. Replaced all `console.log`/`console.error` calls in `scheduler.ts` and `terminal.ts` with structured logger calls to unify output.
+4. The `notify.ts` module uses `$env/dynamic/private` (SvelteKit env), so it already has a SvelteKit-style import path — logger import follows the same `./logger` relative pattern since it's in the same directory.
+
+---
+
 ## session: Replace all ASCII/Unicode icons with Icon component — 2026-03-22
 
 **Purpose:** Systematically replaced every Unicode/emoji icon across the SvelteKit project with the `<Icon>` component backed by lucide-svelte.
