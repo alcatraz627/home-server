@@ -813,3 +813,19 @@ User feedback + audit findings from the v3.0.0 sprint. Organized by area.
     Each section component should accept a `size` prop and render accordingly
 - [x] **Dashboard settings as modal** — replace the dropdown (which hides behind sidebar) with a proper Modal. Show: section list with visibility toggles, size selectors (S/M/L), drag reorder. Apply button saves. This gives more room for controls and avoids the z-index issue
 - [x] **Horizontal stacking** — sections should naturally flow into a 2D grid. Two medium widgets side by side. Three small widgets in a row. One large spanning full width. Use CSS Grid `grid-column: span N` based on size
+
+---
+
+## v4.2 — Homelab + Infrastructure
+
+### G1 — T18 Homelab Features
+
+- [x] **Service Health Dashboard** — /services page monitoring HTTP endpoints with uptime bars, response time, auto-refresh, cron-based checking
+- [x] **Notification Center** — /notifications page aggregating events from backups, tasks, services, agents. Badge count in navbar
+- [x] **Docker Management** — /docker page listing containers, start/stop/restart. Graceful when Docker not installed
+- [x] **fetchApi adoption** — replaced raw fetch() with fetchApi() in 8 pages for multi-device proxying
+- [x] **Comprehensive logging** — JSON Lines logger with rotation, /logs page viewer, /api/logs diagnose endpoint, all 11 server modules instrumented
+- [x] **Security hardening** — sanitizePath, sanitizeShellArg, validateRequired applied across endpoints
+- [x] **Linux support** — bluetoothctl, lsusb, lscpu, .desktop file parsing for Raspberry Pi
+- [x] **lucide-svelte icons** — full migration from ASCII/Unicode to lucide components across 22+ files
+- [x] **Page documentation** — services, notifications, docker, logs, apps docs
