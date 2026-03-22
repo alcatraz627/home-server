@@ -751,6 +751,13 @@
     }
   }
 
+  function deleteCustomTemplate(index: number) {
+    const t = customTemplates[index];
+    customTemplates = customTemplates.filter((_, i) => i !== index);
+    saveCustomTemplates();
+    toast.success(`Deleted template "${t.name}"`);
+  }
+
   function saveAsTemplate(status: (typeof statuses)[0]) {
     const t: Template = {
       name: status.config.name,
@@ -1070,7 +1077,21 @@
     </div>
     <div class="template-grid">
       {#each pagedTemplates as t}
-        <div class="template-card">
+        {@const isCustom = t.tags.includes('custom')}
+        {@const customIdx = isCustom
+          ? customTemplates.findIndex((c) => c.name === t.name && c.command === t.command)
+          : -1}
+        <div class="template-card" class:template-card-custom={isCustom}>
+          {#if isCustom}
+            <button
+              class="template-delete-btn"
+              title="Delete custom template"
+              onclick={(e) => {
+                e.stopPropagation();
+                if (customIdx >= 0) deleteCustomTemplate(customIdx);
+              }}>✕</button
+            >
+          {/if}
           <button class="template-body" onclick={() => applyTemplate(t)}>
             <strong>{t.name}</strong>
             <span class="template-desc">{t.desc}</span>
@@ -1078,7 +1099,7 @@
             <div class="template-footer">
               <div class="template-tags">
                 {#each t.tags as tag}
-                  <span class="template-tag">{tag}</span>
+                  <span class="template-tag" class:template-tag-custom={tag === 'custom'}>{tag}</span>
                 {/each}
               </div>
               {#if t.schedule}<span class="template-schedule">{t.schedule}</span>{/if}
@@ -1241,6 +1262,17 @@
               <span class="run-duration">{formatDuration(status.lastRun.duration)}</span>
             {/if}
             <span class="run-attempt">attempt {status.lastRun.attempt}</span>
+            <button
+              class="last-output-btn"
+              onclick={() => (expandedTask = expandedTask === status.config.id ? null : status.config.id)}
+              title="Toggle output"
+            >
+              📋 {expandedTask === status.config.id ? 'Hide output' : 'Last output'}
+            </button>
+          </div>
+        {:else if status.config.schedule}
+          <div class="last-run last-run-pending">
+            <span class="run-pending">📋 Output shown after first scheduled run</span>
           </div>
         {/if}
 
@@ -1865,5 +1897,66 @@
     color: var(--text-muted);
     white-space: pre-wrap;
     word-break: break-all;
+  }
+
+  /* Last output button inside last-run row */
+  .last-output-btn {
+    margin-left: auto;
+    padding: 2px 8px;
+    font-size: 0.65rem;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: var(--btn-bg);
+    color: var(--text-muted);
+    cursor: pointer;
+    font-family: inherit;
+    white-space: nowrap;
+    transition: all 0.15s;
+  }
+  .last-output-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .last-run-pending {
+    border-top: 1px solid var(--border-subtle);
+  }
+  .run-pending {
+    font-size: 0.7rem;
+    color: var(--text-faint);
+    font-style: italic;
+  }
+
+  /* Custom template card — delete button overlay */
+  .template-card-custom {
+    position: relative;
+  }
+  .template-delete-btn {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.6rem;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--btn-bg);
+    color: var(--text-faint);
+    cursor: pointer;
+    font-family: inherit;
+    padding: 0;
+    transition: all 0.15s;
+    z-index: 1;
+  }
+  .template-delete-btn:hover {
+    background: var(--danger-bg);
+    border-color: var(--danger);
+    color: var(--danger);
+  }
+  .template-tag-custom {
+    background: var(--accent-bg);
+    color: var(--accent);
   }
 </style>

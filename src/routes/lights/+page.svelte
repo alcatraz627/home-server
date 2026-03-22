@@ -435,7 +435,16 @@
 {:else}
   <div class="bulb-grid">
     {#each filteredBulbs as bulb}
-      <div class="bulb-card" class:off={!bulb.state} class:selected={selectedBulbs.has(bulb.mac)}>
+      <!-- svelte-ignore a11y_click_events_have_key_events -->
+      <!-- svelte-ignore a11y_no_static_element_interactions -->
+      <div
+        class="bulb-card"
+        class:off={!bulb.state}
+        class:selected={selectedBulbs.has(bulb.mac)}
+        onclick={() => {
+          if (bulbs.length > 1) toggleSelect(bulb.mac);
+        }}
+      >
         <!-- Color swatch header -->
         <div
           class="bulb-swatch"
@@ -491,7 +500,11 @@
                 {#if rooms[bulb.mac]}
                   <span class="room-tag">{rooms[bulb.mac]}</span>
                 {/if}
-                {#if bulb.rssi != null}<span>{bulb.rssi}dBm</span>{/if}
+                {#if bulb.rssi != null}<span title="WiFi signal strength">{bulb.rssi}dBm</span>{/if}
+                {#if bulb.moduleName}<span title="Module">{bulb.moduleName}</span>{/if}
+                {#if bulb.fwVersion}<span title="Firmware">fw {bulb.fwVersion}</span>{/if}
+                {#if bulb.brightness && bulb.state}<span title="Brightness">{bulb.brightness}%</span>{/if}
+                {#if bulb.colorTemp && bulb.state}<span title="Color temp">{bulb.colorTemp}K</span>{/if}
                 {#if bulb.sceneId && allSceneIds()[bulb.sceneId]}
                   <span class="current-scene">Scene: {allSceneIds()[bulb.sceneId]}</span>
                 {/if}
@@ -818,14 +831,16 @@
   }
 
   .toggle {
-    padding: 4px 12px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    border-radius: 12px;
-    border: 1px solid var(--border);
+    padding: 8px 18px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    border-radius: 16px;
+    border: 2px solid var(--border);
     background: var(--btn-bg);
     color: var(--text-muted);
     cursor: pointer;
+    min-width: 56px;
+    transition: all 0.2s;
     font-family: monospace;
   }
   .toggle.on {

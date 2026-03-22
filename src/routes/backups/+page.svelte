@@ -1028,8 +1028,20 @@
 
   .form-actions {
     display: flex;
-    gap: 8px;
-    margin-top: 16px;
+    gap: 10px;
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+
+  .form-actions .btn {
+    padding: 10px 20px;
+    font-size: 0.85rem;
+  }
+
+  .form-actions .btn-primary {
+    flex: 1;
+    max-width: 200px;
   }
 
   @media (max-width: 640px) {

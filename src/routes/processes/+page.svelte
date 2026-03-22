@@ -11,7 +11,7 @@
     timestamp: number;
     cpu: { cores: { core: number; usage: number }[]; avgUsage: number; loadAvg: number[]; count: number };
     memory: { total: number; free: number; used: number; usedPercent: number };
-    network: { bytesIn: number; bytesOut: number };
+    network: { interfaces: number; bytesIn: number; bytesOut: number };
     disk: { readsPerSec: number; writesPerSec: number };
     uptime: number;
   }
@@ -46,6 +46,13 @@
     return values
       .map((v, i) => `${i === 0 ? 'M' : 'L'}${(i * step).toFixed(1)},${(height - (v / max) * height).toFixed(1)}`)
       .join(' ');
+  }
+
+  function monitorArea(values: number[], width: number, height: number, maxVal?: number): string {
+    if (values.length < 2) return '';
+    const linePath = monitorPath(values, width, height, maxVal);
+    const lastX = ((values.length - 1) * width) / (values.length - 1);
+    return `${linePath} L${lastX.toFixed(1)},${height} L0,${height} Z`;
   }
 
   function formatBytes(b: number): string {
@@ -329,6 +336,22 @@
         CPU <span class="monitor-value">{monitorHistory[monitorHistory.length - 1].cpu.avgUsage}%</span>
       </div>
       <svg class="monitor-chart" viewBox="0 0 200 60" preserveAspectRatio="none">
+        <!-- Grid lines -->
+        <line x1="0" y1="15" x2="200" y2="15" stroke="var(--border-subtle)" stroke-width="0.5" stroke-dasharray="2,3" />
+        <line x1="0" y1="30" x2="200" y2="30" stroke="var(--border-subtle)" stroke-width="0.5" stroke-dasharray="2,3" />
+        <line x1="0" y1="45" x2="200" y2="45" stroke="var(--border-subtle)" stroke-width="0.5" stroke-dasharray="2,3" />
+        <!-- Filled area -->
+        <path
+          d={monitorArea(
+            monitorHistory.map((s) => s.cpu.avgUsage),
+            200,
+            60,
+            100,
+          )}
+          fill="var(--accent)"
+          opacity="0.15"
+        />
+        <!-- Line -->
         <path
           d={monitorPath(
             monitorHistory.map((s) => s.cpu.avgUsage),
@@ -353,6 +376,19 @@
         >
       </div>
       <svg class="monitor-chart" viewBox="0 0 200 60" preserveAspectRatio="none">
+        <line x1="0" y1="15" x2="200" y2="15" stroke="var(--border-subtle)" stroke-width="0.5" stroke-dasharray="2,3" />
+        <line x1="0" y1="30" x2="200" y2="30" stroke="var(--border-subtle)" stroke-width="0.5" stroke-dasharray="2,3" />
+        <line x1="0" y1="45" x2="200" y2="45" stroke="var(--border-subtle)" stroke-width="0.5" stroke-dasharray="2,3" />
+        <path
+          d={monitorArea(
+            monitorHistory.map((s) => s.memory.usedPercent),
+            200,
+            60,
+            100,
+          )}
+          fill="var(--purple)"
+          opacity="0.12"
+        />
         <path
           d={monitorPath(
             monitorHistory.map((s) => s.memory.usedPercent),
@@ -371,10 +407,22 @@
     <div class="monitor-card">
       <div class="monitor-label">
         Network <span class="monitor-value"
-          >In: {formatBytes(monitorHistory[monitorHistory.length - 1].network.bytesIn)}</span
+          >{monitorHistory[monitorHistory.length - 1].network.interfaces} interfaces</span
         >
       </div>
       <svg class="monitor-chart" viewBox="0 0 200 60" preserveAspectRatio="none">
+        <line x1="0" y1="15" x2="200" y2="15" stroke="var(--border-subtle)" stroke-width="0.5" stroke-dasharray="2,3" />
+        <line x1="0" y1="30" x2="200" y2="30" stroke="var(--border-subtle)" stroke-width="0.5" stroke-dasharray="2,3" />
+        <line x1="0" y1="45" x2="200" y2="45" stroke="var(--border-subtle)" stroke-width="0.5" stroke-dasharray="2,3" />
+        <path
+          d={monitorArea(
+            monitorHistory.map((s) => s.network.bytesIn),
+            200,
+            60,
+          )}
+          fill="var(--success)"
+          opacity="0.12"
+        />
         <path
           d={monitorPath(
             monitorHistory.map((s) => s.network.bytesIn),
@@ -385,17 +433,6 @@
           stroke="var(--success)"
           stroke-width="1.5"
         />
-        <path
-          d={monitorPath(
-            monitorHistory.map((s) => s.network.bytesOut),
-            200,
-            60,
-          )}
-          fill="none"
-          stroke="var(--warning)"
-          stroke-width="1"
-          stroke-dasharray="3,2"
-        />
       </svg>
     </div>
 
@@ -405,6 +442,18 @@
         Load Avg <span class="monitor-value">{monitorHistory[monitorHistory.length - 1].cpu.loadAvg.join(' / ')}</span>
       </div>
       <svg class="monitor-chart" viewBox="0 0 200 60" preserveAspectRatio="none">
+        <line x1="0" y1="15" x2="200" y2="15" stroke="var(--border-subtle)" stroke-width="0.5" stroke-dasharray="2,3" />
+        <line x1="0" y1="30" x2="200" y2="30" stroke="var(--border-subtle)" stroke-width="0.5" stroke-dasharray="2,3" />
+        <line x1="0" y1="45" x2="200" y2="45" stroke="var(--border-subtle)" stroke-width="0.5" stroke-dasharray="2,3" />
+        <path
+          d={monitorArea(
+            monitorHistory.map((s) => s.cpu.loadAvg[0]),
+            200,
+            60,
+          )}
+          fill="var(--orange)"
+          opacity="0.12"
+        />
         <path
           d={monitorPath(
             monitorHistory.map((s) => s.cpu.loadAvg[0]),
@@ -1043,9 +1092,10 @@
 
   .monitor-chart {
     width: 100%;
-    height: 40px;
+    height: 50px;
     border-radius: 4px;
     background: var(--bg-inset);
+    border: 1px solid var(--border-subtle);
   }
 
   .env-list div {

@@ -1,11 +1,13 @@
 <script lang="ts">
+  import { fly } from 'svelte/transition';
+
   interface Props {
     value: string;
     onselect: (path: string) => void;
     label?: string;
   }
 
-  let { value, onselect, label = 'Browse' }: Props = $props();
+  let { value, onselect, label = '📁' }: Props = $props();
 
   let open = $state(false);
   let currentPath = $state(value || '');
@@ -46,20 +48,29 @@
   }
 </script>
 
-<div class="fb-container">
-  <button class="fb-trigger" onclick={openBrowser} type="button">
-    {label}
-  </button>
+<button class="fb-trigger" onclick={openBrowser} type="button">
+  {label}
+</button>
 
-  {#if open}
-    <div class="fb-dropdown">
+{#if open}
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="fb-overlay" onclick={() => (open = false)}>
+    <div class="fb-modal" onclick={(e) => e.stopPropagation()} transition:fly={{ y: 20, duration: 200 }}>
       <div class="fb-header">
-        <code class="fb-current">{currentPath}</code>
-        <button class="fb-select-btn" onclick={() => selectDir(currentPath)}>Select this</button>
+        <span class="fb-title">Select Directory</span>
+        <button class="fb-close" onclick={() => (open = false)}>✕</button>
       </div>
+
+      <div class="fb-pathbar">
+        <code class="fb-current">{currentPath}</code>
+        <button class="fb-select-btn" onclick={() => selectDir(currentPath)}>Select this folder</button>
+      </div>
+
       {#if error}
         <div class="fb-error">{error}</div>
       {/if}
+
       <div class="fb-list">
         {#if loading}
           <div class="fb-loading">Loading...</div>
@@ -80,22 +91,18 @@
           {/each}
         {/if}
       </div>
+
       <div class="fb-footer">
         <button class="fb-cancel" onclick={() => (open = false)}>Cancel</button>
       </div>
     </div>
-  {/if}
-</div>
+  </div>
+{/if}
 
 <style>
-  .fb-container {
-    position: relative;
-    display: inline-block;
-  }
-
   .fb-trigger {
     padding: 4px 10px;
-    font-size: 0.7rem;
+    font-size: 0.8rem;
     border-radius: 6px;
     border: 1px solid var(--border);
     background: var(--btn-bg);
@@ -110,21 +117,27 @@
     background: var(--accent-bg);
   }
 
-  .fb-dropdown {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    min-width: 360px;
-    max-height: 320px;
+  .fb-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+
+  .fb-modal {
+    width: 100%;
+    max-width: 520px;
+    max-height: 70vh;
     background: var(--bg-secondary);
     border: 1px solid var(--border);
-    border-radius: 10px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-    z-index: 100;
+    border-radius: 12px;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
     display: flex;
     flex-direction: column;
-    margin-top: 4px;
     overflow: hidden;
   }
 
@@ -132,13 +145,43 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 8px 10px;
+    padding: 12px 16px;
     border-bottom: 1px solid var(--border);
-    gap: 8px;
+  }
+
+  .fb-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .fb-close {
+    background: none;
+    border: none;
+    color: var(--text-faint);
+    font-size: 1rem;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+  }
+
+  .fb-close:hover {
+    color: var(--danger);
+    background: var(--danger-bg);
+  }
+
+  .fb-pathbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 16px;
+    gap: 10px;
+    background: var(--bg-inset);
+    border-bottom: 1px solid var(--border-subtle);
   }
 
   .fb-current {
-    font-size: 0.65rem;
+    font-size: 0.7rem;
     color: var(--text-muted);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -147,15 +190,16 @@
   }
 
   .fb-select-btn {
-    font-size: 0.65rem;
-    padding: 3px 10px;
-    border-radius: 4px;
+    font-size: 0.7rem;
+    padding: 4px 12px;
+    border-radius: 6px;
     border: 1px solid var(--accent);
     background: var(--accent);
     color: white;
     cursor: pointer;
     font-family: inherit;
     flex-shrink: 0;
+    transition: filter 0.15s;
   }
 
   .fb-select-btn:hover {
@@ -163,8 +207,8 @@
   }
 
   .fb-error {
-    padding: 6px 10px;
-    font-size: 0.7rem;
+    padding: 8px 16px;
+    font-size: 0.75rem;
     color: var(--danger);
     background: var(--danger-bg);
   }
@@ -172,22 +216,22 @@
   .fb-list {
     flex: 1;
     overflow-y: auto;
-    max-height: 220px;
+    max-height: 400px;
   }
 
   .fb-loading {
-    padding: 16px;
+    padding: 24px;
     text-align: center;
-    font-size: 0.75rem;
+    font-size: 0.8rem;
     color: var(--text-muted);
   }
 
   .fb-entry {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 5px 10px;
-    font-size: 0.75rem;
+    gap: 10px;
+    padding: 8px 16px;
+    font-size: 0.8rem;
     width: 100%;
     text-align: left;
     border: none;
@@ -198,6 +242,7 @@
 
   .fb-dir {
     cursor: pointer;
+    transition: background 0.1s;
   }
 
   .fb-dir:hover {
@@ -205,11 +250,11 @@
   }
 
   .fb-file {
-    color: var(--text-muted);
+    color: var(--text-faint);
   }
 
   .fb-icon {
-    font-size: 0.8rem;
+    font-size: 0.9rem;
     flex-shrink: 0;
   }
 
@@ -221,23 +266,23 @@
   }
 
   .fb-size {
-    font-size: 0.6rem;
+    font-size: 0.65rem;
     color: var(--text-faint);
     font-family: 'JetBrains Mono', monospace;
     flex-shrink: 0;
   }
 
   .fb-footer {
-    padding: 6px 10px;
+    padding: 8px 16px;
     border-top: 1px solid var(--border);
     display: flex;
     justify-content: flex-end;
   }
 
   .fb-cancel {
-    font-size: 0.65rem;
-    padding: 3px 10px;
-    border-radius: 4px;
+    font-size: 0.75rem;
+    padding: 4px 14px;
+    border-radius: 6px;
     border: 1px solid var(--border);
     background: var(--btn-bg);
     color: var(--text-muted);

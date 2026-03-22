@@ -12,7 +12,11 @@ export interface BrowseEntry {
 }
 
 export const GET: RequestHandler = async ({ url }) => {
-  const dirPath = url.searchParams.get('path') || os.homedir();
+  let dirPath = url.searchParams.get('path') || os.homedir();
+  // Expand ~ to home directory
+  if (dirPath === '~' || dirPath.startsWith('~/')) {
+    dirPath = dirPath.replace(/^~/, os.homedir());
+  }
   const resolved = path.resolve(dirPath);
 
   try {
