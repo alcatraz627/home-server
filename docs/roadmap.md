@@ -229,23 +229,60 @@
 
 ---
 
+### v4.0-v4.2 — Infrastructure & Homelab
+
+- [x] Test suite: 25 test files with tiered runner (basic/full/module)
+- [x] Logging: JSON Lines with rotation, /logs viewer page, all modules instrumented
+- [x] Security: sanitizePath, sanitizeShellArg, validateRequired
+- [x] Linux support: bluetoothctl, lsusb, lscpu, .desktop files
+- [x] Service Health Dashboard (/services)
+- [x] Notification Center (/notifications)
+- [x] Docker Management (/docker)
+- [x] lucide-svelte icon migration
+- [x] Dashboard 2D CSS Grid with S/M/L sizing
+- [x] Lights config server sync
+- [x] 25 themes, custom color/font overrides
+- [x] Multi-machine deployment strategy (Mac + Raspberry Pi)
+- [x] /api/audit health checker endpoint
+- [x] fetchApi wrapper for multi-device proxying
+- [x] Toast behavior: errors persist, info 2s
+
+### v4.3 — Planned (Next)
+
+- [ ] Keyboard accessibility: `/` focus sidebar, `Cmd+K` page search, Notion-style hints
+- [ ] Keeper keyboard navigation: arrow keys, inline editing, keyboard shortcuts for status
+- [ ] Component consolidation phase 2: Card, Toolbar, PageHeader, DataChip, InteractiveChip, InfoLabel audit, Tab animations
+- [ ] Smart lights name persistence fix (MAC-based reconciliation)
+- [ ] WiFi scanner: extended info, inline network commands
+- [ ] System monitor: more data (disk I/O, FDs, TCP), better chart UI
+- [ ] Apps: kill/force-kill, process details, macOS .icns icon extraction
+- [ ] Kanban board UI improvements: descriptions, priority, archive, drag animation
+
 ## Release Summary
 
-| Version | Highlights |
-|---------|-----------|
-| v3.1 | Starring system, global theme/font control (10 themes), mobile PWA |
-| v3.2 | Tailscale extended info, Keeper agent integration, multi-computer support |
-| v3.3 | Animations plan, cross-device backup preview, media server |
-| v3.4 | Task page overhaul, 10 new fun pages (QR, bookmarks, kanban, etc.) |
-| v3.5 | Security/network tools (WiFi, packets, network toolkit), AI chat polish |
-| v3.6 | Component library (17 components), app launcher, 20 themes, documentation sprint |
+| Version | Highlights                                                                       |
+| ------- | -------------------------------------------------------------------------------- |
+| v3.1    | Starring system, global theme/font control (10 themes), mobile PWA               |
+| v3.2    | Tailscale extended info, Keeper agent integration, multi-computer support        |
+| v3.3    | Animations plan, cross-device backup preview, media server                       |
+| v3.4    | Task page overhaul, 10 new fun pages (QR, bookmarks, kanban, etc.)               |
+| v3.5    | Security/network tools (WiFi, packets, network toolkit), AI chat polish          |
+| v3.6    | Component library (17 components), app launcher, 20 themes, documentation sprint |
+| v4.0    | Test suite, toast behavior, 25 themes, font/color customization                  |
+| v4.1    | Logging (all modules), security hardening, Linux support, lucide-svelte          |
+| v4.2    | Service health, notifications, Docker, fetchApi, /api/audit                      |
 
 ## Architecture Notes
 
 - **Stack:** SvelteKit 2 + Svelte 5 (runes), adapter-node, Node v23
 - **Persistence:** JSON files in `~/.home-server/` — no database
-- **Themes:** 20 CSS custom property themes
-- **Components:** 17 reusable Svelte components in `src/lib/components/`
+- **Themes:** 25 CSS custom property themes with custom color overrides
+- **Components:** 17 reusable Svelte components (7 shared primitives + 10 feature)
+- **Icons:** lucide-svelte with 80+ icon mappings
+- **Logging:** JSON Lines to `~/.home-server/logs/` with rotation + /logs viewer
+- **Security:** Input sanitization (path traversal, shell injection, body validation)
+- **Testing:** 25 test files, tiered runner, no mocks
 - **Styling:** Prettier with svelte plugin, 2-space indent
 - **VPN:** Tailscale for multi-device access
-- **Notifications:** ntfy.sh integration
+- **Notifications:** ntfy.sh + in-app notification center
+- **Deployment:** Mac (hub) + Raspberry Pi (node) via Tailscale, systemd + Docker
