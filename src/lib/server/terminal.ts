@@ -13,7 +13,7 @@ export interface TerminalSession {
 const sessions = new Map<string, TerminalSession>();
 const DEFAULT_SHELL = process.env.SHELL || '/bin/bash';
 
-console.log(`[terminal] Using node-pty ${require('node-pty/package.json').version} with shell: ${DEFAULT_SHELL}`);
+console.log(`[terminal] Using node-pty with shell: ${DEFAULT_SHELL}`);
 
 /** Create a new terminal session */
 export function createSession(cols = 80, rows = 24): TerminalSession {

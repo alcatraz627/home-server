@@ -144,7 +144,8 @@
     };
 
     ws.onerror = () => {
-      // onclose will fire after this
+      tab.terminal?.write('\r\n\x1b[31m[WebSocket error — is the dev server running?]\x1b[0m\r\n');
+      tab.terminal?.write('\x1b[33mRun: npm run dev\x1b[0m\r\n');
     };
 
     tab.ws = ws;
