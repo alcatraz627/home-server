@@ -405,17 +405,18 @@
 
 <div class="app">
   <header>
-    <button class="menu-toggle" onclick={() => (sidebarOpen = !sidebarOpen)} aria-label="Toggle mobile menu"
-      ><Icon name="menu" size={18} /></button
-    >
     <button
-      class="sidebar-collapse-btn"
-      onclick={toggleSidebarCollapse}
-      aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-      title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+      class="menu-toggle"
+      onclick={() => {
+        // On mobile: toggle drawer. On desktop: toggle collapse.
+        if (window.innerWidth <= 768) {
+          sidebarOpen = !sidebarOpen;
+        } else {
+          toggleSidebarCollapse();
+        }
+      }}
+      aria-label="Toggle sidebar"><Icon name="menu" size={18} /></button
     >
-      <Icon name={sidebarCollapsed ? 'chevron-right' : 'chevron-left'} size={14} />
-    </button>
     <h1>Home Server</h1>
 
     <div class="system-stats">
@@ -1141,14 +1142,26 @@
     border: 1px solid var(--border);
   }
 
-  /* ── Mobile menu toggle ──────────────────────────────────────────────────────── */
+  /* ── Menu toggle (hamburger) — visible on all screens ─────────────────────── */
   .menu-toggle {
-    display: none;
+    display: flex;
+    align-items: center;
     background: none;
-    border: none;
-    color: var(--text-primary);
+    border: 1px solid transparent;
+    border-radius: 5px;
+    color: var(--text-muted);
     font-size: 1.3rem;
     cursor: pointer;
+    padding: 3px 5px;
+    transition:
+      border-color 0.15s,
+      color 0.15s;
+  }
+
+  .menu-toggle:hover {
+    border-color: var(--border);
+    color: var(--text-primary);
+    background: var(--bg-hover);
   }
 
   /* ── Body / layout ───────────────────────────────────────────────────────────── */
@@ -1231,33 +1244,6 @@
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
     margin-left: 4px;
     pointer-events: none;
-  }
-
-  .sidebar-collapse-btn {
-    background: none;
-    border: 1px solid transparent;
-    border-radius: 5px;
-    color: var(--text-muted);
-    cursor: pointer;
-    padding: 3px 5px;
-    display: flex;
-    align-items: center;
-    transition:
-      border-color 0.15s,
-      color 0.15s;
-  }
-
-  .sidebar-collapse-btn:hover {
-    border-color: var(--border);
-    color: var(--text-secondary);
-    background: var(--bg-hover);
-  }
-
-  /* Hide collapse button on mobile (mobile uses the drawer instead) */
-  @media (max-width: 768px) {
-    .sidebar-collapse-btn {
-      display: none;
-    }
   }
 
   nav a {
@@ -1495,12 +1481,8 @@
   /* ── Responsive ──────────────────────────────────────────────────────────────── */
   @media (max-width: 640px) {
     .menu-toggle {
-      display: block;
       min-width: 44px;
       min-height: 44px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
     }
 
     .system-stats {
