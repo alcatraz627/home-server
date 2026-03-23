@@ -860,6 +860,29 @@
     -webkit-backdrop-filter: blur(8px);
     z-index: 20;
     position: relative;
+    overflow-x: auto;
+    overflow-y: hidden;
+    min-height: 48px;
+  }
+
+  @media (max-width: 640px) {
+    header {
+      gap: 6px;
+      padding: 8px 10px;
+    }
+
+    header h1 {
+      font-size: 0.85rem;
+      white-space: nowrap;
+    }
+
+    .device-selector {
+      display: none;
+    }
+
+    .icon-btn {
+      padding: 2px 4px;
+    }
   }
 
   header h1 {
