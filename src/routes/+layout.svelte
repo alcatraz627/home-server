@@ -24,6 +24,15 @@
   let navSearch = $state('');
   let commandPaletteOpen = $state(false);
   let navSearchEl = $state<HTMLElement | null>(null);
+
+  // Collapsible sidebar on desktop
+  const SIDEBAR_COLLAPSED_KEY = 'hs:sidebar-collapsed';
+  let sidebarCollapsed = $state(browser ? localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1' : false);
+
+  function toggleSidebarCollapse() {
+    sidebarCollapsed = !sidebarCollapsed;
+    if (browser) localStorage.setItem(SIDEBAR_COLLAPSED_KEY, sidebarCollapsed ? '1' : '0');
+  }
   let unreadNotifications = $state(0);
   let healthStatus = $state<'green' | 'yellow' | 'red' | 'unknown'>('unknown');
   let healthLatency = $state(0);
@@ -396,9 +405,17 @@
 
 <div class="app">
   <header>
-    <button class="menu-toggle" onclick={() => (sidebarOpen = !sidebarOpen)} aria-label="Toggle menu"
+    <button class="menu-toggle" onclick={() => (sidebarOpen = !sidebarOpen)} aria-label="Toggle mobile menu"
       ><Icon name="menu" size={18} /></button
     >
+    <button
+      class="sidebar-collapse-btn"
+      onclick={toggleSidebarCollapse}
+      aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+      title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+    >
+      <Icon name={sidebarCollapsed ? 'chevron-right' : 'chevron-left'} size={14} />
+    </button>
     <h1>Home Server</h1>
 
     <div class="system-stats">
@@ -635,7 +652,7 @@
   <div class="body">
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-    <nav class:open={sidebarOpen}>
+    <nav class:open={sidebarOpen} class:collapsed={sidebarCollapsed}>
       <div class="nav-search" bind:this={navSearchEl}>
         <SearchInput bind:value={navSearch} placeholder="Search..." size="sm" clearable />
         <span class="nav-search-hint"><kbd>/</kbd></span>
@@ -687,6 +704,7 @@
                 href={item.href}
                 class="nav-link"
                 class:active={isActive(item.href)}
+                title={item.label}
                 onclick={() => (sidebarOpen = false)}
                 ondblclick={(e) => {
                   e.preventDefault();
@@ -1150,6 +1168,96 @@
     flex-direction: column;
     gap: 1px;
     overflow-y: auto;
+    transition: width 0.2s ease;
+    flex-shrink: 0;
+  }
+
+  /* Collapsed sidebar — icon-only slim mode */
+  nav.collapsed {
+    width: 48px;
+    overflow-x: hidden;
+  }
+
+  nav.collapsed .nav-search,
+  nav.collapsed .nav-text,
+  nav.collapsed .nav-group-label,
+  nav.collapsed .nav-group-chevron,
+  nav.collapsed .pin-btn,
+  nav.collapsed .version-tag {
+    display: none;
+  }
+
+  nav.collapsed .nav-group-header {
+    pointer-events: none;
+    padding: 0;
+    margin: 4px 0;
+    min-height: 1px;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  nav.collapsed .nav-group-items {
+    max-height: none !important;
+  }
+
+  nav.collapsed .nav-link,
+  nav.collapsed nav a {
+    padding: 8px 0;
+    justify-content: center;
+    border-left: none;
+  }
+
+  nav.collapsed .nav-icon {
+    margin: 0;
+  }
+
+  nav.collapsed .nav-link:hover {
+    position: relative;
+  }
+
+  /* Tooltip on hover in collapsed mode */
+  nav.collapsed .nav-link:hover::after {
+    content: attr(title);
+    position: absolute;
+    left: 100%;
+    top: 50%;
+    transform: translateY(-50%);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 0.72rem;
+    white-space: nowrap;
+    z-index: 100;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    margin-left: 4px;
+    pointer-events: none;
+  }
+
+  .sidebar-collapse-btn {
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 5px;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 3px 5px;
+    display: flex;
+    align-items: center;
+    transition:
+      border-color 0.15s,
+      color 0.15s;
+  }
+
+  .sidebar-collapse-btn:hover {
+    border-color: var(--border);
+    color: var(--text-secondary);
+    background: var(--bg-hover);
+  }
+
+  /* Hide collapse button on mobile (mobile uses the drawer instead) */
+  @media (max-width: 768px) {
+    .sidebar-collapse-btn {
+      display: none;
+    }
   }
 
   nav a {

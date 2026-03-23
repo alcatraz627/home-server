@@ -10,5 +10,5 @@
  */
 export const APP = {
   title: 'Home Server',
-  version: '4.8.1-solid-peak-99',
+  version: '4.9.0-crisp-river-27',
 } as const;

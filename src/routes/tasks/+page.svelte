@@ -9,6 +9,12 @@
   import Collapsible from '$lib/components/Collapsible.svelte';
   import Icon from '$lib/components/Icon.svelte';
   import { fetchApi } from '$lib/api';
+  import {
+    sendNotification,
+    requestNotificationPermission,
+    isNotificationSupported,
+    isNotificationEnabled,
+  } from '$lib/notify.svelte';
 
   let { data } = $props<{ data: PageData }>();
   // svelte-ignore state_referenced_locally
@@ -361,14 +367,34 @@
     return w;
   });
 
+  // Track last known run times for cron notification detection
+  let lastKnownRuns = $state<Record<string, string>>({});
+
   async function refresh() {
     try {
       const res = await fetchApi('/api/tasks');
       if (!res.ok) throw new Error('Failed to fetch tasks');
       const result = await res.json();
+      const prev = statuses;
       statuses = result.statuses;
       disk = result.disk;
       scheduledCount = result.scheduledCount || 0;
+
+      // Check for new cron completions (scheduled tasks with new lastRun)
+      if (isNotificationEnabled()) {
+        for (const s of statuses) {
+          if (!s.config.schedule || !s.lastRun?.completedAt) continue;
+          const key = s.config.id;
+          const prevRun = lastKnownRuns[key];
+          if (prevRun && prevRun !== s.lastRun.completedAt) {
+            sendNotification(`Cron: ${s.config.name}`, {
+              body: `Status: ${s.lastRun.status}`,
+              tag: `cron-${key}`,
+            });
+          }
+          lastKnownRuns[key] = s.lastRun.completedAt;
+        }
+      }
     } catch (e: any) {
       toast.error(e.message || 'Failed to refresh tasks', { key: 'task-refresh' });
     }
@@ -417,8 +443,13 @@
         const s = statuses.find((s) => s.config.id === taskId);
         if (!s?.isRunning) {
           clearInterval(poll);
-          if (s?.lastRun?.status === 'success') toast.success(`"${taskName}" completed`);
-          else if (s?.lastRun?.status) toast.error(`"${taskName}" ${s.lastRun.status}`, { key: 'task-run' });
+          if (s?.lastRun?.status === 'success') {
+            toast.success(`"${taskName}" completed`);
+            sendNotification(`Task: ${taskName}`, { body: 'Completed successfully', tag: `task-${taskId}` });
+          } else if (s?.lastRun?.status) {
+            toast.error(`"${taskName}" ${s.lastRun.status}`, { key: 'task-run' });
+            sendNotification(`Task: ${taskName}`, { body: `Status: ${s.lastRun.status}`, tag: `task-${taskId}` });
+          }
         }
       }, 1000);
     } catch (e: any) {
@@ -483,6 +514,15 @@
   </h2>
   <div class="controls">
     <Button onclick={refresh}><Icon name="refresh" size={14} /> Refresh</Button>
+    {#if isNotificationSupported()}
+      {#if isNotificationEnabled()}
+        <span class="notif-status" title="System notifications enabled"><Icon name="bell" size={14} /> On</span>
+      {:else}
+        <Button size="sm" onclick={requestNotificationPermission}>
+          <Icon name="bell" size={14} /> Enable Alerts
+        </Button>
+      {/if}
+    {/if}
     <Button
       onclick={() => {
         showTemplates = !showTemplates;
@@ -673,6 +713,35 @@
           {/each}
         </div>
         <input type="text" bind:value={formSchedule} placeholder="Custom cron expression (leave empty for manual)" />
+        <div class="cron-help">
+          <details>
+            <summary>How does cron scheduling work?</summary>
+            <div class="cron-help-body">
+              <p>
+                Cron expressions run your task automatically on a schedule. Format: <code
+                  >minute hour day month weekday</code
+                >
+              </p>
+              <table class="cron-table">
+                <tbody>
+                  <tr><td><code>*/5 * * * *</code></td><td>Every 5 minutes</td></tr>
+                  <tr><td><code>0 * * * *</code></td><td>Every hour (at :00)</td></tr>
+                  <tr><td><code>0 2 * * *</code></td><td>Daily at 2:00 AM</td></tr>
+                  <tr><td><code>0 3 * * 0</code></td><td>Weekly on Sunday at 3 AM</td></tr>
+                </tbody>
+              </table>
+              <p>
+                <strong>How it works:</strong> When you save a task with a schedule, the server's built-in scheduler checks
+                every minute. When the cron expression matches, it runs the command. Output is saved to task history. If notifications
+                are enabled, you'll get a system alert.
+              </p>
+              <p>
+                <strong>Note:</strong> Cron tasks only run while the server is running. If the server is off during a scheduled
+                time, the task is skipped (not queued).
+              </p>
+            </div>
+          </details>
+        </div>
       </div>
 
       <div class="form-section form-advanced-toggle">
@@ -945,6 +1014,61 @@
   .controls {
     display: flex;
     gap: 8px;
+    align-items: center;
+  }
+
+  .notif-status {
+    font-size: 0.68rem;
+    color: var(--success);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 6px;
+  }
+
+  .cron-help {
+    margin-top: 6px;
+  }
+
+  .cron-help summary {
+    font-size: 0.72rem;
+    color: var(--text-faint);
+    cursor: pointer;
+  }
+
+  .cron-help summary:hover {
+    color: var(--accent);
+  }
+
+  .cron-help-body {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 8px;
+    padding: 10px 12px;
+    background: var(--bg-primary);
+    border-radius: 6px;
+    border: 1px solid var(--border-subtle);
+  }
+
+  .cron-help-body p {
+    margin: 4px 0;
+    line-height: 1.5;
+  }
+
+  .cron-table {
+    margin: 6px 0;
+    font-size: 0.72rem;
+  }
+
+  .cron-table td {
+    padding: 2px 12px 2px 0;
+  }
+
+  .cron-table code {
+    font-size: 0.68rem;
+    background: var(--code-bg);
+    padding: 1px 5px;
+    border-radius: 3px;
   }
 
   /* Form improvements */
