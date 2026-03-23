@@ -1,7 +1,7 @@
 <script lang="ts">
   import { fetchApi } from '$lib/api';
   import { toast } from '$lib/toast';
-  import { createHistory } from '$lib/history';
+  import { createHistory } from '$lib/history.svelte';
   import Button from '$lib/components/Button.svelte';
   import Badge from '$lib/components/Badge.svelte';
   import Icon from '$lib/components/Icon.svelte';

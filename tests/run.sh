@@ -75,6 +75,10 @@ BASIC_TESTS=(
   "tests/api/peripherals.test.ts"
   "tests/api/apps.test.ts"
   "tests/api/speedtest.test.ts"
+  "tests/api/health.test.ts"
+  "tests/api/status.test.ts"
+  "tests/api/databases.test.ts"
+  "tests/api/docker.test.ts"
 )
 
 # ── Comprehensive Tests (CRUD, destructive, slow) ──────────────────────────
@@ -87,9 +91,18 @@ COMPREHENSIVE_TESTS=(
   "tests/api/kanban.test.ts"
   "tests/api/wol.test.ts"
   "tests/api/dns.test.ts"
+  "tests/api/dns-trace.test.ts"
   "tests/api/clipboard.test.ts"
   "tests/api/benchmarks.test.ts"
   "tests/api/screenshots.test.ts"
+  "tests/api/notes.test.ts"
+  "tests/api/notifications.test.ts"
+  "tests/api/services.test.ts"
+  "tests/api/logs.test.ts"
+  "tests/api/network.test.ts"
+  "tests/api/ports.test.ts"
+  "tests/api/audit.test.ts"
+  "tests/api/terminal-pin.test.ts"
 )
 
 # ── Integration Tests ──────────────────────────────────────────────────────
@@ -97,6 +110,7 @@ INTEGRATION_TESTS=(
   "tests/integration/terminal.test.ts"
   "tests/integration/file-stream.test.ts"
   "tests/integration/lights.test.ts"
+  "tests/integration/pages.test.ts"
 )
 
 # ── Platform Tests ─────────────────────────────────────────────────────────

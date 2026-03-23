@@ -10,5 +10,5 @@
  */
 export const APP = {
   title: 'Home Server',
-  version: '4.8.0-gold-ridge-16',
+  version: '4.8.1-solid-peak-99',
 } as const;

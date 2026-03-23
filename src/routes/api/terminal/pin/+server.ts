@@ -36,7 +36,7 @@ function writePinConfig(config: PinConfig) {
 }
 
 /** Check if PIN is enabled and whether a given PIN is correct */
-export function verifyTerminalPin(pin: string | null): { required: boolean; valid: boolean } {
+function verifyTerminalPin(pin: string | null): { required: boolean; valid: boolean } {
   const config = readPinConfig();
   if (!config || !config.enabled) {
     return { required: false, valid: true };
