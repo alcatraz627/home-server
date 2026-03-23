@@ -405,248 +405,260 @@
 
 <div class="app">
   <header>
-    <button
-      class="menu-toggle"
-      onclick={() => {
-        // On mobile: toggle drawer. On desktop: toggle collapse.
-        if (window.innerWidth <= 768) {
-          sidebarOpen = !sidebarOpen;
-        } else {
-          toggleSidebarCollapse();
-        }
-      }}
-      aria-label="Toggle sidebar"><Icon name="menu" size={18} /></button
-    >
-    <h1>Home Server</h1>
-
-    <div class="system-stats">
-      {#if isStatVisible('mem')}
-        <span
-          class="stat"
-          title="Memory usage"
-          style="color: {data.system.memUsedPercent >= 90
-            ? 'var(--danger)'
-            : data.system.memUsedPercent >= 70
-              ? 'var(--warning)'
-              : 'var(--success)'}"
-        >
-          MEM {data.system.memUsedPercent}%
-        </span>
-      {/if}
-
-      {#if isStatVisible('cpu')}
-        <span class="stat" title="CPU load" style="color: {cpuColor()}">
-          {cpuLabel()}
-        </span>
-      {/if}
-
-      {#if isStatVisible('uptime')}
-        <Tooltip
-          text="Boot: {new Date(data.system.bootTime).toLocaleString()}, Load: {data.system.loadAvg}/{data.system
-            .loadAvg5}/{data.system.loadAvg15}"
-          position="bottom"
-        >
-          <span class="stat">{data.system.uptime}h up</span>
-        </Tooltip>
-      {/if}
-
-      {#if isStatVisible('swap')}
-        <span
-          class="stat"
-          title="Swap usage"
-          style="color: {data.system.swapPercent >= 80
-            ? 'var(--danger)'
-            : data.system.swapPercent >= 50
-              ? 'var(--warning)'
-              : 'var(--text-muted)'}"
-        >
-          SWAP {data.system.swapPercent}%
-        </span>
-      {/if}
-
-      {#if isStatVisible('procs')}
-        <span class="stat" title="Process count">
-          PROCS {data.system.processCount}
-        </span>
-      {/if}
-
-      {#if isStatVisible('net')}
-        <span class="stat" title="Network throughput (cumulative)">
-          NET {formatNetBytes(data.system.networkBytes.bytesIn)}<Icon name="arrow-down" size={10} />
-          {formatNetBytes(data.system.networkBytes.bytesOut)}<Icon name="arrow-up" size={10} />
-        </span>
-      {/if}
-
-      {#if isStatVisible('netSpeed')}
-        <span class="stat" title="Network speed (bytes/sec)">
-          <span style="color: {netSpeedColor(netSpeed.inPerSec)}"
-            >{formatNetBytes(Math.round(netSpeed.inPerSec))}/s<Icon name="arrow-down" size={10} /></span
-          >
-          <span style="color: {netSpeedColor(netSpeed.outPerSec)}"
-            >{formatNetBytes(Math.round(netSpeed.outPerSec))}/s<Icon name="arrow-up" size={10} /></span
-          >
-        </span>
-      {/if}
-
-      {#if isStatVisible('diskIO')}
-        <span class="stat" title="Disk I/O throughput">
-          DISK {formatNetBytes(data.system.diskIO.readBytesPerSec)}/s R
-          {#if data.system.diskIO.writeBytesPerSec > 0}
-            {formatNetBytes(data.system.diskIO.writeBytesPerSec)}/s W
-          {/if}
-        </span>
-      {/if}
-
-      {#if isStatVisible('fds')}
-        <span class="stat" title="Open file descriptors">
-          FD {data.system.openFDs}
-        </span>
-      {/if}
-
-      {#if isStatVisible('tcp')}
-        <span class="stat" title="Established TCP connections">
-          TCP {data.system.tcpConnections}
-        </span>
-      {/if}
-
-      {#if isStatVisible('ctxSw')}
-        <span class="stat" title="Context switches (cumulative)">
-          CTX {formatNetBytes(data.system.contextSwitches)}
-        </span>
-      {/if}
-
-      <!-- Stats settings gear -->
-      <div class="stats-gear-wrap">
-        <button class="icon-btn" aria-label="Stats settings" onclick={() => (statsDropdownOpen = !statsDropdownOpen)}
-          ><Icon name="settings" size={14} /></button
-        >
-
-        {#if statsDropdownOpen}
-          <!-- svelte-ignore a11y_no_static_element_interactions -->
-          <div class="stats-dropdown" role="menu">
-            <div class="dropdown-section">
-              <span class="dropdown-label">CPU display</span>
-              <div class="dropdown-options">
-                <button class:selected={statsConfig.cpuMode === 'load'} onclick={() => setCpuMode('load')}
-                  >Load avg</button
-                >
-                <button class:selected={statsConfig.cpuMode === 'percent'} onclick={() => setCpuMode('percent')}
-                  >Percent</button
-                >
-              </div>
-            </div>
-            <div class="dropdown-section">
-              <span class="dropdown-label">Refresh</span>
-              <div class="dropdown-options">
-                {#each [2, 5, 10, 30, 0] as const as interval}
-                  <button
-                    class:selected={statsConfig.refreshInterval === interval}
-                    onclick={() => setRefreshInterval(interval)}>{interval === 0 ? 'Off' : `${interval}s`}</button
-                  >
-                {/each}
-              </div>
-            </div>
-            <div class="dropdown-section">
-              <span class="dropdown-label">Visible stats</span>
-              <div class="dropdown-stats-list">
-                {#each ALL_STATS as s}
-                  <label class="stat-toggle-item">
-                    <input
-                      type="checkbox"
-                      checked={isStatVisible(s.key)}
-                      onchange={() => toggleStatVisibility(s.key)}
-                    />
-                    <span class="stat-toggle-text">
-                      <span class="stat-toggle-label">{s.label}</span>
-                      <span class="stat-toggle-desc">{s.desc}</span>
-                    </span>
-                  </label>
-                {/each}
-              </div>
-            </div>
-          </div>
-          <!-- click-away overlay -->
-          <!-- svelte-ignore a11y_no_static_element_interactions -->
-          <div class="dropdown-overlay" onclick={() => (statsDropdownOpen = false)} role="presentation"></div>
-        {/if}
-      </div>
-    </div>
-
-    <!-- Theme indicator -->
-    <Tooltip text="Change theme" position="bottom">
-      <!-- svelte-ignore a11y_click_events_have_key_events -->
-      <!-- svelte-ignore a11y_no_static_element_interactions -->
-      <div class="theme-indicator" onclick={() => (settingsOpen = true)} role="button" tabindex="0">
-        <span class="theme-label">{currentThemeLabel}</span>
-        <span class="theme-dots">
-          <span class="theme-dot" style="background: {currentSwatch.bg}"></span>
-          <span class="theme-dot" style="background: {currentSwatch.accent}"></span>
-          <span class="theme-dot" style="background: {currentSwatch.text}"></span>
-        </span>
-      </div>
-    </Tooltip>
-
-    <!-- Help button -->
-    <Tooltip text="Help" position="bottom">
-      <button class="icon-btn" aria-label="Help" onclick={() => goto(helpUrl())}><Icon name="help" size={16} /></button>
-    </Tooltip>
-
-    <!-- Notification bell -->
-    <Tooltip text="Notifications" position="bottom">
-      <button class="icon-btn notif-btn" aria-label="Notifications" onclick={() => goto('/notifications')}>
-        <Icon name="bell" size={16} />
-        {#if unreadNotifications > 0}
-          <span class="notif-badge">{unreadNotifications > 99 ? '99+' : unreadNotifications}</span>
-        {/if}
-      </button>
-    </Tooltip>
-
-    <Tooltip text="Settings" position="bottom">
-      <button class="icon-btn" aria-label="Settings" onclick={() => (settingsOpen = true)}
-        ><Icon name="settings" size={16} /></button
-      >
-    </Tooltip>
-
-    <div class="device-selector">
-      <Tooltip
-        text="{healthStatus === 'green'
-          ? 'Healthy'
-          : healthStatus === 'yellow'
-            ? 'Degraded'
-            : healthStatus === 'red'
-              ? 'Unhealthy'
-              : 'Checking...'}{healthLatency ? ` (${healthLatency}ms)` : ''}"
-        position="bottom"
-      >
-        <span
-          class="health-dot"
-          class:green={healthStatus === 'green'}
-          class:yellow={healthStatus === 'yellow'}
-          class:red={healthStatus === 'red'}
-        ></span>
-      </Tooltip>
-      <select
-        value={$targetDevice}
-        onchange={(e) => {
-          const v = (e.currentTarget as HTMLSelectElement).value;
-          if (v === '__manage__') {
-            manageDevicesOpen = true;
-            fetchTailscaleDevices();
-            // Reset the select back to current value
-            (e.currentTarget as HTMLSelectElement).value = $targetDevice;
+    <div class="header-row-1">
+      <button
+        class="menu-toggle"
+        onclick={() => {
+          if (window.innerWidth <= 768) {
+            sidebarOpen = !sidebarOpen;
           } else {
-            setTarget(v);
+            toggleSidebarCollapse();
           }
         }}
-        aria-label="Target device"
-        class="device-select"
+        aria-label="Toggle sidebar"><Icon name="menu" size={18} /></button
       >
-        <option value="local">{data.device.hostname} (local)</option>
-        {#each $remoteDevices as d}
-          <option value={d.ip}>{d.label || d.hostname} ({d.ip})</option>
-        {/each}
-        <option value="__manage__">Manage Devices...</option>
-      </select>
+      <h1>Home Server</h1>
+      <span
+        class="health-dot header-health"
+        class:green={healthStatus === 'green'}
+        class:yellow={healthStatus === 'yellow'}
+        class:red={healthStatus === 'red'}
+        title={healthStatus === 'green' ? 'Healthy' : healthStatus === 'yellow' ? 'Degraded' : 'Unhealthy'}
+      ></span>
+    </div>
+
+    <div class="header-row-2">
+      <div class="system-stats">
+        {#if isStatVisible('mem')}
+          <span
+            class="stat"
+            title="Memory usage"
+            style="color: {data.system.memUsedPercent >= 90
+              ? 'var(--danger)'
+              : data.system.memUsedPercent >= 70
+                ? 'var(--warning)'
+                : 'var(--success)'}"
+          >
+            MEM {data.system.memUsedPercent}%
+          </span>
+        {/if}
+
+        {#if isStatVisible('cpu')}
+          <span class="stat" title="CPU load" style="color: {cpuColor()}">
+            {cpuLabel()}
+          </span>
+        {/if}
+
+        {#if isStatVisible('uptime')}
+          <Tooltip
+            text="Boot: {new Date(data.system.bootTime).toLocaleString()}, Load: {data.system.loadAvg}/{data.system
+              .loadAvg5}/{data.system.loadAvg15}"
+            position="bottom"
+          >
+            <span class="stat">{data.system.uptime}h up</span>
+          </Tooltip>
+        {/if}
+
+        {#if isStatVisible('swap')}
+          <span
+            class="stat"
+            title="Swap usage"
+            style="color: {data.system.swapPercent >= 80
+              ? 'var(--danger)'
+              : data.system.swapPercent >= 50
+                ? 'var(--warning)'
+                : 'var(--text-muted)'}"
+          >
+            SWAP {data.system.swapPercent}%
+          </span>
+        {/if}
+
+        {#if isStatVisible('procs')}
+          <span class="stat" title="Process count">
+            PROCS {data.system.processCount}
+          </span>
+        {/if}
+
+        {#if isStatVisible('net')}
+          <span class="stat" title="Network throughput (cumulative)">
+            NET {formatNetBytes(data.system.networkBytes.bytesIn)}<Icon name="arrow-down" size={10} />
+            {formatNetBytes(data.system.networkBytes.bytesOut)}<Icon name="arrow-up" size={10} />
+          </span>
+        {/if}
+
+        {#if isStatVisible('netSpeed')}
+          <span class="stat" title="Network speed (bytes/sec)">
+            <span style="color: {netSpeedColor(netSpeed.inPerSec)}"
+              >{formatNetBytes(Math.round(netSpeed.inPerSec))}/s<Icon name="arrow-down" size={10} /></span
+            >
+            <span style="color: {netSpeedColor(netSpeed.outPerSec)}"
+              >{formatNetBytes(Math.round(netSpeed.outPerSec))}/s<Icon name="arrow-up" size={10} /></span
+            >
+          </span>
+        {/if}
+
+        {#if isStatVisible('diskIO')}
+          <span class="stat" title="Disk I/O throughput">
+            DISK {formatNetBytes(data.system.diskIO.readBytesPerSec)}/s R
+            {#if data.system.diskIO.writeBytesPerSec > 0}
+              {formatNetBytes(data.system.diskIO.writeBytesPerSec)}/s W
+            {/if}
+          </span>
+        {/if}
+
+        {#if isStatVisible('fds')}
+          <span class="stat" title="Open file descriptors">
+            FD {data.system.openFDs}
+          </span>
+        {/if}
+
+        {#if isStatVisible('tcp')}
+          <span class="stat" title="Established TCP connections">
+            TCP {data.system.tcpConnections}
+          </span>
+        {/if}
+
+        {#if isStatVisible('ctxSw')}
+          <span class="stat" title="Context switches (cumulative)">
+            CTX {formatNetBytes(data.system.contextSwitches)}
+          </span>
+        {/if}
+
+        <!-- Stats settings gear -->
+        <div class="stats-gear-wrap">
+          <button class="icon-btn" aria-label="Stats settings" onclick={() => (statsDropdownOpen = !statsDropdownOpen)}
+            ><Icon name="settings" size={14} /></button
+          >
+
+          {#if statsDropdownOpen}
+            <!-- svelte-ignore a11y_no_static_element_interactions -->
+            <div class="stats-dropdown" role="menu">
+              <div class="dropdown-section">
+                <span class="dropdown-label">CPU display</span>
+                <div class="dropdown-options">
+                  <button class:selected={statsConfig.cpuMode === 'load'} onclick={() => setCpuMode('load')}
+                    >Load avg</button
+                  >
+                  <button class:selected={statsConfig.cpuMode === 'percent'} onclick={() => setCpuMode('percent')}
+                    >Percent</button
+                  >
+                </div>
+              </div>
+              <div class="dropdown-section">
+                <span class="dropdown-label">Refresh</span>
+                <div class="dropdown-options">
+                  {#each [2, 5, 10, 30, 0] as const as interval}
+                    <button
+                      class:selected={statsConfig.refreshInterval === interval}
+                      onclick={() => setRefreshInterval(interval)}>{interval === 0 ? 'Off' : `${interval}s`}</button
+                    >
+                  {/each}
+                </div>
+              </div>
+              <div class="dropdown-section">
+                <span class="dropdown-label">Visible stats</span>
+                <div class="dropdown-stats-list">
+                  {#each ALL_STATS as s}
+                    <label class="stat-toggle-item">
+                      <input
+                        type="checkbox"
+                        checked={isStatVisible(s.key)}
+                        onchange={() => toggleStatVisibility(s.key)}
+                      />
+                      <span class="stat-toggle-text">
+                        <span class="stat-toggle-label">{s.label}</span>
+                        <span class="stat-toggle-desc">{s.desc}</span>
+                      </span>
+                    </label>
+                  {/each}
+                </div>
+              </div>
+            </div>
+            <!-- click-away overlay -->
+            <!-- svelte-ignore a11y_no_static_element_interactions -->
+            <div class="dropdown-overlay" onclick={() => (statsDropdownOpen = false)} role="presentation"></div>
+          {/if}
+        </div>
+      </div>
+
+      <!-- Theme indicator -->
+      <Tooltip text="Change theme" position="bottom">
+        <!-- svelte-ignore a11y_click_events_have_key_events -->
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <div class="theme-indicator" onclick={() => (settingsOpen = true)} role="button" tabindex="0">
+          <span class="theme-label">{currentThemeLabel}</span>
+          <span class="theme-dots">
+            <span class="theme-dot" style="background: {currentSwatch.bg}"></span>
+            <span class="theme-dot" style="background: {currentSwatch.accent}"></span>
+            <span class="theme-dot" style="background: {currentSwatch.text}"></span>
+          </span>
+        </div>
+      </Tooltip>
+
+      <!-- Help button -->
+      <Tooltip text="Help" position="bottom">
+        <button class="icon-btn" aria-label="Help" onclick={() => goto(helpUrl())}
+          ><Icon name="help" size={16} /></button
+        >
+      </Tooltip>
+
+      <!-- Notification bell -->
+      <Tooltip text="Notifications" position="bottom">
+        <button class="icon-btn notif-btn" aria-label="Notifications" onclick={() => goto('/notifications')}>
+          <Icon name="bell" size={16} />
+          {#if unreadNotifications > 0}
+            <span class="notif-badge">{unreadNotifications > 99 ? '99+' : unreadNotifications}</span>
+          {/if}
+        </button>
+      </Tooltip>
+
+      <Tooltip text="Settings" position="bottom">
+        <button class="icon-btn" aria-label="Settings" onclick={() => (settingsOpen = true)}
+          ><Icon name="settings" size={16} /></button
+        >
+      </Tooltip>
+
+      <div class="device-selector">
+        <Tooltip
+          text="{healthStatus === 'green'
+            ? 'Healthy'
+            : healthStatus === 'yellow'
+              ? 'Degraded'
+              : healthStatus === 'red'
+                ? 'Unhealthy'
+                : 'Checking...'}{healthLatency ? ` (${healthLatency}ms)` : ''}"
+          position="bottom"
+        >
+          <span
+            class="health-dot"
+            class:green={healthStatus === 'green'}
+            class:yellow={healthStatus === 'yellow'}
+            class:red={healthStatus === 'red'}
+          ></span>
+        </Tooltip>
+        <select
+          value={$targetDevice}
+          onchange={(e) => {
+            const v = (e.currentTarget as HTMLSelectElement).value;
+            if (v === '__manage__') {
+              manageDevicesOpen = true;
+              fetchTailscaleDevices();
+              // Reset the select back to current value
+              (e.currentTarget as HTMLSelectElement).value = $targetDevice;
+            } else {
+              setTarget(v);
+            }
+          }}
+          aria-label="Target device"
+          class="device-select"
+        >
+          <option value="local">{data.device.hostname} (local)</option>
+          {#each $remoteDevices as d}
+            <option value={d.ip}>{d.label || d.hostname} ({d.ip})</option>
+          {/each}
+          <option value="__manage__">Manage Devices...</option>
+        </select>
+      </div>
     </div>
   </header>
 
@@ -860,28 +872,84 @@
     -webkit-backdrop-filter: blur(8px);
     z-index: 20;
     position: relative;
-    overflow-x: auto;
-    overflow-y: hidden;
-    min-height: 48px;
   }
 
+  /* Desktop: row wrappers are invisible — everything in one flat row */
+  .header-row-1,
+  .header-row-2 {
+    display: contents;
+  }
+
+  .header-health {
+    display: none;
+  }
+
+  /* Mobile: two-row stacked header */
   @media (max-width: 640px) {
     header {
-      gap: 6px;
-      padding: 8px 10px;
+      flex-wrap: wrap;
+      gap: 0;
+      padding: 0;
     }
 
-    header h1 {
-      font-size: 0.85rem;
+    .header-row-1 {
+      display: flex;
+      align-items: center;
+      width: 100%;
+      gap: 8px;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .header-row-1 h1 {
+      flex: 1;
+      font-size: 0.9rem;
       white-space: nowrap;
     }
 
-    .device-selector {
+    .header-health {
+      display: block;
+    }
+
+    .header-row-2 {
+      display: flex;
+      align-items: center;
+      width: 100%;
+      gap: 6px;
+      padding: 5px 12px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* Hide stats on mobile — they're in the status page */
+    .system-stats {
       display: none;
+    }
+
+    .theme-indicator {
+      display: none;
+    }
+
+    .menu-toggle {
+      background: none;
+      border: none;
+      padding: 0;
+      min-width: 32px;
+      min-height: 32px;
+    }
+
+    .device-selector {
+      flex-shrink: 0;
+    }
+
+    .device-select {
+      max-width: 120px;
+      font-size: 0.65rem;
     }
 
     .icon-btn {
       padding: 2px 4px;
+      flex-shrink: 0;
     }
   }
 
@@ -1503,19 +1571,6 @@
 
   /* ── Responsive ──────────────────────────────────────────────────────────────── */
   @media (max-width: 640px) {
-    .menu-toggle {
-      min-width: 44px;
-      min-height: 44px;
-    }
-
-    .system-stats {
-      display: none;
-    }
-
-    .theme-indicator {
-      display: none;
-    }
-
     nav {
       position: fixed;
       top: 49px;
