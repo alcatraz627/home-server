@@ -52,22 +52,22 @@ Home Server is a SvelteKit application that serves as a unified control plane fo
 
 Each domain has a **server helper**, **API routes**, and a **page**. No cross-imports between server helpers — they are independent modules.
 
-| Domain      | Server Helper             | API Routes                                        | Page           |
-| ----------- | ------------------------- | ------------------------------------------------- | -------------- |
-| Files       | `files.ts`, `metadata.ts` | `/api/files/`, `/api/files/[filename]/`, `/api/files/stream/`, `/api/files/search/` | `/files` |
-| Processes   | `processes.ts`            | `/api/processes/`, `/api/processes/[pid]/`         | `/processes`   |
-| Lights      | `wiz.ts`                  | `/api/lights/`, `/api/lights/[ip]/`                | `/lights`      |
-| Tailscale   | `tailscale.ts`            | `/api/tailscale/`                                  | `/tailscale`   |
-| Backups     | `backups.ts`              | `/api/backups/`, `/api/backups/preview/`           | `/backups`     |
-| Tasks       | `operator.ts`             | `/api/tasks/`                                      | `/tasks`       |
-| Terminal    | `terminal.ts`             | `/api/terminal/`, `/api/terminal/[sessionId]/`     | `/terminal`    |
-| Keeper      | `keeper.ts`, `agent-runner.ts` | `/api/keeper/`, `/api/keeper/[id]/log,message,agent/` | `/keeper` |
-| WoL         | `wol.ts`                  | `/api/wol/`                                        | `/wol`         |
-| Bookmarks   | _(JSON store)_            | `/api/bookmarks/`                                  | `/bookmarks`   |
-| Kanban      | _(JSON store)_            | `/api/kanban/`                                     | `/kanban`      |
-| Network     | _(child_process)_         | `/api/wifi/`, `/api/packets/`, `/api/network/`, `/api/dns/`, `/api/ports/` | `/wifi`, `/packets`, `/network`, `/dns`, `/ports` |
-| Peripherals | _(child_process)_         | `/api/peripherals/`                                | `/peripherals` |
-| Apps        | _(child_process)_         | `/api/apps/`                                       | `/apps`        |
+| Domain      | Server Helper                  | API Routes                                                                          | Page                                              |
+| ----------- | ------------------------------ | ----------------------------------------------------------------------------------- | ------------------------------------------------- |
+| Files       | `files.ts`, `metadata.ts`      | `/api/files/`, `/api/files/[filename]/`, `/api/files/stream/`, `/api/files/search/` | `/files`                                          |
+| Processes   | `processes.ts`                 | `/api/processes/`, `/api/processes/[pid]/`                                          | `/processes`                                      |
+| Lights      | `wiz.ts`                       | `/api/lights/`, `/api/lights/[ip]/`                                                 | `/lights`                                         |
+| Tailscale   | `tailscale.ts`                 | `/api/tailscale/`                                                                   | `/tailscale`                                      |
+| Backups     | `backups.ts`                   | `/api/backups/`, `/api/backups/preview/`                                            | `/backups`                                        |
+| Tasks       | `operator.ts`                  | `/api/tasks/`                                                                       | `/tasks`                                          |
+| Terminal    | `terminal.ts`                  | `/api/terminal/`, `/api/terminal/[sessionId]/`                                      | `/terminal`                                       |
+| Keeper      | `keeper.ts`, `agent-runner.ts` | `/api/keeper/`, `/api/keeper/[id]/log,message,agent/`                               | `/keeper`                                         |
+| WoL         | `wol.ts`                       | `/api/wol/`                                                                         | `/wol`                                            |
+| Bookmarks   | _(JSON store)_                 | `/api/bookmarks/`                                                                   | `/bookmarks`                                      |
+| Kanban      | _(JSON store)_                 | `/api/kanban/`                                                                      | `/kanban`                                         |
+| Network     | _(child_process)_              | `/api/wifi/`, `/api/packets/`, `/api/network/`, `/api/dns/`, `/api/ports/`          | `/wifi`, `/packets`, `/network`, `/dns`, `/ports` |
+| Peripherals | _(child_process)_              | `/api/peripherals/`                                                                 | `/peripherals`                                    |
+| Apps        | _(child_process)_              | `/api/apps/`                                                                        | `/apps`                                           |
 
 ## Data Flow
 
@@ -114,38 +114,38 @@ To avoid performance overhead, process inspection is split into two tiers:
 
 ## Component Library
 
-The project includes 17 reusable Svelte components in `src/lib/components/`. These are divided into two tiers:
+The project includes 24 reusable Svelte components in `src/lib/components/`. These are divided into two tiers:
 
-### Shared UI Primitives (7 components)
+### Shared UI Primitives (14 components)
 
-Built during the v3.6 component standardization effort. These replace hundreds of inline patterns across the codebase.
+Built during v3.6 and expanded in v4.3. Includes Card, Toolbar, PageHeader, DataChip, InteractiveChip, InfoRow, MiniChart, CommandPalette (added v4.3+) alongside the original Button, Badge, Tabs, SearchInput, Loading, Collapsible, Icon.
 
-| Component       | Purpose                                         |
-| --------------- | ----------------------------------------------- |
-| `Button`        | Unified button with variants (primary, danger, ghost), sizes, and confirm mode |
-| `Badge`         | Status pills and dots with color variants       |
-| `Tabs`          | Tab bar with keyboard navigation and ARIA roles |
-| `SearchInput`   | Debounced search field with icon and clear button |
-| `Loading`       | Skeleton, spinner, and dots loading states      |
-| `Collapsible`   | Animated expand/collapse sections               |
-| `Icon`          | Icon wrapper for consistent sizing              |
+| Component     | Purpose                                                                        |
+| ------------- | ------------------------------------------------------------------------------ |
+| `Button`      | Unified button with variants (primary, danger, ghost), sizes, and confirm mode |
+| `Badge`       | Status pills and dots with color variants                                      |
+| `Tabs`        | Tab bar with keyboard navigation and ARIA roles                                |
+| `SearchInput` | Debounced search field with icon and clear button                              |
+| `Loading`     | Skeleton, spinner, and dots loading states                                     |
+| `Collapsible` | Animated expand/collapse sections                                              |
+| `Icon`        | Icon wrapper for consistent sizing                                             |
 
 ### Feature Components (10 components)
 
 Domain-specific components used across pages.
 
-| Component        | Purpose                                         |
-| ---------------- | ----------------------------------------------- |
-| `Tooltip`        | Hover tooltips with positioning                 |
-| `Modal`          | Dialog overlay with backdrop                    |
-| `AiChat`         | Floating AI chat with conversation tabs         |
-| `CronBuilder`    | Visual cron expression builder                  |
-| `MediaPlayer`    | Video/audio player with playlist support        |
-| `SettingsPanel`  | Slide-out panel for theme/font/accent controls  |
-| `DataTable`      | Sortable, filterable, paginated table           |
-| `FileBrowser`    | File/directory picker modal                     |
-| `Toast`          | Toast notification with dedupe and stacking     |
-| `EmptyState`     | Placeholder for empty lists/pages               |
+| Component       | Purpose                                        |
+| --------------- | ---------------------------------------------- |
+| `Tooltip`       | Hover tooltips with positioning                |
+| `Modal`         | Dialog overlay with backdrop                   |
+| `AiChat`        | Floating AI chat with conversation tabs        |
+| `CronBuilder`   | Visual cron expression builder                 |
+| `MediaPlayer`   | Video/audio player with playlist support       |
+| `SettingsPanel` | Slide-out panel for theme/font/accent controls |
+| `DataTable`     | Sortable, filterable, paginated table          |
+| `FileBrowser`   | File/directory picker modal                    |
+| `Toast`         | Toast notification with dedupe and stacking    |
+| `EmptyState`    | Placeholder for empty lists/pages              |
 
 ## Renderer Plugin System
 

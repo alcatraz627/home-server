@@ -2,7 +2,24 @@
 
 All endpoints return JSON unless otherwise noted. Base URL: `http://<host>:5555`
 
-**35 API routes across 26 domains.** Last updated: v3.6.0
+**50+ API routes across 35 domains.** Last updated: v4.8.1
+
+## New in v4.3–4.8
+
+| Endpoint                    | Method              | Description                                               |
+| --------------------------- | ------------------- | --------------------------------------------------------- |
+| `/api/health`               | GET                 | Server health check (green/yellow/red + latency)          |
+| `/api/status`               | GET                 | Full app status (version, server info, storage breakdown) |
+| `/api/notes`                | GET/POST/PUT/DELETE | Notes CRUD with block-based content                       |
+| `/api/databases`            | GET/POST            | Database service status (PostgreSQL, Redis, MongoDB, PM2) |
+| `/api/dns/trace`            | POST                | DNS path trace via `dig +trace`                           |
+| `/api/wifi/diagnostics`     | POST                | Network diagnostics (ping, DNS, traceroute, internet)     |
+| `/api/terminal/pin`         | GET/POST            | Terminal PIN gate management                              |
+| `/api/apps/{name}`          | GET                 | App process details (CPU, MEM, PIDs, version)             |
+| `/api/apps/icon/{name}`     | GET                 | macOS app icon extraction (PNG)                           |
+| `/api/logs`                 | POST                | Client-side error reporting                               |
+| `/api/logs?action=raw`      | GET                 | Raw log file content for preview                          |
+| `/api/logs?action=download` | GET                 | Download log file                                         |
 
 ---
 

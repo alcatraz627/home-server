@@ -286,34 +286,71 @@
 - [x] Theme expansion — 17 color overrides (Brand/Text/Surface groups), 6 body fonts, 6 heading fonts
 - [x] Files page — system browse mode for arbitrary file paths (`/`, `~`)
 
+### v4.6 — Security Complete + Full Linux Support
+
+- [x] S5: Browse API restricted to configurable allowlist (homedir + /tmp + /var/log + /etc)
+- [x] S10: Terminal PIN gate — SHA-256 hashed PIN, WebSocket upgrade rejection
+- [x] S11: Rate limiting — in-memory per-IP limiter on 8 expensive endpoints
+- [x] Linux battery: `/sys/class/power_supply/BAT*` with capacity, status, cycle_count
+- [x] Linux disk: `df -T` with `--exclude-type` for virtual filesystems
+- [x] Security tech debt: 11/11 items resolved
+- [x] Linux compat: 17/17 features implemented
+
+### v4.7 — Notes Module
+
+- [x] Notes page (`/notes`) — Notion-like block editor with 10 block types
+- [x] Block types: text, H1/H2/H3, bullet/numbered lists, to-do, code, quote, divider
+- [x] Auto-save with 1s debounce, sidebar search, nested page support
+- [x] JSON storage in `~/.home-server/notes/` with REST API (GET/POST/PUT/DELETE)
+
+### v4.8 — Status Page, Dashboard Expansion, Test Suite
+
+- [x] App Status page (`/status`) — health, version, git info, memory, storage breakdown
+- [x] Dashboard: 14 modules (added notifications, notes, docker, services widgets)
+- [x] Dashboard widget fixes: Tasks/Backups/Keeper render at all sizes (S/M/L)
+- [x] Files page: starring reactivity fix, URL sync via history.replaceState
+- [x] Tasks page refactor: extracted 1255-line templates to separate file (2963→1708 lines)
+- [x] Type safety: catch(unknown) migration across 26 files with errorMessage() helper
+- [x] Structured request logging in hooks.server.ts (replaced console.log)
+- [x] Test suite expansion: 24→38 tests, 100% passing
+- [x] UI tests: SSR smoke test for all 34 pages + security header verification
+- [x] Bug fix: history.ts → history.svelte.ts for Svelte 5 rune support in SSR
+- [x] EmptyState added to WOL, bookmarks, screenshots pages
+
 ## Release Summary
 
-| Version | Highlights                                                                                                     |
-| ------- | -------------------------------------------------------------------------------------------------------------- |
-| v3.1    | Starring system, global theme/font control (10 themes), mobile PWA                                             |
-| v3.2    | Tailscale extended info, Keeper agent integration, multi-computer support                                      |
-| v3.3    | Animations plan, cross-device backup preview, media server                                                     |
-| v3.4    | Task page overhaul, 10 new fun pages (QR, bookmarks, kanban, etc.)                                             |
-| v3.5    | Security/network tools (WiFi, packets, network toolkit), AI chat polish                                        |
-| v3.6    | Component library (17 components), app launcher, 20 themes, documentation sprint                               |
-| v4.0    | Test suite, toast behavior, 25 themes, font/color customization                                                |
-| v4.1    | Logging (all modules), security hardening, Linux support, lucide-svelte                                        |
-| v4.2    | Service health, notifications, Docker, fetchApi, /api/audit                                                    |
-| v4.3    | Command palette, 7 new components, keyboard nav, WiFi diagnostics, app icons, kanban enhancements, 6 bug fixes |
+| Version | Highlights                                                                                                             |
+| ------- | ---------------------------------------------------------------------------------------------------------------------- |
+| v3.1    | Starring system, global theme/font control (10 themes), mobile PWA                                                     |
+| v3.2    | Tailscale extended info, Keeper agent integration, multi-computer support                                              |
+| v3.3    | Animations plan, cross-device backup preview, media server                                                             |
+| v3.4    | Task page overhaul, 10 new fun pages (QR, bookmarks, kanban, etc.)                                                     |
+| v3.5    | Security/network tools (WiFi, packets, network toolkit), AI chat polish                                                |
+| v3.6    | Component library (17 components), app launcher, 20 themes, documentation sprint                                       |
+| v4.0    | Test suite, toast behavior, 25 themes, font/color customization                                                        |
+| v4.1    | Logging (all modules), security hardening, Linux support, lucide-svelte                                                |
+| v4.2    | Service health, notifications, Docker, fetchApi, /api/audit                                                            |
+| v4.3    | Command palette, 7 new components, keyboard nav, WiFi diagnostics, app icons, kanban enhancements, 6 bug fixes         |
 | v4.4    | DNS trace page, port scanner SSE streaming, health API, Tailscale device picker, tasks filter/hide, security hardening |
-| v4.5    | Databases page, screenshots metadata, speed test external mode, log preview, theme expansion, files system browse |
+| v4.5    | Databases page, screenshots metadata, speed test external mode, log preview, theme expansion, files system browse      |
+| v4.6    | Security complete (11/11), full Linux support (17/17), terminal PIN, rate limiting, browse allowlist                   |
+| v4.7    | Notes module (Notion-like block editor with auto-save)                                                                 |
+| v4.8    | Status page, 14 dashboard modules, 38 tests (100%), type safety migration, tasks refactor                              |
 
 ## Architecture Notes
 
 - **Stack:** SvelteKit 2 + Svelte 5 (runes), adapter-node, Node v23
+- **Pages:** 36 pages across 5 nav groups
 - **Persistence:** JSON files in `~/.home-server/` — no database
-- **Themes:** 25 CSS custom property themes with custom color overrides
+- **Themes:** 25 CSS custom property themes with 17 customizable colors + 6 body/heading fonts
 - **Components:** 24 reusable Svelte components (14 shared primitives + 10 feature)
 - **Icons:** lucide-svelte with 80+ icon mappings
-- **Logging:** JSON Lines to `~/.home-server/logs/` with rotation + /logs viewer
-- **Security:** Input sanitization (path traversal, shell injection, body validation)
-- **Testing:** 25 test files, tiered runner, no mocks
+- **Logging:** JSON Lines to `~/.home-server/logs/` with rotation + /logs viewer + structured request logging
+- **Security:** 11/11 security items resolved — spawnSync, rate limiting, PIN gate, env filtering, browse allowlist
+- **Testing:** 38 test files (100% passing), tiered runner (basic/comprehensive/integration/platform), UI SSR smoke tests
+- **Linux:** 17/17 features fully cross-platform (macOS + Linux/Raspberry Pi)
+- **Dashboard:** 14 customizable modules with drag reorder + S/M/L sizing
 - **Styling:** Prettier with svelte plugin, 2-space indent
-- **VPN:** Tailscale for multi-device access
-- **Notifications:** ntfy.sh + in-app notification center
+- **VPN:** Tailscale for multi-device access with health indicator
+- **Notifications:** ntfy.sh + in-app notification center with navbar badge
 - **Deployment:** Mac (hub) + Raspberry Pi (node) via Tailscale, systemd + Docker
