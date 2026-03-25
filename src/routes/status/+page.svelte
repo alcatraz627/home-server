@@ -108,16 +108,23 @@
       </Card>
 
       <Card padding="sm">
-        {#snippet header()}<strong>Memory</strong>{/snippet}
+        {#snippet header()}<strong>App Memory</strong>{/snippet}
         <div class="mem-visual">
           <div class="mem-bar">
-            <div class="mem-fill" style="width: {status.server.memPercent}%"></div>
+            <div class="mem-fill" style="width: {status.process.heapPercent}%"></div>
           </div>
           <div class="mem-labels">
-            <span>{Math.round((status.server.usedMemMB / 1024) * 10) / 10} GB used</span>
-            <span>{Math.round((status.server.totalMemMB / 1024) * 10) / 10} GB total</span>
+            <span>Heap {status.process.heapUsedMB} / {status.process.heapTotalMB} MB</span>
+            <span>{status.process.heapPercent}%</span>
           </div>
-          <div class="mem-percent">{status.server.memPercent}%</div>
+          <div class="mem-percent">{status.process.rssMB} MB</div>
+          <div class="mem-rss-label">RSS (total process)</div>
+        </div>
+        <div class="info-rows" style="margin-top: 10px">
+          <div class="info-r"><span class="lbl">Heap Used</span><code>{status.process.heapUsedMB} MB</code></div>
+          <div class="info-r"><span class="lbl">Heap Total</span><code>{status.process.heapTotalMB} MB</code></div>
+          <div class="info-r"><span class="lbl">RSS</span><code>{status.process.rssMB} MB</code></div>
+          <div class="info-r"><span class="lbl">External</span><code>{status.process.externalMB} MB</code></div>
         </div>
       </Card>
     </div>
@@ -289,6 +296,12 @@
     font-family: 'JetBrains Mono', monospace;
     color: var(--accent);
     margin-top: 8px;
+  }
+
+  .mem-rss-label {
+    font-size: 0.62rem;
+    color: var(--text-faint);
+    margin-top: 2px;
   }
 
   .section-title {

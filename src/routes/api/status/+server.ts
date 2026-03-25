@@ -133,13 +133,20 @@ export const GET: RequestHandler = async () => {
       arch: os.arch(),
       cpuModel: cpus[0]?.model || 'Unknown',
       cpuCount: cpus.length,
-      totalMemMB: Math.round(totalMem / 1048576),
-      usedMemMB: Math.round((totalMem - freeMem) / 1048576),
-      memPercent: Math.round(((totalMem - freeMem) / totalMem) * 100),
       loadAvg: Math.round(load1 * 100) / 100,
       uptimeHours: Math.floor(uptimeSec / 3600),
       uptimeDays: Math.floor(uptimeSec / 86400),
     },
+    process: (() => {
+      const mem = process.memoryUsage();
+      return {
+        heapUsedMB: Math.round(mem.heapUsed / 1048576),
+        heapTotalMB: Math.round(mem.heapTotal / 1048576),
+        rssMB: Math.round(mem.rss / 1048576),
+        externalMB: Math.round(mem.external / 1048576),
+        heapPercent: Math.round((mem.heapUsed / mem.heapTotal) * 100),
+      };
+    })(),
     storage,
     totalStorageBytes,
     dataDir: DATA_DIR,

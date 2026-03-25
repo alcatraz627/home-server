@@ -485,6 +485,18 @@
       }
     };
   });
+
+  const MAX_LOG_LINES = 800;
+
+  function getDisplayContent(content: string): string {
+    const lines = content.split('\n');
+    if (lines.length <= MAX_LOG_LINES) return content;
+    return lines.slice(-MAX_LOG_LINES).join('\n');
+  }
+
+  function isLogTruncated(content: string): boolean {
+    return content.split('\n').length > MAX_LOG_LINES;
+  }
 </script>
 
 <svelte:window onkeydown={handleKeydown} />
@@ -757,7 +769,10 @@
                     </Button>
                   </div>
                 </div>
-                <div class="log-viewer">{@html ansiToHtml(logContent[req.id])}</div>
+                {#if isLogTruncated(logContent[req.id])}
+                  <p class="log-truncated">Showing last {MAX_LOG_LINES} lines of output</p>
+                {/if}
+                <div class="log-viewer">{@html ansiToHtml(getDisplayContent(logContent[req.id]))}</div>
               </div>
             {/if}
 
@@ -1179,6 +1194,14 @@
   .detail-actions {
     display: flex;
     gap: 4px;
+  }
+
+  .log-truncated {
+    font-size: 0.65rem;
+    color: var(--text-faint);
+    text-align: right;
+    margin: 0 0 4px;
+    font-style: italic;
   }
 
   /* Log viewer */

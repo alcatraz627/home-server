@@ -86,7 +86,7 @@ export async function startAgent(requestId: string): Promise<{ ok: true } | { ok
   const startMarker = `\n--- Agent started at ${new Date().toISOString()} ---\n\n`;
   logStream.write(startMarker);
 
-  const proc = spawn(claudePath, ['-p', context, '--output-format', 'stream-json'], {
+  const proc = spawn(claudePath, ['-p', context, '--output-format', 'stream-json', '--dangerously-skip-permissions'], {
     stdio: ['pipe', 'pipe', 'pipe'],
     env: { ...process.env },
   });
@@ -229,7 +229,7 @@ export async function resumeAgent(requestId: string): Promise<{ ok: true } | { o
   const startMarker = `\n--- Agent resumed at ${new Date().toISOString()} ---\n\n`;
   logStream.write(startMarker);
 
-  const proc = spawn(claudePath, ['-p', context, '--output-format', 'stream-json'], {
+  const proc = spawn(claudePath, ['-p', context, '--output-format', 'stream-json', '--dangerously-skip-permissions'], {
     stdio: ['pipe', 'pipe', 'pipe'],
     env: { ...process.env },
   });

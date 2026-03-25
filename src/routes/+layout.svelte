@@ -24,6 +24,31 @@
   let navSearch = $state('');
   let commandPaletteOpen = $state(false);
   let navSearchEl = $state<HTMLElement | null>(null);
+  let navEl = $state<HTMLElement | null>(null);
+
+  function handleNavSearchKeydown(e: KeyboardEvent) {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      const firstLink = navEl?.querySelector('.nav-link') as HTMLElement | null;
+      firstLink?.focus();
+    }
+  }
+
+  function handleNavLinkKeydown(e: KeyboardEvent) {
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+    e.preventDefault();
+    const links = navEl ? Array.from(navEl.querySelectorAll<HTMLElement>('.nav-link')) : [];
+    const idx = links.indexOf(e.currentTarget as HTMLElement);
+    if (e.key === 'ArrowDown') {
+      links[idx + 1]?.focus();
+    } else {
+      if (idx === 0) {
+        (navSearchEl?.querySelector('input') as HTMLElement | null)?.focus();
+      } else {
+        links[idx - 1]?.focus();
+      }
+    }
+  }
 
   // Collapsible sidebar on desktop
   const SIDEBAR_COLLAPSED_KEY = 'hs:sidebar-collapsed';
@@ -32,6 +57,39 @@
   function toggleSidebarCollapse() {
     sidebarCollapsed = !sidebarCollapsed;
     if (browser) localStorage.setItem(SIDEBAR_COLLAPSED_KEY, sidebarCollapsed ? '1' : '0');
+  }
+
+  // Drag-resizable sidebar
+  const SIDEBAR_WIDTH_KEY = 'hs:sidebar-width';
+  const SIDEBAR_MIN = 160;
+  const SIDEBAR_MAX = 400;
+  const SIDEBAR_DEFAULT = 210;
+  let sidebarWidth = $state(
+    browser ? parseInt(localStorage.getItem(SIDEBAR_WIDTH_KEY) || String(SIDEBAR_DEFAULT), 10) : SIDEBAR_DEFAULT,
+  );
+  let isResizing = $state(false);
+
+  function startSidebarResize(e: MouseEvent) {
+    if (sidebarCollapsed) return;
+    e.preventDefault();
+    isResizing = true;
+    const startX = e.clientX;
+    const startWidth = sidebarWidth;
+
+    function onMove(ev: MouseEvent) {
+      const newWidth = Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, startWidth + ev.clientX - startX));
+      sidebarWidth = newWidth;
+    }
+
+    function onUp() {
+      isResizing = false;
+      if (browser) localStorage.setItem(SIDEBAR_WIDTH_KEY, String(sidebarWidth));
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    }
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
   }
   let unreadNotifications = $state(0);
   let healthStatus = $state<'green' | 'yellow' | 'red' | 'unknown'>('unknown');
@@ -98,7 +156,14 @@
 
   let statsConfig = $state(loadStatsConfig());
   let statsDropdownOpen = $state(false);
+  let statsGearWrapEl = $state<HTMLElement | null>(null);
   let settingsOpen = $state(false);
+
+  function handleWindowClick(e: MouseEvent) {
+    if (statsDropdownOpen && statsGearWrapEl && !statsGearWrapEl.contains(e.target as Node)) {
+      statsDropdownOpen = false;
+    }
+  }
   const currentSwatch = $derived(THEME_SWATCHES[$theme]);
   const currentThemeLabel = $derived(THEMES.find((t) => t.id === $theme)?.label ?? $theme);
 
@@ -401,7 +466,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
 </svelte:head>
 
-<svelte:window onkeydown={handleGlobalKeydown} />
+<svelte:window onkeydown={handleGlobalKeydown} onclick={handleWindowClick} />
 
 <div class="app">
   <header>
@@ -525,27 +590,38 @@
         {/if}
 
         <!-- Stats settings gear -->
-        <div class="stats-gear-wrap">
-          <button class="icon-btn" aria-label="Stats settings" onclick={() => (statsDropdownOpen = !statsDropdownOpen)}
-            ><Icon name="settings" size={14} /></button
+        <div class="stats-gear-wrap" bind:this={statsGearWrapEl}>
+          <button
+            class="icon-btn stats-gear-btn"
+            class:active={statsDropdownOpen}
+            aria-label="Stats settings"
+            aria-expanded={statsDropdownOpen}
+            onclick={() => (statsDropdownOpen = !statsDropdownOpen)}><Icon name="settings" size={14} /></button
           >
 
           {#if statsDropdownOpen}
-            <!-- svelte-ignore a11y_no_static_element_interactions -->
-            <div class="stats-dropdown" role="menu">
+            <div class="stats-dropdown" role="dialog" aria-label="Stats configuration">
+              <div class="stats-dropdown-header">
+                <span class="stats-dropdown-title">Stats Display</span>
+                <button class="stats-dropdown-close" onclick={() => (statsDropdownOpen = false)} aria-label="Close">
+                  <Icon name="close" size={12} />
+                </button>
+              </div>
+
               <div class="dropdown-section">
-                <span class="dropdown-label">CPU display</span>
+                <span class="dropdown-label">CPU mode</span>
                 <div class="dropdown-options">
-                  <button class:selected={statsConfig.cpuMode === 'load'} onclick={() => setCpuMode('load')}
-                    >Load avg</button
-                  >
-                  <button class:selected={statsConfig.cpuMode === 'percent'} onclick={() => setCpuMode('percent')}
-                    >Percent</button
-                  >
+                  <button class:selected={statsConfig.cpuMode === 'load'} onclick={() => setCpuMode('load')}>
+                    Load avg
+                  </button>
+                  <button class:selected={statsConfig.cpuMode === 'percent'} onclick={() => setCpuMode('percent')}>
+                    Percent
+                  </button>
                 </div>
               </div>
+
               <div class="dropdown-section">
-                <span class="dropdown-label">Refresh</span>
+                <span class="dropdown-label">Refresh interval</span>
                 <div class="dropdown-options">
                   {#each [2, 5, 10, 30, 0] as const as interval}
                     <button
@@ -555,6 +631,7 @@
                   {/each}
                 </div>
               </div>
+
               <div class="dropdown-section">
                 <span class="dropdown-label">Visible stats</span>
                 <div class="dropdown-stats-list">
@@ -574,9 +651,6 @@
                 </div>
               </div>
             </div>
-            <!-- click-away overlay -->
-            <!-- svelte-ignore a11y_no_static_element_interactions -->
-            <div class="dropdown-overlay" onclick={() => (statsDropdownOpen = false)} role="presentation"></div>
           {/if}
         </div>
       </div>
@@ -610,12 +684,6 @@
             <span class="notif-badge">{unreadNotifications > 99 ? '99+' : unreadNotifications}</span>
           {/if}
         </button>
-      </Tooltip>
-
-      <Tooltip text="Settings" position="bottom">
-        <button class="icon-btn" aria-label="Settings" onclick={() => (settingsOpen = true)}
-          ><Icon name="settings" size={16} /></button
-        >
       </Tooltip>
 
       <div class="device-selector">
@@ -665,8 +733,14 @@
   <div class="body">
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-    <nav class:open={sidebarOpen} class:collapsed={sidebarCollapsed}>
-      <div class="nav-search" bind:this={navSearchEl}>
+    <nav
+      bind:this={navEl}
+      class:open={sidebarOpen}
+      class:collapsed={sidebarCollapsed}
+      class:resizing={isResizing}
+      style={sidebarCollapsed ? '' : `width: ${sidebarWidth}px`}
+    >
+      <div class="nav-search" bind:this={navSearchEl} onkeydown={handleNavSearchKeydown}>
         <SearchInput bind:value={navSearch} placeholder="Search..." size="sm" clearable />
         <span class="nav-search-hint"><kbd>/</kbd></span>
       </div>
@@ -682,6 +756,7 @@
                 class="nav-link"
                 class:active={isActive(item.href)}
                 onclick={() => (sidebarOpen = false)}
+                onkeydown={handleNavLinkKeydown}
               >
                 <span class="nav-icon"><Icon name={item.icon} size={16} /></span>
                 <span class="nav-text">
@@ -719,6 +794,7 @@
                 class:active={isActive(item.href)}
                 title={item.label}
                 onclick={() => (sidebarOpen = false)}
+                onkeydown={handleNavLinkKeydown}
                 ondblclick={(e) => {
                   e.preventDefault();
                   togglePin(item.href);
@@ -750,6 +826,10 @@
         </div>
       {/each}
       <span class="version-tag">{APP.version}</span>
+      <!-- svelte-ignore a11y_no_static_element_interactions -->
+      {#if !sidebarCollapsed}
+        <div class="nav-resize-handle" onmousedown={startSidebarResize} title="Drag to resize sidebar"></div>
+      {/if}
     </nav>
 
     <main>
@@ -1048,6 +1128,44 @@
     position: relative;
   }
 
+  .stats-gear-btn.active {
+    background: var(--bg-hover);
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .stats-dropdown-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 2px 8px;
+    border-bottom: 1px solid var(--border-subtle);
+    margin-bottom: 2px;
+  }
+
+  .stats-dropdown-title {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    letter-spacing: 0.02em;
+  }
+
+  .stats-dropdown-close {
+    background: none;
+    border: none;
+    color: var(--text-faint);
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+  }
+
+  .stats-dropdown-close:hover {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+  }
+
   .icon-btn {
     background: none;
     border: 1px solid transparent;
@@ -1094,7 +1212,7 @@
     position: absolute;
     top: calc(100% + 6px);
     right: 0;
-    min-width: 180px;
+    min-width: 200px;
     background: var(--bg-secondary);
     border: 1px solid var(--border);
     border-radius: 8px;
@@ -1106,11 +1224,7 @@
     gap: 10px;
   }
 
-  .dropdown-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: 99;
-  }
+  /* dropdown-overlay removed — using window click handler instead */
 
   .dropdown-section {
     display: flex;
@@ -1274,6 +1388,33 @@
     overflow-y: auto;
     transition: width 0.2s ease;
     flex-shrink: 0;
+  }
+
+  /* Resize handle */
+  .nav-resize-handle {
+    position: absolute;
+    top: 0;
+    right: -3px;
+    width: 6px;
+    height: 100%;
+    cursor: col-resize;
+    z-index: 10;
+    transition: background 0.15s;
+  }
+
+  .nav-resize-handle:hover,
+  nav.resizing .nav-resize-handle {
+    background: var(--accent);
+    opacity: 0.4;
+  }
+
+  nav {
+    position: relative;
+  }
+
+  nav.resizing {
+    transition: none;
+    user-select: none;
   }
 
   /* Collapsed sidebar — icon-only slim mode */

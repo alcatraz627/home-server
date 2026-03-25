@@ -29,8 +29,16 @@ describe('/api/status', () => {
     assert.ok(typeof data.server.platform === 'string');
     assert.ok(typeof data.server.cpuCount === 'number');
     assert.ok(data.server.cpuCount > 0, 'should have at least 1 CPU');
-    assert.ok(data.server.totalMemMB > 0, 'should have memory');
-    assert.ok(data.server.memPercent >= 0 && data.server.memPercent <= 100);
+  });
+
+  it('process section has app memory info', async () => {
+    const { data } = await apiJson('/api/status');
+    assert.ok(data.process, 'should have process section');
+    assert.ok(typeof data.process.heapUsedMB === 'number');
+    assert.ok(typeof data.process.heapTotalMB === 'number');
+    assert.ok(typeof data.process.rssMB === 'number');
+    assert.ok(data.process.rssMB > 0, 'RSS should be > 0');
+    assert.ok(data.process.heapPercent >= 0 && data.process.heapPercent <= 100);
   });
 
   it('storage entries have name, size, fileCount', async () => {

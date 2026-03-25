@@ -8,19 +8,142 @@
   // ── Settings config ──────────────────────────────────────────────────────────
   const SETTINGS_KEY = 'hs:settings';
 
+  interface FontOption {
+    id: string;
+    name: string;
+    css: string;
+  }
+  interface FontGroup {
+    label: string;
+    fonts: FontOption[];
+  }
+
+  const BODY_FONT_GROUPS: FontGroup[] = [
+    {
+      label: 'Sans-Serif',
+      fonts: [
+        { id: 'inter', name: 'Inter', css: "'Inter', sans-serif" },
+        { id: 'system', name: 'System UI', css: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" },
+        { id: 'geist', name: 'Geist', css: "'Geist', 'Inter', sans-serif" },
+        { id: 'dm-sans', name: 'DM Sans', css: "'DM Sans', sans-serif" },
+        { id: 'ibm-plex', name: 'IBM Plex Sans', css: "'IBM Plex Sans', sans-serif" },
+        { id: 'plus-jakarta-sans', name: 'Plus Jakarta Sans', css: "'Plus Jakarta Sans', sans-serif" },
+        { id: 'nunito', name: 'Nunito', css: "'Nunito', sans-serif" },
+        { id: 'rubik', name: 'Rubik', css: "'Rubik', sans-serif" },
+        { id: 'outfit', name: 'Outfit', css: "'Outfit', sans-serif" },
+        { id: 'poppins', name: 'Poppins', css: "'Poppins', sans-serif" },
+        { id: 'source-sans-3', name: 'Source Sans 3', css: "'Source Sans 3', sans-serif" },
+        { id: 'figtree', name: 'Figtree', css: "'Figtree', sans-serif" },
+        { id: 'onest', name: 'Onest', css: "'Onest', sans-serif" },
+        { id: 'open-sans', name: 'Open Sans', css: "'Open Sans', sans-serif" },
+        { id: 'raleway', name: 'Raleway', css: "'Raleway', sans-serif" },
+        { id: 'urbanist', name: 'Urbanist', css: "'Urbanist', sans-serif" },
+      ],
+    },
+    {
+      label: 'Serif',
+      fonts: [
+        { id: 'playfair', name: 'Playfair Display', css: "'Playfair Display', serif" },
+        { id: 'merriweather', name: 'Merriweather', css: "'Merriweather', serif" },
+        { id: 'lora', name: 'Lora', css: "'Lora', serif" },
+        { id: 'eb-garamond', name: 'EB Garamond', css: "'EB Garamond', serif" },
+      ],
+    },
+    {
+      label: 'Monospace',
+      fonts: [
+        { id: 'mono', name: 'JetBrains Mono', css: "'JetBrains Mono', monospace" },
+        { id: 'fira-code', name: 'Fira Code', css: "'Fira Code', monospace" },
+        { id: 'ibm-plex-mono', name: 'IBM Plex Mono', css: "'IBM Plex Mono', monospace" },
+        { id: 'source-code-pro', name: 'Source Code Pro', css: "'Source Code Pro', monospace" },
+        { id: 'inconsolata', name: 'Inconsolata', css: "'Inconsolata', monospace" },
+      ],
+    },
+    {
+      label: 'Display',
+      fonts: [
+        { id: 'space-grotesk', name: 'Space Grotesk', css: "'Space Grotesk', sans-serif" },
+        { id: 'syne', name: 'Syne', css: "'Syne', sans-serif" },
+        { id: 'josefin-sans', name: 'Josefin Sans', css: "'Josefin Sans', sans-serif" },
+        { id: 'bebas-neue', name: 'Bebas Neue', css: "'Bebas Neue', cursive" },
+      ],
+    },
+  ];
+
+  const HEADING_FONT_GROUPS: FontGroup[] = [
+    {
+      label: 'Display',
+      fonts: [
+        { id: 'space-grotesk', name: 'Space Grotesk', css: "'Space Grotesk', sans-serif" },
+        { id: 'syne', name: 'Syne', css: "'Syne', sans-serif" },
+        { id: 'josefin-sans', name: 'Josefin Sans', css: "'Josefin Sans', sans-serif" },
+        { id: 'bebas-neue', name: 'Bebas Neue', css: "'Bebas Neue', cursive" },
+        { id: 'raleway', name: 'Raleway', css: "'Raleway', sans-serif" },
+        { id: 'urbanist', name: 'Urbanist', css: "'Urbanist', sans-serif" },
+      ],
+    },
+    {
+      label: 'Sans-Serif',
+      fonts: [
+        { id: 'inter', name: 'Inter', css: "'Inter', sans-serif" },
+        { id: 'system', name: 'System UI', css: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" },
+        { id: 'geist', name: 'Geist', css: "'Geist', 'Inter', sans-serif" },
+        { id: 'plus-jakarta-sans', name: 'Plus Jakarta Sans', css: "'Plus Jakarta Sans', sans-serif" },
+        { id: 'outfit', name: 'Outfit', css: "'Outfit', sans-serif" },
+        { id: 'poppins', name: 'Poppins', css: "'Poppins', sans-serif" },
+        { id: 'nunito', name: 'Nunito', css: "'Nunito', sans-serif" },
+        { id: 'rubik', name: 'Rubik', css: "'Rubik', sans-serif" },
+        { id: 'figtree', name: 'Figtree', css: "'Figtree', sans-serif" },
+      ],
+    },
+    {
+      label: 'Serif',
+      fonts: [
+        { id: 'playfair', name: 'Playfair Display', css: "'Playfair Display', serif" },
+        { id: 'merriweather', name: 'Merriweather', css: "'Merriweather', serif" },
+        { id: 'lora', name: 'Lora', css: "'Lora', serif" },
+        { id: 'eb-garamond', name: 'EB Garamond', css: "'EB Garamond', serif" },
+      ],
+    },
+    {
+      label: 'Monospace',
+      fonts: [
+        { id: 'mono', name: 'JetBrains Mono', css: "'JetBrains Mono', monospace" },
+        { id: 'fira-code', name: 'Fira Code', css: "'Fira Code', monospace" },
+        { id: 'ibm-plex-mono', name: 'IBM Plex Mono', css: "'IBM Plex Mono', monospace" },
+      ],
+    },
+  ];
+
+  function getFontCss(id: string, groups: FontGroup[]): string {
+    for (const g of groups) {
+      const f = g.fonts.find((f) => f.id === id);
+      if (f) return f.css;
+    }
+    return "'Inter', sans-serif";
+  }
+
+  function getFontName(id: string, groups: FontGroup[]): string {
+    for (const g of groups) {
+      const f = g.fonts.find((f) => f.id === id);
+      if (f) return f.name;
+    }
+    return id;
+  }
+
+  const FONT_SIZES = [11, 12, 13, 14, 15, 16, 17, 18, 20, 22] as const;
+
   interface SettingsConfig {
-    fontSize: 12 | 14 | 16;
-    fontFamily: 'inter' | 'system' | 'mono' | 'geist' | 'dm-sans' | 'ibm-plex';
-    headerFont: 'space-grotesk' | 'inter' | 'system' | 'geist' | 'playfair' | 'mono';
+    fontSize: number;
+    fontFamily: string;
+    headerFont: string;
     borderRadius: 'sharp' | 'rounded' | 'pill';
     accentColor: string;
     highContrast: boolean;
-    // Font fine-tuning
     fontWeight: number;
     headingWeight: number;
     lineHeight: number;
     letterSpacing: number;
-    // Custom color overrides
     customColors: Record<string, string>;
   }
 
@@ -37,6 +160,10 @@
     letterSpacing: 0,
     customColors: {},
   };
+
+  // Dropdown open states
+  let bodyFontDropdownOpen = $state(false);
+  let headingFontDropdownOpen = $state(false);
 
   const COLOR_OVERRIDES = [
     { key: '--accent', label: 'Accent', group: 'Brand' },
@@ -82,27 +209,11 @@
     // Font size
     root.style.fontSize = `${config.fontSize}px`;
 
-    // Body font family
-    const fontMap: Record<string, string> = {
-      inter: "'Inter', sans-serif",
-      system: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-      mono: "'JetBrains Mono', monospace",
-      geist: "'Geist', 'Inter', sans-serif",
-      'dm-sans': "'DM Sans', 'Inter', sans-serif",
-      'ibm-plex': "'IBM Plex Sans', 'Inter', sans-serif",
-    };
-    root.style.setProperty('--font-body', fontMap[config.fontFamily] || fontMap.inter);
+    // Body font family — resolved from font groups
+    root.style.setProperty('--font-body', getFontCss(config.fontFamily, BODY_FONT_GROUPS));
 
     // Header font
-    const headerMap: Record<string, string> = {
-      'space-grotesk': "'Space Grotesk', 'Inter', sans-serif",
-      inter: "'Inter', sans-serif",
-      system: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-      geist: "'Geist', 'Inter', sans-serif",
-      playfair: "'Playfair Display', serif",
-      mono: "'JetBrains Mono', monospace",
-    };
-    root.style.setProperty('--font-heading', headerMap[config.headerFont] || headerMap['space-grotesk']);
+    root.style.setProperty('--font-heading', getFontCss(config.headerFont, HEADING_FONT_GROUPS));
 
     // Border radius scale
     const radiusMap: Record<string, string> = {
@@ -170,18 +281,20 @@
     save();
   }
 
-  function setFontSize(size: 12 | 14 | 16) {
+  function setFontSize(size: number) {
     config.fontSize = size;
     save();
   }
 
-  function setFontFamily(f: SettingsConfig['fontFamily']) {
-    config.fontFamily = f;
+  function setFontFamily(id: string) {
+    config.fontFamily = id;
+    bodyFontDropdownOpen = false;
     save();
   }
 
-  function setHeaderFont(f: SettingsConfig['headerFont']) {
-    config.headerFont = f;
+  function setHeaderFont(id: string) {
+    config.headerFont = id;
+    headingFontDropdownOpen = false;
     save();
   }
 
@@ -258,123 +371,82 @@
 
       <!-- Font Size -->
       <div class="setting-group">
-        <label class="setting-label">Font Size</label>
-        <div class="option-row">
-          {#each [12, 14, 16] as size}
-            <button
-              class="option-btn"
-              class:active={config.fontSize === size}
-              onclick={() => setFontSize(size as 12 | 14 | 16)}
+        <label class="setting-label"
+          >Font Size <span class="setting-hint">(base px — affects all rem sizes)</span></label
+        >
+        <div class="font-size-row">
+          {#each FONT_SIZES as size}
+            <button class="size-btn" class:active={config.fontSize === size} onclick={() => setFontSize(size)}
+              >{size}</button
             >
-              {size}px
-            </button>
           {/each}
         </div>
+        <span class="size-note">Default 14px · Browser default is 16px</span>
       </div>
 
       <!-- Body Font -->
       <div class="setting-group">
         <label class="setting-label">Body Font</label>
-        <div class="option-row">
+        <div class="font-dropdown-wrap">
           <button
-            class="option-btn"
-            class:active={config.fontFamily === 'inter'}
-            onclick={() => setFontFamily('inter')}
-            style="font-family: 'Inter', sans-serif"
+            class="font-dropdown-trigger"
+            onclick={() => {
+              bodyFontDropdownOpen = !bodyFontDropdownOpen;
+              headingFontDropdownOpen = false;
+            }}
+            style="font-family: {getFontCss(config.fontFamily, BODY_FONT_GROUPS)}"
           >
-            Inter
+            <span>{getFontName(config.fontFamily, BODY_FONT_GROUPS)}</span>
+            <span class="font-chevron">{bodyFontDropdownOpen ? '▲' : '▼'}</span>
           </button>
-          <button
-            class="option-btn"
-            class:active={config.fontFamily === 'system'}
-            onclick={() => setFontFamily('system')}
-            style="font-family: -apple-system, sans-serif"
-          >
-            System
-          </button>
-          <button
-            class="option-btn"
-            class:active={config.fontFamily === 'mono'}
-            onclick={() => setFontFamily('mono')}
-            style="font-family: 'JetBrains Mono', monospace"
-          >
-            Mono
-          </button>
-          <button
-            class="option-btn"
-            class:active={config.fontFamily === 'geist'}
-            onclick={() => setFontFamily('geist')}
-          >
-            Geist
-          </button>
-          <button
-            class="option-btn"
-            class:active={config.fontFamily === 'dm-sans'}
-            onclick={() => setFontFamily('dm-sans')}
-          >
-            DM Sans
-          </button>
-          <button
-            class="option-btn"
-            class:active={config.fontFamily === 'ibm-plex'}
-            onclick={() => setFontFamily('ibm-plex')}
-          >
-            IBM Plex
-          </button>
+          {#if bodyFontDropdownOpen}
+            <div class="font-dropdown-panel">
+              {#each BODY_FONT_GROUPS as group}
+                <div class="font-group-label">{group.label}</div>
+                {#each group.fonts as font}
+                  <button
+                    class="font-option"
+                    class:selected={config.fontFamily === font.id}
+                    style="font-family: {font.css}"
+                    onclick={() => setFontFamily(font.id)}>{font.name}</button
+                  >
+                {/each}
+              {/each}
+            </div>
+          {/if}
         </div>
       </div>
 
       <!-- Heading Font -->
       <div class="setting-group">
         <label class="setting-label">Heading Font</label>
-        <div class="option-row">
+        <div class="font-dropdown-wrap">
           <button
-            class="option-btn"
-            class:active={config.headerFont === 'space-grotesk'}
-            onclick={() => setHeaderFont('space-grotesk')}
-            style="font-family: 'Space Grotesk', sans-serif"
+            class="font-dropdown-trigger"
+            onclick={() => {
+              headingFontDropdownOpen = !headingFontDropdownOpen;
+              bodyFontDropdownOpen = false;
+            }}
+            style="font-family: {getFontCss(config.headerFont, HEADING_FONT_GROUPS)}"
           >
-            Space Grotesk
+            <span>{getFontName(config.headerFont, HEADING_FONT_GROUPS)}</span>
+            <span class="font-chevron">{headingFontDropdownOpen ? '▲' : '▼'}</span>
           </button>
-          <button
-            class="option-btn"
-            class:active={config.headerFont === 'inter'}
-            onclick={() => setHeaderFont('inter')}
-            style="font-family: 'Inter', sans-serif"
-          >
-            Inter
-          </button>
-          <button
-            class="option-btn"
-            class:active={config.headerFont === 'system'}
-            onclick={() => setHeaderFont('system')}
-            style="font-family: -apple-system, sans-serif"
-          >
-            System
-          </button>
-          <button
-            class="option-btn"
-            class:active={config.headerFont === 'geist'}
-            onclick={() => setHeaderFont('geist')}
-          >
-            Geist
-          </button>
-          <button
-            class="option-btn"
-            class:active={config.headerFont === 'playfair'}
-            onclick={() => setHeaderFont('playfair')}
-            style="font-family: serif"
-          >
-            Playfair
-          </button>
-          <button
-            class="option-btn"
-            class:active={config.headerFont === 'mono'}
-            onclick={() => setHeaderFont('mono')}
-            style="font-family: 'JetBrains Mono', monospace"
-          >
-            Mono
-          </button>
+          {#if headingFontDropdownOpen}
+            <div class="font-dropdown-panel">
+              {#each HEADING_FONT_GROUPS as group}
+                <div class="font-group-label">{group.label}</div>
+                {#each group.fonts as font}
+                  <button
+                    class="font-option"
+                    class:selected={config.headerFont === font.id}
+                    style="font-family: {font.css}"
+                    onclick={() => setHeaderFont(font.id)}>{font.name}</button
+                  >
+                {/each}
+              {/each}
+            </div>
+          {/if}
         </div>
       </div>
 
@@ -863,5 +935,132 @@
   .reset-btn:hover {
     border-color: var(--danger);
     color: var(--danger);
+  }
+
+  /* ── Font size row ── */
+  .font-size-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .size-btn {
+    padding: 4px 9px;
+    border-radius: 5px;
+    border: 1px solid var(--border);
+    background: var(--btn-bg);
+    color: var(--text-secondary);
+    font-size: 0.72rem;
+    font-family: 'JetBrains Mono', monospace;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .size-btn:hover {
+    border-color: var(--accent);
+    color: var(--text-primary);
+  }
+
+  .size-btn.active {
+    border-color: var(--accent);
+    background: var(--accent-bg);
+    color: var(--accent);
+  }
+
+  .size-note {
+    font-size: 0.62rem;
+    color: var(--text-faint);
+    margin-top: 2px;
+  }
+
+  .setting-hint {
+    font-size: 0.6rem;
+    color: var(--text-faint);
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0;
+    margin-left: 4px;
+  }
+
+  /* ── Font grouped dropdown ── */
+  .font-dropdown-wrap {
+    position: relative;
+  }
+
+  .font-dropdown-trigger {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 7px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--btn-bg);
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: border-color 0.15s;
+    text-align: left;
+  }
+
+  .font-dropdown-trigger:hover {
+    border-color: var(--accent);
+  }
+
+  .font-chevron {
+    font-size: 0.55rem;
+    color: var(--text-faint);
+    flex-shrink: 0;
+  }
+
+  .font-dropdown-panel {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+    z-index: 300;
+    max-height: 280px;
+    overflow-y: auto;
+    padding: 6px;
+  }
+
+  .font-group-label {
+    font-size: 0.58rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-faint);
+    padding: 6px 8px 3px;
+    margin-top: 2px;
+  }
+
+  .font-option {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 6px 10px;
+    border-radius: 5px;
+    border: none;
+    background: none;
+    color: var(--text-secondary);
+    font-size: 0.88rem;
+    cursor: pointer;
+    transition:
+      background 0.12s,
+      color 0.12s;
+  }
+
+  .font-option:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  .font-option.selected {
+    background: var(--accent-bg);
+    color: var(--accent);
   }
 </style>
