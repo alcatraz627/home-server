@@ -992,6 +992,14 @@ select {
   color: var(--text-primary);
 }
 
+/* When page-title lives inside a flex header row, bottom margin shifts text above center.
+   Zero it out globally so each page doesn't need its own scoped override. */
+.page-header-row .page-title,
+.page-header-top .page-title,
+.page-header .page-title {
+  margin-bottom: 0;
+}
+
 /* Icon button vertical centering fix */
 .icon-btn,
 button .icon {
