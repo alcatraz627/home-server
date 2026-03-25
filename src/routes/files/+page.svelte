@@ -100,7 +100,7 @@
 
   let { data } = $props<{ data: PageData }>();
   // svelte-ignore state_referenced_locally
-  const { files: initialFiles, currentPath: initialPath } = data;
+  const { files: initialFiles, currentPath: initialPath, uploadDir } = data;
   let files = $state<EnrichedFile[]>(initialFiles);
   let currentPath = $state(initialPath || '');
 
@@ -468,6 +468,70 @@
   }
 
   let browseMode = $state<'uploads' | 'system'>('uploads');
+
+  let absolutePath = $derived(
+    browseMode === 'system' ? currentPath : currentPath ? `${uploadDir}/${currentPath}` : uploadDir,
+  );
+
+  // Per-segment sibling dropdown
+  let openDropdownIdx = $state<number | null>(null);
+  let dropdownDirs = $state<Map<string, string[]>>(new Map());
+  let dropdownLoading = $state<string | null>(null);
+
+  async function fetchSiblingDirs(parentPath: string): Promise<string[]> {
+    if (dropdownDirs.has(parentPath)) return dropdownDirs.get(parentPath)!;
+    dropdownLoading = parentPath;
+    try {
+      if (browseMode === 'system') {
+        const res = await fetchApi(`/api/browse?path=${encodeURIComponent(parentPath || '/')}`);
+        if (!res.ok) return [];
+        const d = await res.json();
+        const dirs = (d.entries as { name: string; isDir: boolean }[])
+          .filter((e) => e.isDir && e.name !== '..')
+          .map((e) => e.name);
+        dropdownDirs = new Map(dropdownDirs).set(parentPath, dirs);
+        return dirs;
+      } else {
+        const params = parentPath ? `?path=${encodeURIComponent(parentPath)}` : '';
+        const res = await fetchApi(`/api/files${params}`);
+        if (!res.ok) return [];
+        const entries: { name: string; isDirectory: boolean }[] = await res.json();
+        const dirs = entries.filter((e) => e.isDirectory).map((e) => e.name);
+        dropdownDirs = new Map(dropdownDirs).set(parentPath, dirs);
+        return dirs;
+      }
+    } catch {
+      return [];
+    } finally {
+      dropdownLoading = null;
+    }
+  }
+
+  async function toggleDropdown(idx: number, e: MouseEvent) {
+    e.stopPropagation();
+    if (openDropdownIdx === idx) {
+      openDropdownIdx = null;
+      return;
+    }
+    openDropdownIdx = idx;
+    const parentPath = idx === 0 ? '' : breadcrumbs[idx - 1].path;
+    await fetchSiblingDirs(parentPath);
+  }
+
+  function navigateToSibling(parentPath: string, dirName: string) {
+    openDropdownIdx = null;
+    const target = parentPath ? `${parentPath}/${dirName}` : dirName;
+    navigateTo(target);
+  }
+
+  $effect(() => {
+    if (openDropdownIdx === null) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (!(e.target as Element).closest('.crumb-item')) openDropdownIdx = null;
+    }
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  });
 
   async function submitPathInput() {
     const raw = pathInputValue.trim();
@@ -994,13 +1058,43 @@
     <div class="path-segments">
       {#each breadcrumbs as crumb, i}
         {#if i > 0}<span class="crumb-sep">/</span>{/if}
-        {#if i === breadcrumbs.length - 1}
-          <span class="crumb-current">{crumb.name}</span>
-        {:else}
-          <button class="crumb-link" onclick={() => navigateTo(crumb.path)}>{crumb.name}</button>
-        {/if}
+        <div class="crumb-item">
+          {#if i === breadcrumbs.length - 1}
+            <span class="crumb-current">{crumb.name}</span>
+          {:else}
+            <button class="crumb-link" onclick={() => navigateTo(crumb.path)}>{crumb.name}</button>
+          {/if}
+          <button
+            class="crumb-chevron"
+            class:open={openDropdownIdx === i}
+            onclick={(e) => toggleDropdown(i, e)}
+            title="Browse siblings">›</button
+          >
+          {#if openDropdownIdx === i}
+            {@const parentPath = i === 0 ? '' : breadcrumbs[i - 1].path}
+            <div class="crumb-dropdown">
+              {#if dropdownLoading === parentPath}
+                <div class="crumb-drop-loading">Loading…</div>
+              {:else}
+                {@const dirs = dropdownDirs.get(parentPath) ?? []}
+                {#if dirs.length === 0}
+                  <div class="crumb-drop-empty">No folders</div>
+                {:else}
+                  {#each dirs as dir}
+                    <button
+                      class="crumb-drop-item"
+                      class:active={dir === crumb.name}
+                      onclick={() => navigateToSibling(parentPath, dir)}>{dir}</button
+                    >
+                  {/each}
+                {/if}
+              {/if}
+            </div>
+          {/if}
+        </div>
       {/each}
     </div>
+    <span class="abs-path" title={absolutePath}>{absolutePath}</span>
     <button class="path-edit-btn" onclick={startEditingPath} title="Edit path"><Icon name="edit" size={14} /></button>
   {/if}
 </nav>
@@ -1568,6 +1662,89 @@
   .crumb-current {
     color: var(--text-primary);
     font-weight: 500;
+  }
+
+  .crumb-item {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  .crumb-chevron {
+    background: none;
+    border: none;
+    color: var(--text-faint);
+    cursor: pointer;
+    font-size: 0.75rem;
+    padding: 0 2px;
+    line-height: 1;
+    opacity: 0.5;
+    transition: opacity 0.1s;
+  }
+  .crumb-item:hover .crumb-chevron,
+  .crumb-chevron.open {
+    opacity: 1;
+    color: var(--accent);
+  }
+
+  .crumb-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    z-index: 200;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    min-width: 160px;
+    max-width: 280px;
+    max-height: 240px;
+    overflow-y: auto;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    padding: 4px 0;
+  }
+
+  .crumb-drop-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    color: var(--text-primary);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    padding: 5px 12px;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .crumb-drop-item:hover {
+    background: var(--accent-bg);
+  }
+  .crumb-drop-item.active {
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  .crumb-drop-loading,
+  .crumb-drop-empty {
+    padding: 8px 12px;
+    font-size: 0.75rem;
+    color: var(--text-faint);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .abs-path {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--text-faint);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 280px;
+    flex-shrink: 1;
+    padding: 0 4px;
+    cursor: default;
   }
 
   /* New folder */
