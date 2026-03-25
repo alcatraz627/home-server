@@ -25,26 +25,27 @@ The project runs on Node.js/SvelteKit. Most platform-specific code lives in **se
 
 ## Feature Compatibility Matrix
 
-| Feature                                   | macOS | Linux/Pi | Notes                                                            |
-| ----------------------------------------- | :---: | :------: | ---------------------------------------------------------------- |
-| **Smart bulbs (Wiz)**                     |  ✅   |    ✅    | Pure UDP, fully cross-platform                                   |
-| **Terminal**                              |  ✅   |    ✅    | `node-pty` supports Linux ARM; uses `$SHELL`                     |
-| **WiFi scanning**                         |  ✅   |    ✅    | Has `nmcli` fallback already coded                               |
-| **Tailscale**                             |  ✅   |    ✅    | Platform check in `src/lib/server/tailscale.ts:25-26`            |
-| **Network tools** (ping, DNS, traceroute) |  ✅   |    ✅    | `tracepath` fallback; standard tools                             |
-| **Process list**                          |  ✅   |    ✅    | Platform-aware in `src/lib/server/processes.ts`                  |
-| **Swap / memory stats**                   |  ✅   |    ✅    | `free -b` fallback exists                                        |
-| **Disk I/O stats**                        |  ✅   |    ✅    | `/proc/diskstats` fallback exists                                |
-| **Network throughput**                    |  ✅   |    ✅    | Uses `getPrimaryInterface()` from `$lib/server/network-utils.ts` |
-| **Bluetooth discovery**                   |  ✅   |    ✅    | `bluetoothctl devices` + `bluetoothctl info` on Linux            |
-| **Bluetooth control**                     |  ✅   |    ✅    | `bluetoothctl connect/disconnect` on Linux                       |
-| **USB devices**                           |  ✅   |    ✅    | `lsusb` parsing on Linux                                         |
-| **Audio devices**                         |  ✅   |    ✅    | `pactl list sinks/sources` + `aplay -l`/`arecord -l` fallback    |
-| **Display info**                          |  ✅   |    ✅    | `xrandr --current` for connected displays                        |
-| **Battery**                               |  ✅   |    ✅    | `/sys/class/power_supply/BAT*` with capacity + status + cycle    |
-| **System info**                           |  ✅   |    ✅    | `lscpu`, `free -b`, `/etc/os-release` on Linux                   |
-| **Screenshots**                           |  ✅   |    ⚠️    | `scrot` fallback exists but `osascript` fallback fails           |
-| **App launcher**                          |  ✅   |    ✅    | Parses `.desktop` files from `/usr/share/applications/` on Linux |
+| Feature                                   | macOS | Linux/Pi | Notes                                                                                          |
+| ----------------------------------------- | :---: | :------: | ---------------------------------------------------------------------------------------------- |
+| **Smart bulbs (Wiz)**                     |  ✅   |    ✅    | Pure UDP, fully cross-platform                                                                 |
+| **Terminal**                              |  ✅   |    ✅    | `node-pty` supports Linux ARM; uses `$SHELL`                                                   |
+| **WiFi scanning**                         |  ✅   |    ✅    | Has `nmcli` fallback already coded                                                             |
+| **Tailscale**                             |  ✅   |    ✅    | Platform check in `src/lib/server/tailscale.ts:25-26`                                          |
+| **Network tools** (ping, DNS, traceroute) |  ✅   |    ✅    | `tracepath` fallback; standard tools                                                           |
+| **Process list**                          |  ✅   |    ✅    | Platform-aware in `src/lib/server/processes.ts`                                                |
+| **Swap / memory stats**                   |  ✅   |    ✅    | `free -b` fallback exists                                                                      |
+| **Disk I/O stats**                        |  ✅   |    ✅    | `/proc/diskstats` fallback exists                                                              |
+| **Network throughput**                    |  ✅   |    ✅    | Uses `getPrimaryInterface()` from `$lib/server/network-utils.ts`                               |
+| **Bluetooth discovery**                   |  ✅   |    ✅    | `bluetoothctl devices` + `bluetoothctl info` on Linux                                          |
+| **Bluetooth control**                     |  ✅   |    ✅    | `bluetoothctl connect/disconnect` on Linux                                                     |
+| **USB devices**                           |  ✅   |    ✅    | `lsusb` parsing on Linux                                                                       |
+| **Audio devices**                         |  ✅   |    ✅    | `pactl list sinks/sources` + `aplay -l`/`arecord -l` fallback                                  |
+| **Display info**                          |  ✅   |    ✅    | `xrandr --current` for connected displays                                                      |
+| **Battery**                               |  ✅   |    ✅    | `/sys/class/power_supply/BAT*` with capacity + status + cycle                                  |
+| **System info**                           |  ✅   |    ✅    | `lscpu`, `free -b`, `/etc/os-release` on Linux                                                 |
+| **Screenshots**                           |  ✅   |    ⚠️    | `scrot` fallback exists but `osascript` fallback fails                                         |
+| **App launcher**                          |  ✅   |    ✅    | Parses `.desktop` files from `/usr/share/applications/` on Linux                               |
+| **iMessage reader**                       |  ✅   |    ❌    | macOS-only; reads `~/Library/Messages/chat.db` via sqlite3 CLI; page shows EmptyState on Linux |
 
 **Legend:** ✅ Works — ⚠️ Partial (has fallback, may need testing) — ❌ Not implemented
 

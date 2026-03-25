@@ -10,5 +10,5 @@
  */
 export const APP = {
   title: 'Home Server',
-  version: '4.12.1-neat-log-9',
+  version: '4.14.0-swift-relay-8',
 } as const;
