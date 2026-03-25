@@ -457,6 +457,12 @@
         input?.focus();
       }, 50);
     }
+
+    // ? → open shortcuts page
+    if (e.key === '?') {
+      e.preventDefault();
+      goto('/shortcuts');
+    }
   }
 </script>
 

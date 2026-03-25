@@ -10,5 +10,5 @@
  */
 export const APP = {
   title: 'Home Server',
-  version: '4.11.1-stark-pine-4',
+  version: '4.12.1-neat-log-9',
 } as const;

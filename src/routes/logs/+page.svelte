@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { toast } from '$lib/toast';
+  import { useShortcuts } from '$lib/shortcuts';
   import PageHeader from '$lib/components/PageHeader.svelte';
   import { fetchApi } from '$lib/api';
   import Button from '$lib/components/Button.svelte';
@@ -98,10 +99,30 @@
     } catch {}
   }
 
+  let searchInputEl = $state<HTMLInputElement | undefined>();
+
   onMount(() => {
     fetchLogs();
     fetchFiles();
     fetchStats();
+    return useShortcuts([
+      {
+        id: 'logs:refresh',
+        page: 'Logs',
+        description: 'Refresh logs',
+        defaultKey: 'r',
+        category: 'Actions',
+        handler: fetchLogs,
+      },
+      {
+        id: 'logs:focus-search',
+        page: 'Logs',
+        description: 'Focus search',
+        defaultKey: '/',
+        category: 'Navigation',
+        handler: () => searchInputEl?.focus(),
+      },
+    ]);
   });
 
   function formatTime(iso: string): string {
@@ -179,7 +200,13 @@
 {#if activeTab === 'viewer'}
   <!-- Filters -->
   <div class="filters">
-    <SearchInput bind:value={search} placeholder="Search logs..." debounce={300} oninput={applyFilters} />
+    <SearchInput
+      bind:value={search}
+      bind:inputEl={searchInputEl}
+      placeholder="Search logs..."
+      debounce={300}
+      oninput={applyFilters}
+    />
     <select class="filter-select" bind:value={levelFilter} onchange={applyFilters}>
       <option value="">All levels</option>
       <option value="error">Error</option>

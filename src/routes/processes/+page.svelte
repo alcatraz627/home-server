@@ -4,6 +4,7 @@
   import { toast } from '$lib/toast';
   import { onMount } from 'svelte';
   import { stars } from '$lib/stars';
+  import { useShortcuts } from '$lib/shortcuts';
   import Button from '$lib/components/Button.svelte';
   import SearchInput from '$lib/components/SearchInput.svelte';
   import Loading from '$lib/components/Loading.svelte';
@@ -49,8 +50,27 @@
   onMount(() => {
     fetchSystemStats();
     monitorInterval = setInterval(fetchSystemStats, 2000);
+    const cleanupShortcuts = useShortcuts([
+      {
+        id: 'processes:refresh',
+        page: 'Processes',
+        description: 'Refresh processes',
+        defaultKey: 'r',
+        category: 'Actions',
+        handler: refresh,
+      },
+      {
+        id: 'processes:focus-filter',
+        page: 'Processes',
+        description: 'Focus filter input',
+        defaultKey: '/',
+        category: 'Navigation',
+        handler: () => filterInputEl?.focus(),
+      },
+    ]);
     return () => {
       if (monitorInterval) clearInterval(monitorInterval);
+      cleanupShortcuts();
     };
   });
 
@@ -80,6 +100,7 @@
   const { processes: initialProcesses } = data;
   let processes = $state<ProcessInfo[]>(initialProcesses);
   let filter = $state('');
+  let filterInputEl = $state<HTMLInputElement | undefined>();
   let autoRefresh = $state(false);
   let refreshRate = $state(5);
   let refreshInterval: ReturnType<typeof setInterval> | null = null;
@@ -586,7 +607,7 @@
 <div class="header">
   <h2 class="page-title">Process Manager</h2>
   <div class="controls">
-    <SearchInput bind:value={filter} placeholder="Filter..." size="sm" />
+    <SearchInput bind:value={filter} bind:inputEl={filterInputEl} placeholder="Filter..." size="sm" />
     <div class="view-toggle">
       <Button variant={viewMode === 'flat' ? 'accent' : 'default'} onclick={() => (viewMode = 'flat')}>List</Button>
       <Button variant={viewMode === 'tree' ? 'accent' : 'default'} onclick={() => (viewMode = 'tree')}>Tree</Button>

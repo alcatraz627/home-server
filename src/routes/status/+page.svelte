@@ -1,6 +1,7 @@
 <script lang="ts">
   import { fetchApi } from '$lib/api';
   import { onMount } from 'svelte';
+  import { useShortcuts } from '$lib/shortcuts';
   import Badge from '$lib/components/Badge.svelte';
   import Button from '$lib/components/Button.svelte';
   import Icon from '$lib/components/Icon.svelte';
@@ -35,7 +36,19 @@
     loading = false;
   }
 
-  onMount(refresh);
+  onMount(() => {
+    refresh();
+    return useShortcuts([
+      {
+        id: 'status:refresh',
+        page: 'Status',
+        description: 'Refresh status',
+        defaultKey: 'r',
+        category: 'Actions',
+        handler: refresh,
+      },
+    ]);
+  });
 </script>
 
 <svelte:head>

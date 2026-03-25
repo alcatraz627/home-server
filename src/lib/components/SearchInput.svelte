@@ -3,6 +3,7 @@
 
   let {
     value = $bindable(''),
+    inputEl = $bindable<HTMLInputElement | undefined>(),
     placeholder = 'Search...',
     debounce = 0,
     icon = true,
@@ -12,6 +13,7 @@
     oninput,
   } = $props<{
     value: string;
+    inputEl?: HTMLInputElement;
     placeholder?: string;
     debounce?: number;
     icon?: boolean;
@@ -46,7 +48,7 @@
   {#if icon}
     <span class="hs-search-icon"><Icon name="search" size={size === 'sm' ? 12 : 14} /></span>
   {/if}
-  <input type="text" class="hs-search-input" {placeholder} {value} oninput={handleInput} />
+  <input bind:this={inputEl} type="text" class="hs-search-input" {placeholder} {value} oninput={handleInput} />
   {#if clearable && value}
     <button class="hs-search-clear" onclick={clear} type="button">
       <Icon name="close" size={12} />

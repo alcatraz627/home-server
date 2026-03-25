@@ -75,6 +75,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/status', label: 'Status', desc: 'Server info', icon: 'activity' },
       { href: '/internals', label: 'Internals', desc: 'App state', icon: 'code' },
       { href: '/showcase', label: 'Showcase', desc: 'Design system', icon: 'palette' },
+      { href: '/shortcuts', label: 'Shortcuts', desc: 'Keyboard bindings', icon: 'settings' },
     ],
   },
 ];
