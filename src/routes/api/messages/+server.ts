@@ -1,13 +1,15 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from '@sveltejs/kit';
-import { isAvailable, isMacOs, getConversations } from '$lib/server/messages';
+import { isMacOs, checkDbAccess, getConversations } from '$lib/server/messages';
 
 export const GET: RequestHandler = async ({ url }) => {
   if (!isMacOs()) {
-    return json({ available: false, platform: 'linux', conversations: [] });
+    return json({ available: false, reason: 'linux', conversations: [] });
   }
-  if (!isAvailable()) {
-    return json({ available: false, platform: 'darwin', reason: 'chat.db not found', conversations: [] });
+
+  const access = checkDbAccess();
+  if (!access.ok) {
+    return json({ available: false, reason: access.reason, conversations: [] });
   }
 
   const limit = Math.min(Number(url.searchParams.get('limit') || 50), 200);

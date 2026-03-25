@@ -31,6 +31,26 @@ export function isAvailable(): boolean {
   return IS_MACOS && existsSync(DB_PATH) && existsSync(SQLITE3);
 }
 
+/** Check if the DB is actually readable (Full Disk Access may block it). */
+export function checkDbAccess(): { ok: boolean; reason?: string } {
+  if (!IS_MACOS) return { ok: false, reason: 'linux' };
+  if (!existsSync(SQLITE3)) return { ok: false, reason: 'sqlite3_missing' };
+  if (!existsSync(DB_PATH)) return { ok: false, reason: 'db_missing' };
+  try {
+    execSync(`"${SQLITE3}" -readonly "${DB_PATH}" "SELECT 1"`, {
+      timeout: 3000,
+      stdio: 'pipe',
+    });
+    return { ok: true };
+  } catch (e: any) {
+    const msg: string = (e?.stderr?.toString() || e?.message || '').toLowerCase();
+    if (msg.includes('authorization') || msg.includes('denied') || msg.includes('not authorized')) {
+      return { ok: false, reason: 'fda_required' };
+    }
+    return { ok: false, reason: 'db_error' };
+  }
+}
+
 /** Convert Mac absolute time (seconds or nanoseconds since 2001-01-01) to Unix ms */
 export function macDateToMs(macDate: number): number {
   if (!macDate) return 0;
@@ -91,6 +111,12 @@ export interface MessageAttachment {
   mimeType: string | null;
   transferName: string | null;
   totalBytes: number;
+}
+
+export interface KnownContact {
+  handle: string;
+  displayName: string | null;
+  lastDateMs: number;
 }
 
 // ─── Queries ────────────────────────────────────────────────────────────────
@@ -255,6 +281,34 @@ export function getAttachment(rowid: number): { path: string; mimeType: string |
   if (!existsSync(filePath)) return null;
 
   return { path: filePath, mimeType: rows[0].mime_type || null };
+}
+
+/** Return all unique contacts seen in chat history, ordered by most recent. */
+export function getKnownContacts(limit = 200): KnownContact[] {
+  const rows = query<{
+    handle_id: string;
+    display_name: string;
+    last_date: number;
+  }>(`
+    SELECT
+      h.id AS handle_id,
+      c.display_name,
+      MAX(m.date) AS last_date
+    FROM handle h
+    JOIN chat_handle_join chj ON chj.handle_id = h.rowid
+    JOIN chat c ON c.rowid = chj.chat_id
+    LEFT JOIN chat_message_join cmj ON cmj.chat_id = c.rowid
+    LEFT JOIN message m ON m.rowid = cmj.message_id
+    GROUP BY h.id
+    ORDER BY last_date DESC
+    LIMIT ${limit}
+  `);
+
+  return rows.map((r) => ({
+    handle: r.handle_id,
+    displayName: r.display_name || null,
+    lastDateMs: macDateToMs(r.last_date),
+  }));
 }
 
 // ─── Sending ────────────────────────────────────────────────────────────────
