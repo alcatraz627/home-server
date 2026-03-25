@@ -153,6 +153,33 @@
     return starredFiles.includes(name);
   }
 
+  // --- Folder size on demand ---
+  let folderSizes = $state<Map<string, number | 'loading'>>(new Map());
+
+  async function calculateFolderSize(file: FileInfo) {
+    const key = currentPath ? `${currentPath}/${file.name}` : file.name;
+    folderSizes = new Map(folderSizes).set(key, 'loading');
+    try {
+      const params = new URLSearchParams({ name: file.name });
+      if (currentPath) params.set('path', currentPath);
+      const res = await fetchApi(`/api/files/size?${params}`);
+      if (!res.ok) throw new Error('Failed');
+      const { bytes } = await res.json();
+      folderSizes = new Map(folderSizes).set(key, bytes);
+    } catch {
+      folderSizes = new Map(folderSizes).set(key, 0);
+    }
+  }
+
+  function getFolderSizeKey(file: FileInfo): string {
+    return currentPath ? `${currentPath}/${file.name}` : file.name;
+  }
+
+  function copyPath(file: FileInfo) {
+    const full = currentPath ? `${currentPath}/${file.name}` : file.name;
+    navigator.clipboard.writeText(full).then(() => toast.success('Path copied'));
+  }
+
   // --- Bulk selection ---
   let selectedFiles = $state<Set<string>>(new Set());
 
@@ -1139,17 +1166,24 @@
           {/if}
         </button>
         <div class="grid-card-actions">
-          <Button size="xs" onclick={() => startRename(file)}>mv</Button>
+          <button class="action-btn" title="Rename" onclick={() => startRename(file)}>
+            <Icon name="edit" size={13} />
+          </button>
+          <button class="action-btn" title="Copy path" onclick={() => copyPath(file)}>
+            <Icon name="copy" size={13} />
+          </button>
           {#if !file.isDirectory}
-            <a href={downloadUrl(file.name)} class="btn btn-sm" title="Download">dl</a>
+            <a href={downloadUrl(file.name)} class="action-btn" title="Download" download={file.name}>
+              <Icon name="download" size={13} />
+            </a>
           {/if}
-          <Button
-            size="xs"
-            variant="danger"
-            confirm
-            confirmText="sure?"
-            onclick={() => (file.isDirectory ? deleteDir(file.name) : deleteFile(file.name))}>rm</Button
+          <button
+            class="action-btn action-btn-danger"
+            title={file.isDirectory ? 'Delete folder' : 'Delete file'}
+            onclick={() => (file.isDirectory ? deleteDir(file.name) : deleteFile(file.name))}
           >
+            <Icon name="delete" size={13} />
+          </button>
         </div>
       </div>
     {/each}
@@ -1244,7 +1278,17 @@
         <span class="col-type" title={file.mime}>{file.mime.split('/')[1] || file.mime}</span>
         <span class="col-size">
           {#if file.isDirectory}
-            <span class="size-text">-</span>
+            {@const sizeKey = getFolderSizeKey(file)}
+            {@const sizeVal = folderSizes.get(sizeKey)}
+            {#if sizeVal === 'loading'}
+              <span class="size-text size-computing">…</span>
+            {:else if typeof sizeVal === 'number'}
+              <span class="size-text">{formatSize(sizeVal)}</span>
+            {:else}
+              <button class="calc-size-btn" onclick={() => calculateFolderSize(file)} title="Calculate folder size">
+                <Icon name="info" size={11} /> size
+              </button>
+            {/if}
           {:else}
             <span class="size-text">{formatSize(file.size)}</span>
             <span class="size-bar-track" title="{((file.size / maxFileSize) * 100).toFixed(1)}% of largest file">
@@ -1254,18 +1298,31 @@
         </span>
         <span class="col-date">{formatDate(file.modified)}</span>
         <span class="col-actions">
-          <Button size="xs" onclick={() => (infoFile = infoFile?.name === file.name ? null : file)}>i</Button>
-          <Button size="xs" onclick={() => startRename(file)}>mv</Button>
-          {#if !file.isDirectory}
-            <a href={downloadUrl(file.name)} class="btn btn-sm" title="Download">dl</a>
-          {/if}
-          <Button
-            size="xs"
-            variant="danger"
-            confirm
-            confirmText="sure?"
-            onclick={() => (file.isDirectory ? deleteDir(file.name) : deleteFile(file.name))}>rm</Button
+          <button
+            class="action-btn"
+            title="Info"
+            onclick={() => (infoFile = infoFile?.name === file.name ? null : file)}
           >
+            <Icon name="info" size={13} />
+          </button>
+          <button class="action-btn" title="Rename" onclick={() => startRename(file)}>
+            <Icon name="edit" size={13} />
+          </button>
+          <button class="action-btn" title="Copy path" onclick={() => copyPath(file)}>
+            <Icon name="copy" size={13} />
+          </button>
+          {#if !file.isDirectory}
+            <a href={downloadUrl(file.name)} class="action-btn" title="Download" download={file.name}>
+              <Icon name="download" size={13} />
+            </a>
+          {/if}
+          <button
+            class="action-btn action-btn-danger"
+            title={file.isDirectory ? 'Delete folder' : 'Delete file'}
+            onclick={() => (file.isDirectory ? deleteDir(file.name) : deleteFile(file.name))}
+          >
+            <Icon name="delete" size={13} />
+          </button>
         </span>
       </div>
       {#if infoFile?.name === file.name}
@@ -1616,15 +1673,14 @@
 
   .search-scope-toggle {
     display: flex;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    overflow: hidden;
+    gap: 2px;
   }
 
   .scope-btn {
     padding: 6px 10px;
     font-size: 0.72rem;
-    border: none;
+    border: 1px solid transparent;
+    border-radius: 6px;
     background: var(--btn-bg);
     color: var(--text-muted);
     cursor: pointer;
@@ -1635,6 +1691,7 @@
   .scope-btn.active {
     background: var(--accent-bg);
     color: var(--accent);
+    border-color: color-mix(in srgb, var(--accent) 30%, transparent);
   }
 
   .scope-btn:hover:not(.active) {
@@ -1879,8 +1936,63 @@
 
   .col-actions {
     display: flex;
-    gap: 6px;
+    gap: 2px;
     justify-content: flex-end;
+    align-items: center;
+  }
+
+  /* Unified icon action button used in both list and grid views */
+  .action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition:
+      background 0.1s,
+      color 0.1s;
+    text-decoration: none;
+    flex-shrink: 0;
+  }
+
+  .action-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  .action-btn-danger:hover {
+    background: color-mix(in srgb, var(--danger, #ef4444) 12%, transparent);
+    color: var(--danger, #ef4444);
+  }
+
+  /* Folder size calculate button */
+  .calc-size-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 0.7rem;
+    color: var(--text-faint);
+    background: transparent;
+    border: 1px dashed var(--border);
+    border-radius: 4px;
+    padding: 1px 5px;
+    cursor: pointer;
+    transition: all 0.1s;
+  }
+
+  .calc-size-btn:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .size-computing {
+    color: var(--text-faint);
+    font-style: italic;
   }
 
   .btn {
@@ -2236,15 +2348,14 @@
   /* View toggle */
   .view-toggle {
     display: flex;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    overflow: hidden;
+    gap: 2px;
   }
 
   .view-btn {
     padding: 6px 10px;
     font-size: 0.85rem;
-    border: none;
+    border: 1px solid transparent;
+    border-radius: 6px;
     background: var(--btn-bg);
     color: var(--text-muted);
     cursor: pointer;
@@ -2255,6 +2366,7 @@
   .view-btn.active {
     background: var(--accent-bg);
     color: var(--accent);
+    border-color: color-mix(in srgb, var(--accent) 30%, transparent);
   }
 
   .view-btn:hover:not(.active) {
