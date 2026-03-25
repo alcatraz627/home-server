@@ -649,6 +649,12 @@
     });
   }
 
+  let autoClearTimer: ReturnType<typeof setTimeout> | null = null;
+  function scheduleQueueClear() {
+    if (autoClearTimer) clearTimeout(autoClearTimer);
+    autoClearTimer = setTimeout(() => (uploadQueue = []), 5000);
+  }
+
   async function handleDrop(e: DragEvent) {
     e.preventDefault();
     dragOver = false;
@@ -675,8 +681,8 @@
     }
 
     uploading = false;
-    uploadQueue = [];
     await refreshFiles();
+    scheduleQueueClear();
   }
 
   async function collectEntries(entry: any, basePath: string, result: { file: File; path: string }[]) {
@@ -703,8 +709,8 @@
       }
       input.value = '';
       uploading = false;
-      uploadQueue = [];
       await refreshFiles();
+      scheduleQueueClear();
     }
   }
 
@@ -718,8 +724,8 @@
       }
       input.value = '';
       uploading = false;
-      uploadQueue = [];
       await refreshFiles();
+      scheduleQueueClear();
     }
   }
 
@@ -981,51 +987,63 @@
 </div>
 <p class="page-desc">Browse, upload, and manage files on your server. Star files for quick dashboard access.</p>
 
-<!-- Upload zone -->
-<div
-  class="drop-zone"
-  class:active={dragOver}
-  class:uploading
-  ondragover={(e) => {
-    e.preventDefault();
-    dragOver = true;
-  }}
-  ondragleave={() => (dragOver = false)}
-  ondrop={handleDrop}
-  role="region"
-  aria-label="File upload area"
->
-  {#if uploading}
-    <div class="upload-progress-section">
-      <div class="progress-bar">
-        <div class="progress-fill" style="width: {uploadProgress}%"></div>
+<!-- Upload area -->
+<div class="upload-area">
+  <div
+    class="drop-zone"
+    class:active={dragOver}
+    ondragover={(e) => {
+      e.preventDefault();
+      dragOver = true;
+    }}
+    ondragleave={() => (dragOver = false)}
+    ondrop={handleDrop}
+    role="region"
+    aria-label="File upload area"
+  >
+    <Icon name="upload" size={18} />
+    <span class="drop-hint-text">
+      Drop files or folders, or
+      <label class="file-label">browse files<input type="file" multiple onchange={handleFileInput} /></label>
+      ·
+      <!-- svelte-ignore a11y_no_static_element_interactions -->
+      <label class="file-label">upload folder<input type="file" onchange={handleFolderInput} webkitdirectory /></label>
+    </span>
+  </div>
+
+  {#if uploadQueue.length > 0}
+    {@const doneCount = uploadQueue.filter((q) => q.done).length}
+    <div class="upload-queue">
+      <div class="upload-queue-header">
+        <span class="upload-queue-title">
+          {#if uploading}
+            Uploading {uploadQueue.length}
+            {uploadQueue.length === 1 ? 'file' : 'files'}…
+          {:else}
+            {doneCount} of {uploadQueue.length} uploaded
+          {/if}
+        </span>
+        {#if uploading}
+          <span class="upload-queue-pct">{uploadProgress}%</span>
+        {/if}
+        <button
+          class="upload-queue-close"
+          onclick={() => (uploadQueue = [])}
+          title="Dismiss"
+          aria-label="Dismiss upload queue">×</button
+        >
       </div>
-      <p class="progress-text">
-        {uploadQueue.filter((q) => q.done).length} / {uploadQueue.length} files — {uploadProgress}%
-      </p>
-      {#if uploadQueue.length <= 5}
+      <div class="upload-queue-list">
         {#each uploadQueue as q}
-          <div class="upload-item" class:done={q.done}>
-            <span class="upload-item-name">{q.name}</span>
-            <span class="upload-item-progress">{q.done ? '\u2713' : `${q.progress}%`}</span>
+          <div class="upload-q-item" class:done={q.done}>
+            <span class="upload-q-name" title={q.name}>{q.name}</span>
+            <span class="upload-q-pct">{q.done ? '✓' : `${q.progress}%`}</span>
+            <div class="upload-q-bar">
+              <div class="upload-q-fill" style="width: {q.progress}%"></div>
+            </div>
           </div>
         {/each}
-      {/if}
-    </div>
-  {:else}
-    <div class="upload-content">
-      <span class="upload-icon"><Icon name="upload" size={24} /></span>
-      <p class="upload-main">
-        Drop files or folders here, or
-        <label class="file-label">browse files<input type="file" multiple onchange={handleFileInput} /></label>
-        or
-        <!-- svelte-ignore a11y_no_static_element_interactions -->
-        <label class="file-label">upload folder<input type="file" onchange={handleFolderInput} webkitdirectory /></label
-        >
-      </p>
-      <p class="upload-hint">
-        Supports single files, multiple files, and entire folders with directory structure preserved
-      </p>
+      </div>
     </div>
   {/if}
 </div>
@@ -1976,25 +1994,39 @@
     color: var(--text-primary);
   }
 
+  /* ── Upload area ───────────────────────────────── */
+  .upload-area {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
   .drop-zone {
-    border: 2px dashed var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    border: 1.5px dashed var(--border);
     border-radius: 8px;
-    padding: 32px;
-    text-align: center;
-    margin-bottom: 20px;
+    padding: 14px 20px;
+    color: var(--text-faint);
     transition:
       border-color 0.15s,
-      background 0.15s;
+      background 0.15s,
+      color 0.15s;
+    cursor: default;
   }
 
   .drop-zone.active {
     border-color: var(--accent);
     background: var(--accent-bg);
+    color: var(--accent);
   }
 
-  .drop-zone p {
+  .drop-hint-text {
+    font-size: 0.875rem;
     color: var(--text-muted);
-    font-size: 0.9rem;
   }
 
   .file-label {
@@ -2002,23 +2034,117 @@
     cursor: pointer;
     text-decoration: underline;
   }
+  .file-label:hover {
+    color: color-mix(in srgb, var(--accent) 75%, white);
+  }
 
   .file-label input {
     display: none;
   }
 
-  .progress-bar {
-    height: 4px;
-    background: var(--border);
-    border-radius: 2px;
-    margin-bottom: 8px;
+  /* Upload queue panel */
+  .upload-queue {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
     overflow: hidden;
   }
 
-  .progress-fill {
+  .upload-queue-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 12px;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .upload-queue-title {
+    flex: 1;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+
+  .upload-queue-pct {
+    font-size: 0.75rem;
+    color: var(--text-faint);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .upload-queue-close {
+    background: none;
+    border: none;
+    color: var(--text-faint);
+    font-size: 1.1rem;
+    line-height: 1;
+    padding: 0 2px;
+    cursor: pointer;
+  }
+  .upload-queue-close:hover {
+    color: var(--text-primary);
+  }
+
+  .upload-queue-list {
+    max-height: 192px;
+    overflow-y: auto;
+    padding: 4px 0;
+  }
+
+  .upload-q-item {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto 3px;
+    gap: 0 8px;
+    padding: 5px 12px 6px;
+    align-items: center;
+  }
+
+  .upload-q-name {
+    font-size: 0.78rem;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .upload-q-pct {
+    font-size: 0.7rem;
+    color: var(--text-faint);
+    font-family: 'JetBrains Mono', monospace;
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .upload-q-bar {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    background: var(--border-subtle);
+    border-radius: 2px;
+    overflow: hidden;
+    height: 3px;
+    margin-top: 3px;
+  }
+
+  .upload-q-fill {
     height: 100%;
     background: var(--accent);
-    transition: width 0.2s;
+    border-radius: 2px;
+    transition: width 0.1s ease;
+  }
+
+  .upload-q-item.done .upload-q-fill {
+    background: var(--success);
+  }
+
+  .upload-q-item.done .upload-q-name {
+    color: var(--text-faint);
+  }
+
+  .upload-q-item.done .upload-q-pct {
+    color: var(--success);
   }
 
   .empty {
