@@ -8,6 +8,7 @@ import {
   snoozeReminder,
   popPendingBrowserReminders,
 } from '$lib/server/reminders';
+import { addActivity } from '$lib/server/activity';
 
 export const GET: RequestHandler = async ({ url }) => {
   // Poll for browser notifications that need to be shown
@@ -21,12 +22,15 @@ export const POST: RequestHandler = async ({ request }) => {
   const body = await request.json();
 
   if (body._action === 'delete') {
+    const existing = readReminders().find((r) => r.id === body.id);
     const ok = deleteReminder(body.id);
+    if (ok && existing) addActivity('delete', 'reminder', existing.id, existing.title);
     return ok ? json({ ok: true }) : json({ error: 'Not found' }, { status: 404 });
   }
 
   if (body._action === 'snooze') {
     const r = snoozeReminder(body.id, body.minutes ?? 10);
+    if (r) addActivity('update', 'reminder', r.id, r.title, 'Snoozed');
     return r ? json(r) : json({ error: 'Not found' }, { status: 404 });
   }
 
@@ -40,6 +44,7 @@ export const POST: RequestHandler = async ({ request }) => {
     if (body.priority !== undefined) updates.priority = body.priority;
     if (body.recurrence !== undefined) updates.recurrence = body.recurrence;
     const r = updateReminder(body.id, updates);
+    if (r) addActivity('update', 'reminder', r.id, r.title);
     return r ? json(r) : json({ error: 'Not found' }, { status: 404 });
   }
 
@@ -55,5 +60,6 @@ export const POST: RequestHandler = async ({ request }) => {
     body.priority ?? 'normal',
     body.recurrence ?? null,
   );
+  addActivity('create', 'reminder', reminder.id, reminder.title);
   return json(reminder, { status: 201 });
 };

@@ -60,6 +60,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/bookmarks', label: 'Bookmarks', desc: 'Link manager', icon: 'link' },
       { href: '/messages', label: 'Messages', desc: 'iMessage reader', icon: 'message' },
       { href: '/reminders', label: 'Reminders', desc: 'Timed alerts', icon: 'bell' },
+      { href: '/activity', label: 'Activity', desc: 'Cross-module event feed', icon: 'activity' },
     ],
   },
   {

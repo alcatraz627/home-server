@@ -3,6 +3,7 @@ import { json } from '@sveltejs/kit';
 import fs from 'node:fs';
 import type { RequestHandler } from './$types';
 import { CONFIG_DIR, PATHS } from '$lib/server/paths';
+import { addActivity } from '$lib/server/activity';
 
 const FILE = PATHS.bookmarks;
 
@@ -43,8 +44,10 @@ export const POST: RequestHandler = async ({ request }) => {
   const bookmarks = readBookmarks();
 
   if (body._action === 'delete') {
+    const bm = bookmarks.find((b) => b.id === body.id);
     const filtered = bookmarks.filter((b) => b.id !== body.id);
     writeBookmarks(filtered);
+    if (bm) addActivity('delete', 'bookmark', bm.id, bm.title || bm.url);
     return json({ ok: true });
   }
 
@@ -54,6 +57,7 @@ export const POST: RequestHandler = async ({ request }) => {
     bookmarks[idx] = { ...bookmarks[idx], ...body, _action: undefined };
     delete (bookmarks[idx] as any)._action;
     writeBookmarks(bookmarks);
+    addActivity('update', 'bookmark', bookmarks[idx].id, bookmarks[idx].title || bookmarks[idx].url);
     return json(bookmarks[idx]);
   }
 
@@ -71,5 +75,6 @@ export const POST: RequestHandler = async ({ request }) => {
   };
   bookmarks.unshift(bookmark);
   writeBookmarks(bookmarks);
+  addActivity('create', 'bookmark', bookmark.id, bookmark.title || bookmark.url);
   return json(bookmark, { status: 201 });
 };

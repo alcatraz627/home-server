@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import type { RequestHandler } from './$types';
 import { CONFIG_DIR, PATHS } from '$lib/server/paths';
 import { ensureTag, releaseTag } from '$lib/server/tags';
+import { addActivity } from '$lib/server/activity';
 import type { KanbanCard } from '$lib/types/productivity';
 
 const FILE = PATHS.kanban;
@@ -47,6 +48,7 @@ export const POST: RequestHandler = async ({ request }) => {
     const card = cards.find((c) => c.id === body.id);
     if (card) {
       for (const t of card.tags ?? []) releaseTag(t);
+      addActivity('delete', 'kanban', card.id, card.title);
     }
     const filtered = cards.filter((c) => c.id !== body.id);
     writeCards(filtered);
@@ -56,9 +58,14 @@ export const POST: RequestHandler = async ({ request }) => {
   if (body._action === 'move') {
     const card = cards.find((c) => c.id === body.id);
     if (!card) return json({ error: 'Not found' }, { status: 404 });
+    const prevCol = card.column;
     card.column = body.column;
     card.order = body.order ?? card.order;
     writeCards(cards);
+    if (prevCol !== body.column) {
+      const action = body.column === 'done' ? 'complete' : body.column === 'archive' ? 'archive' : 'update';
+      addActivity(action, 'kanban', card.id, card.title, `Moved to ${body.column}`);
+    }
     return json(card);
   }
 
@@ -77,6 +84,7 @@ export const POST: RequestHandler = async ({ request }) => {
     }
     if (body.checklist !== undefined) cards[idx].checklist = body.checklist;
     writeCards(cards);
+    addActivity('update', 'kanban', cards[idx].id, cards[idx].title);
     return json(cards[idx]);
   }
 
@@ -99,5 +107,6 @@ export const POST: RequestHandler = async ({ request }) => {
   };
   cards.push(card);
   writeCards(cards);
+  addActivity('create', 'kanban', card.id, card.title);
   return json(card, { status: 201 });
 };

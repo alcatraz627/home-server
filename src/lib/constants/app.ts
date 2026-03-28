@@ -10,5 +10,5 @@
  */
 export const APP = {
   title: 'Home Server',
-  version: '4.39.0-global-search-6',
+  version: '4.40.0-activity-feed-7',
 } as const;

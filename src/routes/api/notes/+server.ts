@@ -5,6 +5,7 @@ import path from 'node:path';
 import type { RequestHandler } from './$types';
 import { errorMessage } from '$lib/server/errors';
 import { PATHS } from '$lib/server/paths';
+import { addActivity } from '$lib/server/activity';
 
 const NOTES_DIR = PATHS.notes;
 
@@ -108,6 +109,7 @@ export const POST: RequestHandler = async ({ request }) => {
   };
 
   saveNote(note);
+  addActivity('create', 'note', note.id, note.title);
   return json(note, { status: 201 });
 };
 
@@ -129,6 +131,7 @@ export const PUT: RequestHandler = async ({ request }) => {
   };
 
   saveNote(updated);
+  addActivity('update', 'note', updated.id, updated.title);
   return json(updated);
 };
 
@@ -137,7 +140,9 @@ export const DELETE: RequestHandler = async ({ request }) => {
   try {
     const body = await request.json();
     if (!body.id) return json({ error: 'id required' }, { status: 400 });
+    const existing = getNote(body.id);
     deleteNote(body.id);
+    if (existing) addActivity('delete', 'note', existing.id, existing.title);
     return json({ ok: true });
   } catch (e: unknown) {
     return json({ error: errorMessage(e) }, { status: 500 });
