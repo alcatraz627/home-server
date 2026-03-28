@@ -121,6 +121,144 @@
     }, 300);
   });
 
+  // ── Natural Language Quick-Add (triggered by leading "+") ────────────────
+  interface QuickAddParsed {
+    title: string;
+    date?: string; // YYYY-MM-DD
+    time?: string; // HH:MM
+    priority?: string; // P1/P2/P3
+    tags: string[];
+    module: 'reminder' | 'kanban';
+  }
+
+  const WEEKDAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+
+  function parseNL(raw: string): QuickAddParsed | null {
+    if (!raw.startsWith('+')) return null;
+    let text = raw.slice(1).trim();
+    if (!text) return null;
+
+    let date: string | undefined;
+    let time: string | undefined;
+    let priority: string | undefined;
+    const tags: string[] = [];
+
+    // Priority: P1/P2/P3 or !1/!2/!3 (case insensitive)
+    text = text.replace(/\b([Pp][123]|![123])\b/g, (m) => {
+      priority = m.replace('!', 'P').toUpperCase();
+      return '';
+    });
+
+    // Hashtags: #word
+    text = text.replace(/#(\w+)/g, (_, tag) => {
+      tags.push(tag);
+      return '';
+    });
+
+    // Time: 3pm / 3:30pm / 15:30 / 9am
+    text = text.replace(/\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/gi, (_, h, m, ampm) => {
+      let hours = parseInt(h);
+      if (ampm.toLowerCase() === 'pm' && hours < 12) hours += 12;
+      if (ampm.toLowerCase() === 'am' && hours === 12) hours = 0;
+      time = `${String(hours).padStart(2, '0')}:${m ?? '00'}`;
+      return '';
+    });
+    if (!time) {
+      text = text.replace(/\b(\d{1,2}):(\d{2})\b/, (_, h, m) => {
+        time = `${String(parseInt(h)).padStart(2, '0')}:${m}`;
+        return '';
+      });
+    }
+
+    // Relative date keywords
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const fmtDate = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+    text = text.replace(/\btoday\b/gi, () => {
+      date = fmtDate(now);
+      return '';
+    });
+    text = text.replace(/\btomorrow\b/gi, () => {
+      const d = new Date(now);
+      d.setDate(d.getDate() + 1);
+      date = fmtDate(d);
+      return '';
+    });
+    text = text.replace(/\bnext\s+(week)\b/gi, () => {
+      const d = new Date(now);
+      d.setDate(d.getDate() + 7);
+      date = fmtDate(d);
+      return '';
+    });
+    // Weekday names
+    for (const [i, day] of WEEKDAYS.entries()) {
+      const re = new RegExp(`\\b${day}\\b`, 'gi');
+      text = text.replace(re, () => {
+        const cur = now.getDay();
+        let diff = i - cur;
+        if (diff <= 0) diff += 7;
+        const d = new Date(now);
+        d.setDate(d.getDate() + diff);
+        date = fmtDate(d);
+        return '';
+      });
+    }
+
+    const title = text.replace(/\s+/g, ' ').trim();
+    if (!title) return null;
+
+    return {
+      title,
+      date,
+      time,
+      priority,
+      tags,
+      module: date || time ? 'reminder' : 'kanban',
+    };
+  }
+
+  let quickAdd = $derived(parseNL(query));
+  let quickAddStatus = $state<'idle' | 'saving' | 'done' | 'error'>('idle');
+
+  async function executeQuickAdd(parsed: QuickAddParsed) {
+    quickAddStatus = 'saving';
+    try {
+      if (parsed.module === 'reminder') {
+        const todayStr = (() => {
+          const d = new Date();
+          return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        })();
+        const dateStr = parsed.date ?? todayStr;
+        const timeStr = parsed.time ?? '09:00';
+        const datetime = new Date(`${dateStr}T${timeStr}:00`).toISOString();
+        await fetchApi('/api/reminders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: parsed.title, datetime, channels: ['browser'], priority: 'normal' }),
+        });
+      } else {
+        await fetchApi('/api/kanban', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: parsed.title,
+            priority: parsed.priority ?? null,
+            tags: parsed.tags,
+          }),
+        });
+      }
+      quickAddStatus = 'done';
+      setTimeout(() => {
+        close();
+        quickAddStatus = 'idle';
+      }, 800);
+    } catch {
+      quickAddStatus = 'error';
+      setTimeout(() => (quickAddStatus = 'idle'), 2000);
+    }
+  }
+
   let results = $derived([...filteredNav, ...searchResults]);
 
   // Reset selection when results change
@@ -166,9 +304,13 @@
       e.preventDefault();
       selectedIndex = Math.max(selectedIndex - 1, 0);
       scrollToSelected();
-    } else if (e.key === 'Enter' && results.length > 0) {
+    } else if (e.key === 'Enter') {
       e.preventDefault();
-      execute(results[selectedIndex]);
+      if (quickAdd && quickAddStatus === 'idle') {
+        executeQuickAdd(quickAdd);
+      } else if (results.length > 0) {
+        execute(results[selectedIndex]);
+      }
     }
   }
 
@@ -203,7 +345,7 @@
           bind:this={inputEl}
           type="text"
           class="cp-input"
-          placeholder="Search pages, actions, and content..."
+          placeholder="Search pages and content, or + to quick-add..."
           bind:value={query}
         />
         {#if searching}
@@ -213,9 +355,42 @@
         {/if}
       </div>
 
+      <!-- Quick-add preview when query starts with + -->
+      {#if quickAdd}
+        <div
+          class="cp-quickadd"
+          class:saving={quickAddStatus === 'saving'}
+          class:done={quickAddStatus === 'done'}
+          class:qa-error={quickAddStatus === 'error'}
+        >
+          <span class="qa-label">
+            <Icon name={quickAdd.module === 'reminder' ? 'bell' : 'kanban'} size={14} />
+            {quickAdd.module === 'reminder' ? 'New reminder' : 'New kanban card'}
+          </span>
+          <span class="qa-title">{quickAdd.title}</span>
+          {#if quickAdd.date || quickAdd.time}
+            <span class="qa-chip qa-date"
+              ><Icon name="calendar" size={11} />{quickAdd.date ?? ''}{quickAdd.time ? ` ${quickAdd.time}` : ''}</span
+            >
+          {/if}
+          {#if quickAdd.priority}
+            <span class="qa-chip qa-priority">{quickAdd.priority}</span>
+          {/if}
+          {#each quickAdd.tags as tag}
+            <span class="qa-chip qa-tag">#{tag}</span>
+          {/each}
+          <span class="qa-hint">
+            {#if quickAddStatus === 'saving'}saving…
+            {:else if quickAddStatus === 'done'}✓ saved
+            {:else if quickAddStatus === 'error'}failed
+            {:else}<kbd>↵</kbd> to create{/if}
+          </span>
+        </div>
+      {/if}
+
       <div class="cp-results">
         {#if results.length === 0 && !searching}
-          <div class="cp-empty">No matching results</div>
+          <div class="cp-empty">{quickAdd ? 'Press ↵ to create' : 'No matching results'}</div>
         {:else}
           {#each results as item, i (item.id)}
             <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -468,5 +643,81 @@
     border: 1px solid var(--border);
     border-radius: 3px;
     background: var(--bg-secondary);
+  }
+
+  /* ── Quick-add preview ── */
+  .cp-quickadd {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 10px 14px;
+    background: color-mix(in srgb, var(--accent) 6%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--accent) 20%, var(--border));
+    flex-wrap: wrap;
+  }
+  .cp-quickadd.saving {
+    opacity: 0.7;
+  }
+  .cp-quickadd.done {
+    background: color-mix(in srgb, var(--success, #22c55e) 10%, transparent);
+  }
+  .cp-quickadd.qa-error {
+    background: color-mix(in srgb, var(--danger) 10%, transparent);
+  }
+
+  .qa-label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+  .qa-title {
+    font-size: 0.82rem;
+    color: var(--text-primary);
+    font-weight: 500;
+    flex: 1;
+    min-width: 80px;
+  }
+  .qa-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 0.65rem;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 8px;
+    flex-shrink: 0;
+  }
+  .qa-date {
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    color: var(--accent);
+  }
+  .qa-priority {
+    background: color-mix(in srgb, var(--danger) 12%, transparent);
+    color: var(--danger);
+  }
+  .qa-tag {
+    background: var(--bg-hover);
+    color: var(--text-muted);
+  }
+  .qa-hint {
+    margin-left: auto;
+    font-size: 0.65rem;
+    color: var(--text-faint);
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    flex-shrink: 0;
+  }
+  .qa-hint kbd {
+    font-size: 0.6rem;
+    padding: 1px 4px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    background: var(--bg-secondary);
+    font-family: 'JetBrains Mono', monospace;
   }
 </style>

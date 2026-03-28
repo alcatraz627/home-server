@@ -10,5 +10,5 @@
  */
 export const APP = {
   title: 'Home Server',
-  version: '4.46.0-smart-suggestions-13',
+  version: '4.47.0-nl-quickadd-14',
 } as const;
