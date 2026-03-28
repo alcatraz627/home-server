@@ -10,5 +10,5 @@
  */
 export const APP = {
   title: 'Home Server',
-  version: '4.48.0-kanban-templates-15',
+  version: '4.49.0-unified-inbox-16',
 } as const;

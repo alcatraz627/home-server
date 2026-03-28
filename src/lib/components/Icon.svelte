@@ -111,6 +111,8 @@
     MessageSquare,
     Table2,
     Flame,
+    CheckCheck,
+    RotateCcw,
   } from 'lucide-svelte';
 
   const ICON_MAP: Record<string, any> = {
@@ -236,6 +238,8 @@
     message: MessageSquare,
     table: Table2,
     flame: Flame,
+    'check-check': CheckCheck,
+    'rotate-ccw': RotateCcw,
   };
 
   export const ICON_NAMES = Object.keys(ICON_MAP);

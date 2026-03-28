@@ -112,8 +112,7 @@
 
   async function load() {
     try {
-      const params = moduleFilter ? `?module=${moduleFilter}` : '';
-      const res = await fetchApi(`/api/activity${params}`);
+      const res = await fetchApi('/api/activity');
       if (!res.ok) throw new Error('Failed to load activity');
       events = await res.json();
     } catch (e: unknown) {
@@ -129,17 +128,30 @@
     load();
     loadSuggestions();
     autoRefresh.restart();
-  });
-
-  $effect(() => {
-    moduleFilter; // re-fetch when filter changes
-    load();
+    try {
+      const savedRead = localStorage.getItem('inbox-read');
+      if (savedRead) readIds = new Set(JSON.parse(savedRead));
+      const savedArchived = localStorage.getItem('inbox-archived');
+      if (savedArchived) archivedIds = new Set(JSON.parse(savedArchived));
+    } catch {
+      // ignore
+    }
   });
 
   let filtered = $derived.by(() => {
-    if (!search) return events;
+    let base =
+      inboxTab === 'archived'
+        ? events.filter((e) => archivedIds.has(e.id))
+        : events.filter((e) => !archivedIds.has(e.id));
+    if (inboxTab === 'unread') base = base.filter((e) => !readIds.has(e.id));
+    if (!moduleFilter) {
+      // keep all
+    } else {
+      base = base.filter((e) => e.module === moduleFilter);
+    }
+    if (!search) return base;
     const q = search.toLowerCase();
-    return events.filter((e) => e.itemTitle.toLowerCase().includes(q) || (e.details ?? '').toLowerCase().includes(q));
+    return base.filter((e) => e.itemTitle.toLowerCase().includes(q) || (e.details ?? '').toLowerCase().includes(q));
   });
 
   function relativeTime(iso: string): string {
@@ -171,6 +183,35 @@
   }
 
   let groups = $derived(groupByDate(filtered));
+
+  // ── Inbox state ──────────────────────────────────────────────────────────
+  let inboxTab = $state<'all' | 'unread' | 'archived'>('all');
+  let readIds = $state<Set<string>>(new Set());
+  let archivedIds = $state<Set<string>>(new Set());
+
+  let unreadCount = $derived(events.filter((e) => !readIds.has(e.id) && !archivedIds.has(e.id)).length);
+
+  function markRead(id: string) {
+    readIds = new Set([...readIds, id]);
+    localStorage.setItem('inbox-read', JSON.stringify([...readIds]));
+  }
+
+  function markAllRead() {
+    readIds = new Set([...readIds, ...events.map((e) => e.id)]);
+    localStorage.setItem('inbox-read', JSON.stringify([...readIds]));
+  }
+
+  function archiveEvent(id: string) {
+    archivedIds = new Set([...archivedIds, id]);
+    localStorage.setItem('inbox-archived', JSON.stringify([...archivedIds]));
+  }
+
+  function unarchiveEvent(id: string) {
+    const next = new Set(archivedIds);
+    next.delete(id);
+    archivedIds = next;
+    localStorage.setItem('inbox-archived', JSON.stringify([...archivedIds]));
+  }
 </script>
 
 <svelte:head>
@@ -179,6 +220,11 @@
 
 <PageHeader title="Activity" icon="activity" description="Recent changes across your productivity modules.">
   {#snippet titleExtra()}
+    {#if unreadCount > 0}
+      <button class="unread-badge" onclick={() => (inboxTab = 'unread')} title="Switch to unread">
+        {unreadCount} unread
+      </button>
+    {/if}
     {#if suggestions.length > 0}
       <button class="suggestions-badge" onclick={() => (suggestionsOpen = !suggestionsOpen)} title="Smart suggestions">
         <Icon name="alert-triangle" size={11} />
@@ -187,6 +233,12 @@
     {/if}
   {/snippet}
   {#snippet children()}
+    {#if unreadCount > 0}
+      <button class="mark-all-btn" onclick={markAllRead} title="Mark all as read">
+        <Icon name="check-check" size={13} />
+        Mark all read
+      </button>
+    {/if}
     <button class="refresh-btn" onclick={load} title="Refresh">
       <Icon name="refresh-cw" size={14} />
     </button>
@@ -225,13 +277,34 @@
   </select>
 </FilterBar>
 
+<div class="inbox-tabs">
+  <button class="inbox-tab" class:active={inboxTab === 'all'} onclick={() => (inboxTab = 'all')}> All </button>
+  <button class="inbox-tab" class:active={inboxTab === 'unread'} onclick={() => (inboxTab = 'unread')}>
+    Unread
+    {#if unreadCount > 0}<span class="tab-count">{unreadCount}</span>{/if}
+  </button>
+  <button class="inbox-tab" class:active={inboxTab === 'archived'} onclick={() => (inboxTab = 'archived')}>
+    Archived
+  </button>
+</div>
+
 <AsyncState {loading} {error} empty={filtered.length === 0}>
   {#each groups as group}
     <div class="group">
       <div class="group-label">{group.label}</div>
       <div class="event-list">
         {#each group.events as event (event.id)}
-          <div class="event-row" class:delete={event.type === 'delete'} class:complete={event.type === 'complete'}>
+          <div
+            class="event-row"
+            class:delete={event.type === 'delete'}
+            class:complete={event.type === 'complete'}
+            class:unread={!readIds.has(event.id)}
+            onclick={() => markRead(event.id)}
+            role="button"
+            tabindex="0"
+            onkeydown={(e) => e.key === 'Enter' && markRead(event.id)}
+          >
+            <span class="unread-dot" class:visible={!readIds.has(event.id)}></span>
             <span class="action-icon action-{event.type}">
               <Icon name={ACTION_ICONS[event.type]} size={13} />
             </span>
@@ -244,13 +317,36 @@
                 <span class="event-details">{event.details}</span>
               {/if}
             </span>
-            <a class="event-module" href={MODULE_HREFS[event.module]}>
+            <a class="event-module" href={MODULE_HREFS[event.module]} onclick={(e) => e.stopPropagation()}>
               {MODULE_LABELS[event.module]}
             </a>
             <span class="event-action">{ACTION_LABELS[event.type]}</span>
             <span class="event-time" title={new Date(event.timestamp).toLocaleString()}>
               {relativeTime(event.timestamp)}
             </span>
+            {#if inboxTab === 'archived'}
+              <button
+                class="archive-btn"
+                onclick={(e) => {
+                  e.stopPropagation();
+                  unarchiveEvent(event.id);
+                }}
+                title="Restore"
+              >
+                <Icon name="rotate-ccw" size={11} />
+              </button>
+            {:else}
+              <button
+                class="archive-btn"
+                onclick={(e) => {
+                  e.stopPropagation();
+                  archiveEvent(event.id);
+                }}
+                title="Archive"
+              >
+                <Icon name="archive" size={11} />
+              </button>
+            {/if}
           </div>
         {/each}
       </div>
@@ -529,5 +625,132 @@
     color: var(--sc);
     opacity: 0.8;
     flex-shrink: 0;
+  }
+
+  /* ── Inbox ── */
+  .unread-badge {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+    border: none;
+    background: color-mix(in srgb, var(--accent) 15%, transparent);
+    color: var(--accent);
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.1s;
+  }
+  .unread-badge:hover {
+    background: color-mix(in srgb, var(--accent) 25%, transparent);
+  }
+
+  .mark-all-btn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.78rem;
+    padding: 5px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-family: inherit;
+    transition:
+      border-color 0.15s,
+      color 0.15s;
+  }
+  .mark-all-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .inbox-tabs {
+    display: flex;
+    gap: 2px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .inbox-tab {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    font-family: inherit;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    margin-bottom: -1px;
+    transition:
+      color 0.15s,
+      border-color 0.15s;
+  }
+  .inbox-tab:hover {
+    color: var(--text-primary);
+  }
+  .inbox-tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+    font-weight: 500;
+  }
+  .tab-count {
+    background: var(--accent);
+    color: white;
+    border-radius: 8px;
+    padding: 1px 6px;
+    font-size: 0.63rem;
+    font-weight: 600;
+  }
+
+  .unread-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity 0.1s;
+  }
+  .unread-dot.visible {
+    opacity: 1;
+  }
+
+  .event-row.unread {
+    background: color-mix(in srgb, var(--accent) 4%, transparent);
+  }
+  .event-row.unread .event-title {
+    font-weight: 600;
+  }
+  .event-row {
+    cursor: pointer;
+  }
+
+  .archive-btn {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    background: none;
+    border: none;
+    padding: 3px 5px;
+    border-radius: 4px;
+    color: var(--text-faint);
+    cursor: pointer;
+    opacity: 0;
+    transition:
+      opacity 0.1s,
+      color 0.1s;
+  }
+  .event-row:hover .archive-btn {
+    opacity: 1;
+  }
+  .archive-btn:hover {
+    color: var(--text-muted);
+    background: var(--bg-hover);
   }
 </style>
