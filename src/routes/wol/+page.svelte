@@ -2,7 +2,9 @@
   import type { PageData } from './$types';
   import { toast } from '$lib/toast';
   import EmptyState from '$lib/components/EmptyState.svelte';
-  import { fetchApi } from '$lib/api';
+  import Button from '$lib/components/Button.svelte';
+  import { fetchApi, postJson } from '$lib/api';
+  import PageHeader from '$lib/components/PageHeader.svelte';
 
   interface WolDevice {
     id: string;
@@ -12,7 +14,10 @@
   }
 
   let { data } = $props<{ data: PageData }>();
-  let devices = $state<WolDevice[]>(data.devices ?? []);
+  let devices = $state<WolDevice[]>([]);
+  $effect(() => {
+    devices = data.devices ?? [];
+  });
 
   let showForm = $state(false);
   let editingId = $state<string | null>(null);
@@ -62,11 +67,7 @@
     }
 
     try {
-      const res = await fetchApi('/api/wol', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+      const res = await postJson('/api/wol', payload);
       if (!res.ok) throw new Error();
 
       if (editingId) {
@@ -86,11 +87,7 @@
 
   async function deleteDevice(id: string) {
     try {
-      const res = await fetchApi('/api/wol', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ _action: 'delete', id }),
-      });
+      const res = await postJson('/api/wol', { _action: 'delete', id });
       if (!res.ok) throw new Error();
       devices = devices.filter((d) => d.id !== id);
       confirmDeleteId = null;
@@ -103,11 +100,7 @@
   async function wakeDevice(d: WolDevice) {
     waking = d.id;
     try {
-      const res = await fetchApi('/api/wol', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ _action: 'wake', mac: d.mac }),
-      });
+      const res = await postJson('/api/wol', { _action: 'wake', mac: d.mac });
       const result = await res.json();
       if (result.ok) {
         toast.success(`Magic packet sent to ${d.name}`);
@@ -135,19 +128,20 @@
 </script>
 
 <div class="page">
-  <div class="header">
-    <h2 class="page-title">Wake-on-LAN</h2>
-    <button
-      class="btn-primary"
+  <PageHeader
+    title="Wake-on-LAN"
+    description="Wake devices on your network by sending magic packets. Manage saved devices and check online status."
+  >
+    <Button
+      variant="primary"
+      size="sm"
+      icon="add"
       onclick={() => {
         resetForm();
         showForm = true;
-      }}>Add Device</button
+      }}>Add Device</Button
     >
-  </div>
-  <p class="page-desc">
-    Wake devices on your network by sending magic packets. Manage saved devices and check online status.
-  </p>
+  </PageHeader>
 
   {#if showForm}
     <div class="card form-card">
@@ -167,8 +161,8 @@
         </label>
       </div>
       <div class="form-actions">
-        <button class="btn-primary" onclick={saveDevice}>Save</button>
-        <button class="btn-secondary" onclick={resetForm}>Cancel</button>
+        <Button variant="primary" size="sm" onclick={saveDevice}>Save</Button>
+        <Button variant="ghost" size="sm" onclick={resetForm}>Cancel</Button>
       </div>
     </div>
   {/if}
@@ -202,19 +196,28 @@
             </div>
           </div>
           <div class="device-actions">
-            <button class="btn-wake" onclick={() => wakeDevice(device)} disabled={waking === device.id}>
-              {waking === device.id ? 'Sending...' : 'Wake'}
-            </button>
+            <Button
+              variant="primary"
+              size="sm"
+              icon="power"
+              onclick={() => wakeDevice(device)}
+              disabled={waking === device.id}
+              loading={waking === device.id}
+            >
+              Wake
+            </Button>
             {#if device.ip}
-              <button class="btn-sm" onclick={() => pingDevice(device)}>Ping</button>
+              <Button variant="ghost" size="sm" icon="signal" onclick={() => pingDevice(device)}>Ping</Button>
             {/if}
-            <button class="btn-sm" onclick={() => startEdit(device)}>Edit</button>
-            {#if confirmDeleteId === device.id}
-              <button class="btn-sm btn-danger" onclick={() => deleteDevice(device.id)}>Confirm</button>
-              <button class="btn-sm" onclick={() => (confirmDeleteId = null)}>Cancel</button>
-            {:else}
-              <button class="btn-sm btn-danger" onclick={() => (confirmDeleteId = device.id)}>Delete</button>
-            {/if}
+            <Button variant="ghost" size="sm" icon="edit" onclick={() => startEdit(device)}>Edit</Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              icon="delete"
+              confirm
+              confirmText="Delete?"
+              onclick={() => deleteDevice(device.id)}>Delete</Button
+            >
           </div>
         </div>
       {/each}
@@ -223,21 +226,6 @@
 </div>
 
 <style>
-  .page {
-    padding: 1.5rem;
-    max-width: 900px;
-    margin: 0 auto;
-  }
-  .header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1.5rem;
-  }
-  h1 {
-    margin: 0;
-    color: var(--text-primary);
-  }
   .form-card {
     padding: 1.25rem;
     margin-bottom: 1.5rem;
@@ -331,51 +319,6 @@
     display: flex;
     gap: 0.4rem;
     flex-wrap: wrap;
-  }
-  .btn-wake {
-    padding: 0.4rem 1rem;
-    background: var(--success);
-    color: #fff;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    font-weight: 600;
-    font-size: 0.85rem;
-  }
-  .btn-wake:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
-  .btn-primary,
-  .btn-secondary {
-    padding: 0.5rem 1rem;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    font-weight: 600;
-    font-size: 0.85rem;
-  }
-  .btn-primary {
-    background: var(--accent);
-    color: #fff;
-  }
-  .btn-secondary {
-    background: var(--bg-secondary);
-    color: var(--text-primary);
-    border: 1px solid var(--border);
-  }
-  .btn-sm {
-    padding: 0.3rem 0.6rem;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    background: var(--bg-secondary);
-    color: var(--text-secondary);
-    cursor: pointer;
-    font-size: 0.8rem;
-  }
-  .btn-danger {
-    color: var(--danger);
-    border-color: var(--danger);
   }
   .empty {
     padding: 2rem;

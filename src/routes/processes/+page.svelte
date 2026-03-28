@@ -2,20 +2,25 @@
   import type { PageData } from './$types';
   import type { ProcessInfo, ProcessDetail } from '$lib/server/processes';
   import { toast } from '$lib/toast';
+  import { getErrorMessage } from '$lib/errors';
   import { onMount } from 'svelte';
   import { stars } from '$lib/stars';
   import { useShortcuts } from '$lib/shortcuts';
+  import { createAutoRefresh } from '$lib/auto-refresh.svelte';
   import Button from '$lib/components/Button.svelte';
   import SearchInput from '$lib/components/SearchInput.svelte';
   import Loading from '$lib/components/Loading.svelte';
   import Icon from '$lib/components/Icon.svelte';
+  import Tabs from '$lib/components/Tabs.svelte';
   import { fetchApi } from '$lib/api';
+  import { createTableSort } from '$lib/sort.svelte';
+  import PageHeader from '$lib/components/PageHeader.svelte';
 
   let { data } = $props<{ data: PageData }>();
 
   // System info from layout (for absolute CPU/MEM display)
-  const totalMemGB: number = (data as any).system?.memTotal ?? 16;
-  const cpuCount: number = (data as any).system?.cpuCount ?? 4;
+  const totalMemGB = $derived<number>((data as any).system?.memTotal ?? 16);
+  const cpuCount = $derived<number>((data as any).system?.cpuCount ?? 4);
 
   // System monitor
   interface SystemSnapshot {
@@ -32,7 +37,6 @@
   let monitorHistory = $state<SystemSnapshot[]>([]);
   let monitorOpen = $state(false);
   let perCoreMode = $state(false);
-  let monitorInterval: ReturnType<typeof setInterval> | null = null;
   const MONITOR_MAX = 60;
 
   async function fetchSystemStats() {
@@ -42,14 +46,15 @@
         const snap: SystemSnapshot = await res.json();
         monitorHistory = [...monitorHistory.slice(-(MONITOR_MAX - 1)), snap];
       }
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to fetch system stats', { key: 'system-stats' });
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, 'Failed to fetch system stats'), { key: 'system-stats' });
     }
   }
 
+  createAutoRefresh(fetchSystemStats, 2000);
+
   onMount(() => {
     fetchSystemStats();
-    monitorInterval = setInterval(fetchSystemStats, 2000);
     const cleanupShortcuts = useShortcuts([
       {
         id: 'processes:refresh',
@@ -69,7 +74,6 @@
       },
     ]);
     return () => {
-      if (monitorInterval) clearInterval(monitorInterval);
       cleanupShortcuts();
     };
   });
@@ -178,23 +182,43 @@
 
   // Sort state
   type SortCol = 'pid' | 'name' | 'cpu' | 'mem';
-  type SortDir = 'asc' | 'desc';
-  let sortCol = $state<SortCol>('cpu');
-  let sortDir = $state<SortDir>('desc');
+  const sort = createTableSort<SortCol>('cpu', 'desc');
 
-  function toggleSort(col: SortCol) {
-    if (sortCol === col) {
-      sortDir = sortDir === 'asc' ? 'desc' : 'asc';
-    } else {
-      sortCol = col;
-      sortDir = col === 'name' ? 'asc' : 'desc';
+  // Category filter
+  let category = $state('all');
+
+  let categoryFiltered = $derived.by(() => {
+    if (category === 'all') return processes;
+    if (category === 'active') return processes.filter((p) => p.cpu > 0.1);
+    if (category === 'user') {
+      // User processes: not root, not _-prefixed daemons, not kernel
+      return processes.filter((p) => p.user !== 'root' && !p.user.startsWith('_') && p.pid !== 0);
     }
-  }
+    if (category === 'system') {
+      return processes.filter((p) => p.user === 'root' || p.user.startsWith('_') || p.pid === 0);
+    }
+    return processes;
+  });
 
-  function sortIndicator(col: SortCol): 'asc' | 'desc' | null {
-    if (sortCol !== col) return null;
-    return sortDir === 'asc' ? 'asc' : 'desc';
-  }
+  let categoryTabs = $derived([
+    { id: 'all', label: 'All', count: processes.length },
+    { id: 'active', label: 'Active', count: processes.filter((p) => p.cpu > 0.1).length },
+    { id: 'user', label: 'User', count: processes.filter((p) => p.user !== 'root' && !p.user.startsWith('_')).length },
+    {
+      id: 'system',
+      label: 'System',
+      count: processes.filter((p) => p.user === 'root' || p.user.startsWith('_')).length,
+    },
+  ]);
+
+  // Summary stats
+  let summaryStats = $derived({
+    total: categoryFiltered.length,
+    totalCpu: Math.round(categoryFiltered.reduce((s, p) => s + p.cpu, 0) * 10) / 10,
+    totalMem: Math.round(categoryFiltered.reduce((s, p) => s + p.mem, 0) * 10) / 10,
+    totalRss: categoryFiltered.reduce((s, p) => s + p.rss, 0),
+    users: new Set(categoryFiltered.map((p) => p.user)).size,
+  });
 
   // CPU/MEM display mode: percent or absolute
   let showAbsolute = $state(false);
@@ -219,10 +243,11 @@
     stars.toggle('process', pid.toString());
   }
 
-  // Filter
+  // Filter (text search applied on top of category filter)
   let filtered = $derived(
-    processes.filter(
+    categoryFiltered.filter(
       (p) =>
+        !filter ||
         p.name.toLowerCase().includes(filter.toLowerCase()) ||
         p.command.toLowerCase().includes(filter.toLowerCase()) ||
         String(p.pid).includes(filter),
@@ -272,9 +297,9 @@
   let sortedList = $derived.by(() => {
     const list = viewMode === 'tree' ? treeList : sortedWithStars;
     if (viewMode === 'tree') return list; // tree has its own ordering
-    const mul = sortDir === 'asc' ? 1 : -1;
+    const mul = sort.dir === 'asc' ? 1 : -1;
     return [...list].sort((a, b) => {
-      switch (sortCol) {
+      switch (sort.key) {
         case 'pid':
           return (a.pid - b.pid) * mul;
         case 'name':
@@ -298,8 +323,8 @@
       if (!res.ok) throw new Error('Failed to fetch processes');
       processes = await res.json();
       recordHistory();
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to refresh processes', { key: 'process-refresh' });
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, 'Failed to refresh processes'), { key: 'process-refresh' });
     }
   }
 
@@ -338,8 +363,8 @@
       const res = await fetchApi(`/api/processes/${pid}`);
       if (!res.ok) throw new Error('Failed to fetch process details');
       activeDetail = await res.json();
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to load process details');
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, 'Failed to load process details'));
     }
     detailLoading = false;
   }
@@ -349,8 +374,8 @@
       const res = await fetchApi(`/api/processes/${pid}?signal=${selectedSignal}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Signal failed');
       toast.success(`Sent ${selectedSignal} to PID ${pid}`);
-    } catch (e: any) {
-      toast.error(e.message || `Failed to send signal to PID ${pid}`);
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, `Failed to send signal to PID ${pid}`));
     }
     await refresh();
   }
@@ -604,9 +629,11 @@
   </div>
 {/if}
 
-<div class="header">
-  <h2 class="page-title">Process Manager</h2>
-  <div class="controls">
+<PageHeader
+  title="Process Manager"
+  description="View, filter, and manage running processes. Kill or signal processes in list or tree view."
+>
+  {#snippet children()}
     <SearchInput bind:value={filter} bind:inputEl={filterInputEl} placeholder="Filter..." size="sm" />
     <div class="view-toggle">
       <Button variant={viewMode === 'flat' ? 'accent' : 'default'} onclick={() => (viewMode = 'flat')}>List</Button>
@@ -625,31 +652,55 @@
         <option value={60}>60s</option>
       </select>
     </div>
+  {/snippet}
+</PageHeader>
+
+<div class="process-toolbar">
+  <Tabs tabs={categoryTabs} bind:active={category} size="sm" compact />
+  <div class="summary-stats">
+    <span class="summary-item">
+      <span class="summary-label">Procs</span>
+      <span class="summary-value">{summaryStats.total}</span>
+    </span>
+    <span class="summary-sep">·</span>
+    <span class="summary-item">
+      <span class="summary-label">CPU</span>
+      <span class="summary-value" class:hot={summaryStats.totalCpu > 100}>{summaryStats.totalCpu}%</span>
+    </span>
+    <span class="summary-sep">·</span>
+    <span class="summary-item">
+      <span class="summary-label">MEM</span>
+      <span class="summary-value" class:hot={summaryStats.totalMem > 80}>{summaryStats.totalMem}%</span>
+    </span>
+    <span class="summary-sep">·</span>
+    <span class="summary-item">
+      <span class="summary-label">RSS</span>
+      <span class="summary-value">{formatMem(summaryStats.totalRss)}</span>
+    </span>
   </div>
 </div>
-<p class="page-desc">View, filter, and manage running processes. Kill or signal processes in list or tree view.</p>
 
 <div class="process-list">
   <div class="process-header">
     <span class="col-star"></span>
-    <button class="col-pid col-sortable" onclick={() => toggleSort('pid')}
-      >PID{#if sortIndicator('pid') === 'asc'}
-        <Icon name="sort-asc" size={12} />{:else if sortIndicator('pid') === 'desc'}
+    <button class="col-pid col-sortable" onclick={() => sort.toggle('pid')}
+      >PID{#if sort.activeDir('pid') === 'asc'}
+        <Icon name="sort-asc" size={12} />{:else if sort.activeDir('pid') === 'desc'}
         <Icon name="sort-desc" size={12} />{/if}</button
     >
-    <button class="col-name col-sortable" onclick={() => toggleSort('name')}
-      >Name{#if sortIndicator('name') === 'asc'}
-        <Icon name="sort-asc" size={12} />{:else if sortIndicator('name') === 'desc'}
+    <button class="col-name col-sortable" onclick={() => sort.toggle('name', 'asc')}
+      >Name{#if sort.activeDir('name') === 'asc'}
+        <Icon name="sort-asc" size={12} />{:else if sort.activeDir('name') === 'desc'}
         <Icon name="sort-desc" size={12} />{/if}</button
     >
-    <button class="col-cpu col-sortable" onclick={() => toggleSort('cpu')}>
-      {showAbsolute ? 'CPU' : 'CPU%'}{#if sortIndicator('cpu') === 'asc'}
-        <Icon name="sort-asc" size={12} />{:else if sortIndicator('cpu') === 'desc'}
+    <button class="col-cpu col-sortable" onclick={() => sort.toggle('cpu', 'desc')}>
+      {showAbsolute ? 'CPU' : 'CPU%'}{#if sort.activeDir('cpu') === 'asc'}
+        <Icon name="sort-asc" size={12} />{:else if sort.activeDir('cpu') === 'desc'}
         <Icon name="sort-desc" size={12} />{/if}
     </button>
-    <button class="col-mem col-sortable" onclick={() => toggleSort('mem')}>
-      {showAbsolute ? 'MEM' : 'MEM%'}{#if sortIndicator('mem') === 'asc'}
-        <Icon name="sort-asc" size={12} />{:else if sortIndicator('mem') === 'desc'}
+    <button class="col-mem col-sortable" onclick={() => sort.toggle('mem', 'desc')}>
+      {showAbsolute ? 'MEM' : 'MEM%'}{#if sort.activeDir('mem') === 'asc'}
+        <Icon name="sort-asc" size={12} />{:else if sort.activeDir('mem') === 'desc'}
         <Icon name="sort-desc" size={12} />{/if}
     </button>
     <span class="col-rss">RSS</span>
@@ -707,10 +758,14 @@
         {proc.name}
       </span>
       <span class="col-cpu" class:hot={proc.cpu > 50}>
-        {showAbsolute ? ((proc.cpu / 100) * cpuCount).toFixed(2) + 'c' : proc.cpu.toFixed(1)}
+        <span class="resource-bar" style="width: {Math.min(100, proc.cpu)}%"></span>
+        <span class="resource-text"
+          >{showAbsolute ? ((proc.cpu / 100) * cpuCount).toFixed(2) + 'c' : proc.cpu.toFixed(1)}</span
+        >
       </span>
       <span class="col-mem" class:hot={proc.mem > 50}>
-        {showAbsolute ? formatMem(proc.rss) : proc.mem.toFixed(1)}
+        <span class="resource-bar mem-bar" style="width: {Math.min(100, proc.mem)}%"></span>
+        <span class="resource-text">{showAbsolute ? formatMem(proc.rss) : proc.mem.toFixed(1)}</span>
       </span>
       <span class="col-rss">{formatMem(proc.rss)}</span>
       <span class="col-state">{proc.state}</span>
@@ -836,26 +891,6 @@
 {/if}
 
 <style>
-  .header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 16px;
-    flex-wrap: wrap;
-    gap: 10px;
-  }
-
-  h2 {
-    font-size: 1.3rem;
-  }
-
-  .controls {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-    flex-wrap: wrap;
-  }
-
   .view-toggle {
     display: flex;
     gap: 0;
@@ -892,6 +927,50 @@
     color: var(--text-secondary);
     cursor: pointer;
     font-family: inherit;
+  }
+
+  .process-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+  }
+
+  .summary-stats {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+  }
+
+  .summary-item {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+  }
+
+  .summary-label {
+    color: var(--text-faint);
+    text-transform: uppercase;
+    font-size: 0.65rem;
+    letter-spacing: 0.03em;
+  }
+
+  .summary-value {
+    color: var(--text-primary);
+    font-weight: 600;
+  }
+
+  .summary-value.hot {
+    color: var(--danger);
+  }
+
+  .summary-sep {
+    color: var(--text-faint);
   }
 
   .process-list {
@@ -1034,11 +1113,39 @@
     font-size: 0.8rem;
     color: var(--text-muted);
     text-align: right;
+    position: relative;
+    overflow: hidden;
+    border-radius: 3px;
   }
   .col-cpu.hot,
   .col-mem.hot {
     color: var(--danger);
     font-weight: 600;
+  }
+  .resource-bar {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    background: var(--accent);
+    opacity: 0.12;
+    border-radius: 3px;
+    transition: width 0.3s ease;
+  }
+  .resource-bar.mem-bar {
+    background: var(--purple);
+  }
+  .col-cpu.hot .resource-bar {
+    background: var(--danger);
+    opacity: 0.18;
+  }
+  .col-mem.hot .resource-bar {
+    background: var(--danger);
+    opacity: 0.18;
+  }
+  .resource-text {
+    position: relative;
+    z-index: 1;
   }
   .col-rss {
     font-family: monospace;

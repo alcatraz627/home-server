@@ -3,12 +3,16 @@
   import { browser } from '$app/environment';
   import { toast } from '$lib/toast';
   import { fetchApi } from '$lib/api';
+  import { getErrorMessage } from '$lib/errors';
   import Button from '$lib/components/Button.svelte';
   import Badge from '$lib/components/Badge.svelte';
   import Tabs from '$lib/components/Tabs.svelte';
-  import Loading from '$lib/components/Loading.svelte';
+  import ErrorBoundary from '$lib/components/ErrorBoundary.svelte';
+  import AsyncState from '$lib/components/AsyncState.svelte';
   import SearchInput from '$lib/components/SearchInput.svelte';
   import Icon from '$lib/components/Icon.svelte';
+  import PageHeader from '$lib/components/PageHeader.svelte';
+  import { SK_PERIPHERALS_CACHE, SK_WIFI_PRIVACY } from '$lib/constants/storage-keys';
 
   interface WifiNetwork {
     ssid: string;
@@ -78,7 +82,7 @@
 
   type TabKey = 'wifi' | 'bluetooth' | 'usb' | 'audio' | 'battery' | 'displays' | 'network' | 'system';
 
-  const CACHE_KEY = 'hs:peripherals-cache';
+  const CACHE_KEY = SK_PERIPHERALS_CACHE;
 
   function loadCache(): any | null {
     if (!browser) return null;
@@ -109,6 +113,14 @@
   let systemInfo = $state<SystemInfo | null>(cached?.systemInfo || null);
   let loading = $state(!cached);
   let activeTab = $state<TabKey>('wifi');
+  let privacyMode = $state(
+    typeof localStorage !== 'undefined' ? localStorage.getItem(SK_WIFI_PRIVACY) === 'true' : false,
+  );
+
+  function togglePrivacy() {
+    privacyMode = !privacyMode;
+    localStorage.setItem(SK_WIFI_PRIVACY, String(privacyMode));
+  }
 
   const tabItems = $derived([
     { id: 'wifi', label: 'WiFi', count: wifi.length },
@@ -188,8 +200,8 @@
       networkInterfaces = data.networkInterfaces || [];
       systemInfo = data.systemInfo || null;
       saveCache(data);
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to load peripherals');
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, 'Failed to load peripherals'));
     } finally {
       loading = false;
     }
@@ -211,8 +223,8 @@
         toast.success(`${dev.connected ? 'Disconnected from' : 'Connected to'} ${dev.name}`);
         await refresh();
       }
-    } catch (e: any) {
-      toast.error(e.message || 'Bluetooth action failed');
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, 'Bluetooth action failed'));
     } finally {
       btToggling = null;
     }
@@ -251,15 +263,20 @@
   <title>Peripherals | Home Server</title>
 </svelte:head>
 
-<div class="header">
-  <h2 class="page-title">Peripherals</h2>
-  <Button onclick={refresh} disabled={loading} {loading}>
-    {loading ? 'Scanning...' : 'Refresh'}
-  </Button>
-</div>
-<p class="page-desc">
-  Scan and inspect connected peripherals including WiFi adapters, Bluetooth devices, and USB hardware.
-</p>
+<PageHeader
+  title="Peripherals"
+  description="Scan and inspect connected peripherals including WiFi adapters, Bluetooth devices, and USB hardware."
+>
+  {#snippet children()}
+    <label class="privacy-toggle" title="Blur SSIDs and BSSIDs for privacy">
+      <input type="checkbox" checked={privacyMode} onchange={togglePrivacy} />
+      Privacy
+    </label>
+    <Button onclick={refresh} disabled={loading} {loading}>
+      {loading ? 'Scanning...' : 'Refresh'}
+    </Button>
+  {/snippet}
+</PageHeader>
 
 <div class="search-bar">
   <SearchInput bind:value={searchQuery} placeholder="Search all peripherals..." size="sm" />
@@ -291,307 +308,353 @@
 {:else}
   <Tabs tabs={tabItems} bind:active={activeTab} syncHash />
 
-  {#if activeTab === 'wifi'}
-    <!-- Current connection -->
-    {#if currentWifi}
-      <div class="current-connection card">
-        <span class="current-label">Connected to</span>
-        <span class="current-ssid">{currentWifi.ssid}</span>
-        <span class="current-signal" style="color: {signalColor(currentWifi.rssi)}">
-          {currentWifi.rssi} dBm
-        </span>
-      </div>
-    {/if}
-
-    <!-- Sort -->
-    <div class="sort-row">
-      <span class="sort-label">Sort:</span>
-      <button class="sort-btn" class:active={wifiSort === 'rssi'} onclick={() => (wifiSort = 'rssi')}>Signal</button>
-      <button class="sort-btn" class:active={wifiSort === 'ssid'} onclick={() => (wifiSort = 'ssid')}>Name</button>
-      <button class="sort-btn" class:active={wifiSort === 'channel'} onclick={() => (wifiSort = 'channel')}
-        >Channel</button
-      >
-    </div>
-
-    {#if loading && wifi.length === 0}
-      <Loading count={4} height="52px" />
-    {:else if sortedWifi.length === 0}
-      <div class="empty">No WiFi networks found</div>
-    {:else}
-      <div class="network-list">
-        {#each sortedWifi as net, i}
-          <div
-            class="network-row card-stagger"
-            style="animation-delay: {i * 30}ms"
-            class:open-network={isOpenNetwork(net.security)}
-          >
-            <div class="net-signal">
-              <div class="signal-bars">
-                {#each [1, 2, 3, 4, 5] as bar}
-                  <span
-                    class="bar"
-                    class:active={bar <= signalBars(net.rssi)}
-                    style="background: {bar <= signalBars(net.rssi) ? signalColor(net.rssi) : 'var(--border)'}"
-                  ></span>
-                {/each}
-              </div>
-            </div>
-            <div class="net-info">
-              <span class="net-ssid">{net.ssid}</span>
-              <span class="net-meta">
-                {net.bssid} | Ch {net.channel} | {net.rssi} dBm{#if net.noise != null}
-                  | Noise: {net.noise} dBm{/if}{#if net.phyMode}
-                  | {net.phyMode}{/if}
-              </span>
-            </div>
-            <Badge variant={isOpenNetwork(net.security) ? 'danger' : 'success'}>
-              {isOpenNetwork(net.security) ? 'Open' : net.security}
-            </Badge>
-          </div>
-        {/each}
-      </div>
-    {/if}
-  {:else if activeTab === 'bluetooth'}
-    {#if loading && bluetooth.length === 0}
-      <Loading count={3} height="52px" />
-    {:else if bluetooth.length === 0}
-      <div class="empty">No Bluetooth devices found</div>
-    {:else}
-      <div class="bt-list">
-        {#each bluetooth as dev, i}
-          <div class="bt-row card-stagger" style="animation-delay: {i * 30}ms">
-            <span class="bt-status">
-              <span class="dot" class:connected={dev.connected}></span>
-            </span>
-            <div class="bt-info">
-              <span class="bt-name">{dev.name}</span>
-              <span class="bt-meta"
-                >{dev.address} | {dev.type}{#if dev.batteryLevel != null}
-                  | Battery: {dev.batteryLevel}%{/if}</span
-              >
-            </div>
-            {#if dev.batteryLevel != null}
-              <span class="bt-battery" class:low={dev.batteryLevel <= 20}>{dev.batteryLevel}%</span>
-            {/if}
-            <Badge variant={dev.connected ? 'success' : 'default'}>{dev.connected ? 'Connected' : 'Paired'}</Badge>
-            <Button
-              variant={dev.connected ? 'danger' : 'accent'}
-              size="sm"
-              onclick={() => toggleBtConnection(dev)}
-              disabled={btToggling === dev.address}
-              loading={btToggling === dev.address}
-            >
-              {dev.connected ? 'Disconnect' : 'Connect'}
-            </Button>
-          </div>
-        {/each}
-      </div>
-    {/if}
-  {:else if activeTab === 'usb'}
-    {#if loading && usb.length === 0}
-      <Loading count={3} height="52px" />
-    {:else if usb.length === 0}
-      <div class="empty">No USB devices found</div>
-    {:else}
-      <div class="device-list">
-        {#each usb as dev, i}
-          <div class="device-row card-stagger" style="animation-delay: {i * 30}ms">
-            <div class="device-icon"><Icon name="usb" size={18} /></div>
-            <div class="device-info">
-              <span class="device-name">{dev.name}</span>
-              <span class="device-meta">
-                {#if dev.vendor}Vendor: {dev.vendor}{/if}
-                {#if dev.serial}
-                  | Serial: {dev.serial}{/if}
-                {#if dev.bus}
-                  | Bus: {dev.bus}{/if}
-                {#if dev.port}
-                  | Port: {dev.port}{/if}
-              </span>
-            </div>
-            {#if dev.speed}
-              <span class="device-badge">{dev.speed}</span>
-            {/if}
-          </div>
-        {/each}
-      </div>
-    {/if}
-  {:else if activeTab === 'audio'}
-    {#if loading && audio.length === 0}
-      <Loading count={3} height="52px" />
-    {:else if audio.length === 0}
-      <div class="empty">No audio devices found</div>
-    {:else}
-      <div class="device-list">
-        {#each audio as dev, i}
-          <div class="device-row card-stagger" style="animation-delay: {i * 30}ms">
-            <div class="device-icon">
-              {#if dev.type === 'input'}<Icon name="headphones" size={18} />{:else}<Icon
-                  name="volume-high"
-                  size={18}
-                />{/if}
-            </div>
-            <div class="device-info">
-              <span class="device-name">{dev.name}</span>
-              <span class="device-meta">
-                {dev.type === 'input' ? 'Input' : 'Output'}
-                {#if dev.sampleRate}
-                  | {dev.sampleRate}{/if}
-              </span>
-            </div>
-            <span class="device-badge" class:input-badge={dev.type === 'input'}>
-              {dev.type === 'input' ? 'IN' : 'OUT'}
-            </span>
-          </div>
-        {/each}
-      </div>
-    {/if}
-  {:else if activeTab === 'battery'}
-    {#if loading && !battery}
-      <Loading count={1} height="140px" />
-    {:else if !battery}
-      <div class="empty">No battery detected (desktop Mac or unavailable)</div>
-    {:else}
-      <div class="battery-card card">
-        <div class="battery-header">
-          <div class="battery-visual">
-            <div class="battery-shell">
-              <div
-                class="battery-fill"
-                style="width: {battery.percentage}%; background: {battery.percentage > 20
-                  ? 'var(--success)'
-                  : 'var(--danger)'}"
-              ></div>
-            </div>
-            <div class="battery-nub"></div>
-          </div>
-          <span class="battery-pct">{battery.percentage}%</span>
-          <span class="battery-status" class:charging={battery.charging}>
-            {battery.charging ? 'Charging' : 'On Battery'}
+  <ErrorBoundary title="This tab encountered an error" compact>
+    {#if activeTab === 'wifi'}
+      <!-- Current connection -->
+      {#if currentWifi}
+        <div class="current-connection card">
+          <span class="current-label">Connected to</span>
+          <span class="current-ssid" class:redacted={privacyMode}>{currentWifi.ssid}</span>
+          <span class="current-signal" style="color: {signalColor(currentWifi.rssi)}">
+            {currentWifi.rssi} dBm
           </span>
         </div>
-        <div class="battery-details">
-          <div class="battery-detail">
-            <span class="battery-label">Time Remaining</span>
-            <span class="battery-value">{battery.timeRemaining}</span>
-          </div>
-          {#if battery.cycleCount !== null}
-            <div class="battery-detail">
-              <span class="battery-label">Cycle Count</span>
-              <span class="battery-value">{battery.cycleCount}</span>
+      {/if}
+
+      <!-- Sort -->
+      <div class="sort-row">
+        <span class="sort-label">Sort:</span>
+        <button class="sort-btn" class:active={wifiSort === 'rssi'} onclick={() => (wifiSort = 'rssi')}>Signal</button>
+        <button class="sort-btn" class:active={wifiSort === 'ssid'} onclick={() => (wifiSort = 'ssid')}>Name</button>
+        <button class="sort-btn" class:active={wifiSort === 'channel'} onclick={() => (wifiSort = 'channel')}
+          >Channel</button
+        >
+      </div>
+
+      <AsyncState
+        loading={loading && wifi.length === 0}
+        empty={sortedWifi.length === 0}
+        emptyTitle="No WiFi networks found"
+        emptyIcon="wifi"
+        loadingCount={4}
+        loadingHeight="52px"
+      >
+        <div class="network-list">
+          {#each sortedWifi as net, i}
+            <div
+              class="network-row card-stagger"
+              style="animation-delay: {i * 30}ms"
+              class:open-network={isOpenNetwork(net.security)}
+            >
+              <div class="net-signal">
+                <div class="signal-bars">
+                  {#each [1, 2, 3, 4, 5] as bar}
+                    <span
+                      class="bar"
+                      class:active={bar <= signalBars(net.rssi)}
+                      style="background: {bar <= signalBars(net.rssi) ? signalColor(net.rssi) : 'var(--border)'}"
+                    ></span>
+                  {/each}
+                </div>
+              </div>
+              <div class="net-info">
+                <span class="net-ssid" class:redacted={privacyMode}>{net.ssid}</span>
+                <span class="net-meta">
+                  <span class:redacted={privacyMode}>{net.bssid}</span> | Ch {net.channel} | {net.rssi} dBm{#if net.noise != null}
+                    | Noise: {net.noise} dBm{/if}{#if net.phyMode}
+                    | {net.phyMode}{/if}
+                </span>
+              </div>
+              <Badge variant={isOpenNetwork(net.security) ? 'danger' : 'success'}>
+                {isOpenNetwork(net.security) ? 'Open' : net.security}
+              </Badge>
             </div>
-          {/if}
-          <div class="battery-detail">
-            <span class="battery-label">Power Source</span>
-            <span class="battery-value">{battery.charging ? 'AC Power' : 'Battery'}</span>
-          </div>
+          {/each}
         </div>
-      </div>
-    {/if}
-  {:else if activeTab === 'displays'}
-    {#if loading && displays.length === 0}
-      <Loading count={2} height="52px" />
-    {:else if displays.length === 0}
-      <div class="empty">No displays detected</div>
-    {:else}
-      <div class="device-list">
-        {#each displays as disp, i}
-          <div class="device-row card-stagger" style="animation-delay: {i * 30}ms">
-            <div class="device-icon"><Icon name="monitor" size={18} /></div>
-            <div class="device-info">
-              <span class="device-name">
-                {disp.name}
-                {#if disp.builtIn}
-                  <span class="built-in-tag">Built-in</span>
-                {/if}
+      </AsyncState>
+    {:else if activeTab === 'bluetooth'}
+      <AsyncState
+        loading={loading && bluetooth.length === 0}
+        empty={bluetooth.length === 0}
+        emptyTitle="No Bluetooth devices found"
+        emptyIcon="bluetooth"
+        loadingCount={3}
+        loadingHeight="52px"
+      >
+        <div class="bt-list">
+          {#each bluetooth as dev, i}
+            <div class="bt-row card-stagger" style="animation-delay: {i * 30}ms">
+              <span class="bt-status">
+                <span class="dot" class:connected={dev.connected}></span>
               </span>
-              <span class="device-meta">
-                {disp.resolution}
-                {#if disp.refreshRate}
-                  | {disp.refreshRate}{/if}
-                | GPU: {disp.gpu}
-              </span>
+              <div class="bt-info">
+                <span class="bt-name">{dev.name}</span>
+                <span class="bt-meta"
+                  >{dev.address} | {dev.type}{#if dev.batteryLevel != null}
+                    | Battery: {dev.batteryLevel}%{/if}</span
+                >
+              </div>
+              {#if dev.batteryLevel != null}
+                <span class="bt-battery" class:low={dev.batteryLevel <= 20}>{dev.batteryLevel}%</span>
+              {/if}
+              <Badge variant={dev.connected ? 'success' : 'default'}>{dev.connected ? 'Connected' : 'Paired'}</Badge>
+              <Button
+                variant={dev.connected ? 'danger' : 'accent'}
+                size="sm"
+                onclick={() => toggleBtConnection(dev)}
+                disabled={btToggling === dev.address}
+                loading={btToggling === dev.address}
+              >
+                {dev.connected ? 'Disconnect' : 'Connect'}
+              </Button>
             </div>
-            {#if disp.refreshRate}
-              <span class="device-badge">{disp.refreshRate}</span>
-            {/if}
-          </div>
-        {/each}
-      </div>
-    {/if}
-  {:else if activeTab === 'network'}
-    {#if loading && networkInterfaces.length === 0}
-      <Loading count={3} height="52px" />
-    {:else if networkInterfaces.length === 0}
-      <div class="empty">No network interfaces found</div>
-    {:else}
-      <div class="device-list">
-        {#each networkInterfaces as iface, i}
-          <div class="device-row card-stagger" style="animation-delay: {i * 30}ms">
-            <div class="device-icon"><Icon name="globe" size={18} /></div>
-            <div class="device-info">
-              <span class="device-name">{iface.port}</span>
-              <span class="device-meta">
-                {iface.device} | MAC: {iface.mac}
-                {#if iface.ip}
-                  | IP: {iface.ip}{/if}
-              </span>
-            </div>
-            <Badge variant={iface.status === 'active' ? 'success' : 'default'}>
-              {iface.status}
-            </Badge>
-          </div>
-        {/each}
-      </div>
-    {/if}
-  {:else if activeTab === 'system'}
-    {#if loading && !systemInfo}
-      <Loading count={1} height="200px" />
-    {:else if !systemInfo}
-      <div class="empty">System info unavailable</div>
-    {:else}
-      <div class="system-card card">
-        <div class="system-details">
-          <div class="system-detail">
-            <span class="system-label">Model</span>
-            <span class="system-value">{systemInfo.model}</span>
-          </div>
-          <div class="system-detail">
-            <span class="system-label">CPU</span>
-            <span class="system-value">{systemInfo.cpuBrand}</span>
-          </div>
-          <div class="system-detail">
-            <span class="system-label">Cores / Threads</span>
-            <span class="system-value">{systemInfo.cpuCores} cores / {systemInfo.cpuThreads} threads</span>
-          </div>
-          <div class="system-detail">
-            <span class="system-label">Memory</span>
-            <span class="system-value">{systemInfo.ram}</span>
-          </div>
-          <div class="system-detail">
-            <span class="system-label">macOS Version</span>
-            <span class="system-value">{systemInfo.macosVersion}</span>
-          </div>
-          <div class="system-detail">
-            <span class="system-label">Serial Number</span>
-            <span class="system-value">{systemInfo.serial}</span>
-          </div>
+          {/each}
         </div>
-      </div>
+      </AsyncState>
+    {:else if activeTab === 'usb'}
+      <AsyncState
+        loading={loading && usb.length === 0}
+        empty={usb.length === 0}
+        emptyTitle="No USB devices found"
+        emptyIcon="usb"
+        loadingCount={3}
+        loadingHeight="52px"
+      >
+        <div class="device-list">
+          {#each usb as dev, i}
+            <div class="device-row card-stagger" style="animation-delay: {i * 30}ms">
+              <div class="device-icon"><Icon name="usb" size={18} /></div>
+              <div class="device-info">
+                <span class="device-name">{dev.name}</span>
+                <span class="device-meta">
+                  {#if dev.vendor}Vendor: {dev.vendor}{/if}
+                  {#if dev.serial}
+                    | Serial: {dev.serial}{/if}
+                  {#if dev.bus}
+                    | Bus: {dev.bus}{/if}
+                  {#if dev.port}
+                    | Port: {dev.port}{/if}
+                </span>
+              </div>
+              {#if dev.speed}
+                <span class="device-badge">{dev.speed}</span>
+              {/if}
+            </div>
+          {/each}
+        </div>
+      </AsyncState>
+    {:else if activeTab === 'audio'}
+      <AsyncState
+        loading={loading && audio.length === 0}
+        empty={audio.length === 0}
+        emptyTitle="No audio devices found"
+        emptyIcon="headphones"
+        loadingCount={3}
+        loadingHeight="52px"
+      >
+        <div class="device-list">
+          {#each audio as dev, i}
+            <div class="device-row card-stagger" style="animation-delay: {i * 30}ms">
+              <div class="device-icon">
+                {#if dev.type === 'input'}<Icon name="headphones" size={18} />{:else}<Icon
+                    name="volume-high"
+                    size={18}
+                  />{/if}
+              </div>
+              <div class="device-info">
+                <span class="device-name">{dev.name}</span>
+                <span class="device-meta">
+                  {dev.type === 'input' ? 'Input' : 'Output'}
+                  {#if dev.sampleRate}
+                    | {dev.sampleRate}{/if}
+                </span>
+              </div>
+              <span class="device-badge" class:input-badge={dev.type === 'input'}>
+                {dev.type === 'input' ? 'IN' : 'OUT'}
+              </span>
+            </div>
+          {/each}
+        </div>
+      </AsyncState>
+    {:else if activeTab === 'battery'}
+      <AsyncState
+        loading={loading && !battery}
+        empty={!battery}
+        emptyTitle="No battery detected"
+        emptyIcon="battery"
+        emptyHint="Desktop Mac or unavailable"
+        loadingCount={1}
+        loadingHeight="140px"
+      >
+        {#if battery}
+          <div class="battery-card card">
+            <div class="battery-header">
+              <div class="battery-visual">
+                <div class="battery-shell">
+                  <div
+                    class="battery-fill"
+                    style="width: {battery.percentage}%; background: {battery.percentage > 20
+                      ? 'var(--success)'
+                      : 'var(--danger)'}"
+                  ></div>
+                </div>
+                <div class="battery-nub"></div>
+              </div>
+              <span class="battery-pct">{battery.percentage}%</span>
+              <span class="battery-status" class:charging={battery.charging}>
+                {battery.charging ? 'Charging' : 'On Battery'}
+              </span>
+            </div>
+            <div class="battery-details">
+              <div class="battery-detail">
+                <span class="battery-label">Time Remaining</span>
+                <span class="battery-value">{battery.timeRemaining}</span>
+              </div>
+              {#if battery.cycleCount !== null}
+                <div class="battery-detail">
+                  <span class="battery-label">Cycle Count</span>
+                  <span class="battery-value">{battery.cycleCount}</span>
+                </div>
+              {/if}
+              <div class="battery-detail">
+                <span class="battery-label">Power Source</span>
+                <span class="battery-value">{battery.charging ? 'AC Power' : 'Battery'}</span>
+              </div>
+            </div>
+          </div>
+        {/if}
+      </AsyncState>
+    {:else if activeTab === 'displays'}
+      <AsyncState
+        loading={loading && displays.length === 0}
+        empty={displays.length === 0}
+        emptyTitle="No displays detected"
+        emptyIcon="monitor"
+        loadingCount={2}
+        loadingHeight="52px"
+      >
+        <div class="device-list">
+          {#each displays as disp, i}
+            <div class="device-row card-stagger" style="animation-delay: {i * 30}ms">
+              <div class="device-icon"><Icon name="monitor" size={18} /></div>
+              <div class="device-info">
+                <span class="device-name">
+                  {disp.name}
+                  {#if disp.builtIn}
+                    <span class="built-in-tag">Built-in</span>
+                  {/if}
+                </span>
+                <span class="device-meta">
+                  {disp.resolution}
+                  {#if disp.refreshRate}
+                    | {disp.refreshRate}{/if}
+                  | GPU: {disp.gpu}
+                </span>
+              </div>
+              {#if disp.refreshRate}
+                <span class="device-badge">{disp.refreshRate}</span>
+              {/if}
+            </div>
+          {/each}
+        </div>
+      </AsyncState>
+    {:else if activeTab === 'network'}
+      <AsyncState
+        loading={loading && networkInterfaces.length === 0}
+        empty={networkInterfaces.length === 0}
+        emptyTitle="No network interfaces found"
+        emptyIcon="globe"
+        loadingCount={3}
+        loadingHeight="52px"
+      >
+        <div class="device-list">
+          {#each networkInterfaces as iface, i}
+            <div class="device-row card-stagger" style="animation-delay: {i * 30}ms">
+              <div class="device-icon"><Icon name="globe" size={18} /></div>
+              <div class="device-info">
+                <span class="device-name">{iface.port}</span>
+                <span class="device-meta">
+                  {iface.device} | MAC: {iface.mac}
+                  {#if iface.ip}
+                    | IP: {iface.ip}{/if}
+                </span>
+              </div>
+              <Badge variant={iface.status === 'active' ? 'success' : 'default'}>
+                {iface.status}
+              </Badge>
+            </div>
+          {/each}
+        </div>
+      </AsyncState>
+    {:else if activeTab === 'system'}
+      <AsyncState
+        loading={loading && !systemInfo}
+        empty={!systemInfo}
+        emptyTitle="System info unavailable"
+        emptyIcon="cpu"
+        loadingCount={1}
+        loadingHeight="200px"
+      >
+        {#if systemInfo}
+          <div class="system-card card">
+            <div class="system-details">
+              <div class="system-detail">
+                <span class="system-label">Model</span>
+                <span class="system-value">{systemInfo.model}</span>
+              </div>
+              <div class="system-detail">
+                <span class="system-label">CPU</span>
+                <span class="system-value">{systemInfo.cpuBrand}</span>
+              </div>
+              <div class="system-detail">
+                <span class="system-label">Cores / Threads</span>
+                <span class="system-value">{systemInfo.cpuCores} cores / {systemInfo.cpuThreads} threads</span>
+              </div>
+              <div class="system-detail">
+                <span class="system-label">Memory</span>
+                <span class="system-value">{systemInfo.ram}</span>
+              </div>
+              <div class="system-detail">
+                <span class="system-label">macOS Version</span>
+                <span class="system-value">{systemInfo.macosVersion}</span>
+              </div>
+              <div class="system-detail">
+                <span class="system-label">Serial Number</span>
+                <span class="system-value">{systemInfo.serial}</span>
+              </div>
+            </div>
+          </div>
+        {/if}
+      </AsyncState>
     {/if}
-  {/if}
+  </ErrorBoundary>
 {/if}
 
 <style>
-  .header {
+  .privacy-toggle {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    margin-bottom: 16px;
+    gap: 6px;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    cursor: pointer;
   }
-  h2 {
-    font-size: 1.3rem;
+
+  .privacy-toggle input {
+    cursor: pointer;
   }
+
+  .redacted {
+    filter: blur(5px);
+    transition: filter 0.15s ease;
+    cursor: default;
+    user-select: none;
+  }
+
+  .redacted:hover {
+    filter: blur(0);
+  }
+
   .current-connection {
     display: flex;
     align-items: center;

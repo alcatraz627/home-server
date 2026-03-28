@@ -10,5 +10,5 @@
  */
 export const APP = {
   title: 'Home Server',
-  version: '4.17.0-mossy-cliff-6',
+  version: '4.36.1-corewlan-wep-fix-2',
 } as const;

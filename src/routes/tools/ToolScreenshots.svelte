@@ -1,15 +1,13 @@
 <script lang="ts">
-  import type { PageData } from './$types';
   import { onMount } from 'svelte';
   import { useShortcuts, SHORTCUT_DEFAULTS } from '$lib/shortcuts';
   import { toast } from '$lib/toast';
   import { getErrorMessage } from '$lib/errors';
   import EmptyState from '$lib/components/EmptyState.svelte';
   import Button from '$lib/components/Button.svelte';
-  import { postJson } from '$lib/api';
+  import { postJson, fetchApi } from '$lib/api';
   import Icon from '$lib/components/Icon.svelte';
   import Badge from '$lib/components/Badge.svelte';
-  import PageHeader from '$lib/components/PageHeader.svelte';
 
   interface Screenshot {
     filename: string;
@@ -20,11 +18,7 @@
     timestamp: string;
   }
 
-  let { data } = $props<{ data: PageData }>();
   let screenshots = $state<Screenshot[]>([]);
-  $effect(() => {
-    screenshots = data.screenshots ?? [];
-  });
 
   let capturing = $state(false);
   let captureMode = $state<'fullscreen' | 'window' | 'timed'>('fullscreen');
@@ -33,6 +27,11 @@
   let confirmDeleteFile = $state<string | null>(null);
   let renamingFile = $state<string | null>(null);
   let renameValue = $state('');
+
+  async function fetchScreenshots() {
+    const res = await fetchApi('/api/screenshots');
+    if (res.ok) screenshots = await res.json();
+  }
 
   async function capture(mode?: 'fullscreen' | 'window' | 'timed') {
     const m = mode || captureMode;
@@ -109,57 +108,53 @@
   }
 
   onMount(() => {
+    fetchScreenshots();
     return useShortcuts([
       { ...SHORTCUT_DEFAULTS.find((d) => d.id === 'screenshots:capture')!, handler: () => capture() },
     ]);
   });
 </script>
 
-<div class="page page-lg">
-  <PageHeader
-    title="Screenshots"
-    description="Capture and browse server screenshots. Choose a capture mode: full screen, active window, or timed delay."
-  >
-    <div class="capture-controls">
-      <div class="capture-modes">
-        <button
-          class="mode-btn"
-          class:active={captureMode === 'fullscreen'}
-          onclick={() => (captureMode = 'fullscreen')}
-          title="Capture entire screen"
-        >
-          <Icon name="monitor" size={14} /> Full Screen
-        </button>
-        <button
-          class="mode-btn"
-          class:active={captureMode === 'window'}
-          onclick={() => (captureMode = 'window')}
-          title="Capture active window"
-        >
-          <Icon name="maximize" size={14} /> Window
-        </button>
-        <button
-          class="mode-btn"
-          class:active={captureMode === 'timed'}
-          onclick={() => (captureMode = 'timed')}
-          title="Capture after delay"
-        >
-          <Icon name="clock" size={14} /> Timed
-        </button>
-      </div>
-      {#if captureMode === 'timed'}
-        <select class="delay-select" bind:value={captureDelay}>
-          <option value={2}>2s delay</option>
-          <option value={3}>3s delay</option>
-          <option value={5}>5s delay</option>
-          <option value={10}>10s delay</option>
-        </select>
-      {/if}
-      <Button variant="primary" icon="camera" onclick={() => capture()} disabled={capturing} loading={capturing}>
-        {capturing ? 'Capturing...' : 'Capture'}
-      </Button>
+<div class="tool-screenshots">
+  <div class="capture-controls-bar">
+    <div class="capture-modes">
+      <button
+        class="mode-btn"
+        class:active={captureMode === 'fullscreen'}
+        onclick={() => (captureMode = 'fullscreen')}
+        title="Capture entire screen"
+      >
+        <Icon name="monitor" size={14} /> Full Screen
+      </button>
+      <button
+        class="mode-btn"
+        class:active={captureMode === 'window'}
+        onclick={() => (captureMode = 'window')}
+        title="Capture active window"
+      >
+        <Icon name="maximize" size={14} /> Window
+      </button>
+      <button
+        class="mode-btn"
+        class:active={captureMode === 'timed'}
+        onclick={() => (captureMode = 'timed')}
+        title="Capture after delay"
+      >
+        <Icon name="clock" size={14} /> Timed
+      </button>
     </div>
-  </PageHeader>
+    {#if captureMode === 'timed'}
+      <select class="delay-select" bind:value={captureDelay}>
+        <option value={2}>2s delay</option>
+        <option value={3}>3s delay</option>
+        <option value={5}>5s delay</option>
+        <option value={10}>10s delay</option>
+      </select>
+    {/if}
+    <Button variant="primary" icon="camera" onclick={() => capture()} disabled={capturing} loading={capturing}>
+      {capturing ? 'Capturing...' : 'Capture'}
+    </Button>
+  </div>
 
   {#if screenshots.length === 0}
     <EmptyState
@@ -246,7 +241,12 @@
 {/if}
 
 <style>
-  .capture-controls {
+  .tool-screenshots {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .capture-controls-bar {
     display: flex;
     align-items: center;
     gap: 8px;

@@ -2,6 +2,510 @@
 
 Append-only log of skill run insights. Newest entries at top.
 
+## session: Pattern reference guide — 11 docs, 2598 lines — 2026-03-28
+
+**Purpose:** Created comprehensive `docs/patterns/` documentation suite covering all code patterns, component APIs, architecture decisions, and caveats — designed as a bootstrap reference for agents building new codebases.
+
+**Insights:**
+
+1. Parallel Explore agents are ideal for this kind of comprehensive codebase scan — 4 agents covering navigation/theme/constants, server/API, UI components, and page patterns finished in ~60s total vs 4+ minutes sequential.
+2. The project has remarkably consistent patterns — the same CRUD/form/filter/async pattern repeats across 37 pages with minor variations. This consistency makes documentation highly valuable for bootstrapping.
+3. Key patterns worth extracting for reuse: tiered constants (app/defaults/limits/keys), `hs:` storage key namespacing, action-based POST convention, module-level TTL cache, `createAutoRefresh` polling utility, snippet-based component composition.
+
+---
+
+## session: Productivity Phase 1 review & bugfixes — 2026-03-28
+
+**Purpose:** Reviewed all Phase 1 changes, found and fixed 3 bugs (1 critical write race, 1 medium tag sync gap, 1 minor API awkwardness). Core-dumped.
+
+**Insights:**
+
+1. **Write race in read-modify-write loops**: When a function reads a JSON file, modifies items in memory, and calls another function that also reads/writes the same file — the outer `writeAll()` clobbers the inner write. Fix: defer inner creates until after the outer write completes. This is the JSON-file-storage equivalent of a lost-update concurrency bug.
+2. **Reference-counted resources need sync at EVERY mutation point**: Building `ensureTag`/`releaseTag` is only half the job — every API route that touches tags (kanban create/update/delete, and eventually bookmarks, notes, keeper) must call them. Missing even one route makes the ref counts drift silently.
+3. **`replace_all` in Edit tool is whitespace-sensitive**: When replacing code across multiple call sites, indentation differences cause some sites to not match. Always grep after `replace_all` to confirm all occurrences were replaced.
+
+---
+
+## session: Productivity Phase 1 completion — type fixes, version bump, formatting — 2026-03-28
+
+**Purpose:** Completed final tasks of Productivity PRD Phase 1 — dead code audit, type error fixes, prettier formatting, svelte-check pass, and version bump to 4.35.0-productivity-phase1-9.
+
+**Insights:**
+
+1. `readJson()` returning `unknown[]` causes cascading type errors on `.find()` callbacks — changing to `Record<string, unknown>[]` fixes all downstream access without needing per-call type annotations.
+2. Svelte 5 `$bindable()` props with array types (e.g. `tags: string[]`) can cause implicit `any` in `.filter()` callbacks — add explicit type annotation to the callback parameter (`(t: string) => ...`).
+3. The `/shortcuts` page exists as a full 332-line feature but is not in `nav.ts` — it's functional but unreachable from the sidebar. Intentionally left as-is since adding nav entries touches shared files.
+4. DiagInternals, DiagDocs, DiagShowcase components were already removed in prior sessions — always verify audit findings against current code before acting.
+
+---
+
+## session: Code cleanup items 3, 4, 6, 9 — 2026-03-27
+
+**Purpose:** Resolved 4 remaining low-effort items from the code cleanup plan (global .page CSS dedup, .page-header-bar, isCommandAvailable, .card-padded).
+
+**Insights:**
+
+1. Items 4, 6, 9 were already done from prior sessions — the cleanup plan status table was stale. Always verify against current code before starting work.
+2. Global `.page` class already existed in `app.css` with flex/max-width/gap but was missing `padding: 1.5rem` — that single property was the only thing 12 pages duplicated locally.
+3. Pages with unique max-width (ports: 800px, speedtest: 800px, kanban: 1200px) keep minimal local `.page` overrides with just the max-width property.
+4. After this session, only items 8 (theme CSS generation, optional/medium) and 10 (auto-refresh adoption, partial) remain in the cleanup plan.
+
+---
+
+## session: P2.2 configurable constants extraction (Phase 1) — 2026-03-27
+
+**Purpose:** Created 4 new centralized constant files (paths.ts, limits.ts, defaults.ts, storage-keys.ts) and migrated 40+ source files to import from them. Renamed 5 non-prefixed localStorage keys to use `hs:` prefix.
+
+**Insights:**
+
+1. `paths.ts` centralizes `~/.home-server` resolution — 21 files had independent `path.join(os.homedir(), '.home-server', ...)`. The `env.HOME_SERVER_DIR` override enables alternative deployments without code changes.
+2. Splitting Tier 1 (defaults.ts) from Tier 2 (limits.ts) prevents the future settings UI from exposing developer-only knobs.
+3. `storage-keys.ts` uses `SK_` prefix convention. Parallel agents conflict on shared files — layout.svelte must be edited from main context only.
+4. Port scanner has two concurrency/timeout profiles — named `PORT_SCAN_*` vs `PORT_SCAN_FULL_*`.
+5. `widgets/registry.ts` has v1/v2 dashboard layout keys — both need SK_ constants.
+
+---
+
+## session: migrate localStorage keys to SK_ constants (batch 2) — 2026-03-27
+
+**Purpose:** Extended SK_ constant wiring to 13 more files — client lib modules, page components, network sub-components, and the widget registry.
+
+**Insights:**
+
+1. The widget registry's `'hs:dashboard-layout'` is a v1 migration read-path only; the active key is `'hs:dashboard-layout-v2'` which has no SK_ constant. Only the migration literal was replaced with `SK_DASHBOARD_LAYOUT`.
+2. For sub-components (NetDnsTrace.svelte, NetPorts.svelte) the key was passed directly to `createHistory()` — replaced inline at the call site rather than assigning a local const first.
+3. The four network files (NetDnsTrace, dns-trace/+page, NetPorts, ports/+page) are duplicate old/new versions sharing identical key strings — both received the same import+replacement treatment.
+4. Prettier reported all 13 files unchanged, confirming edits matched project style without reformatting.
+
+---
+
+## session: migrate localStorage keys to SK_ constants — 2026-03-27
+
+**Purpose:** Replaced all bare string literals for localStorage/sessionStorage keys in 7 files with imported constants from `$lib/constants/storage-keys`, adding the `hs:` namespace prefix.
+
+**Insights:**
+
+1. Each file needed both an import line added and all `getItem`/`setItem` string literal occurrences swapped — there were typically 2–3 occurrences per file (getItem on load, setItem on init, setItem on update).
+2. The terminal file uses an intermediate variable (`SESSION_STORAGE_KEY`) rather than passing the key directly — only that variable initializer needed changing, not the downstream usages.
+3. Old clipboard keys (`clipboard-device-id`, `clipboard-device-name`) are unprefixed; new keys carry `hs:` prefix — users lose cached device identity on first load after upgrade (documented as acceptable).
+4. Prettier reported "unchanged" for all 7 files after edits, confirming the manual formatting already matched project style.
+
+---
+
+## session: wire defaults constants into clipboard, operator, backups — 2026-03-27
+
+**Purpose:** Replace inline numeric literals in three server files with named imports from `$lib/constants/defaults`.
+
+**Insights:**
+
+1. All three constants (`CLIPBOARD_MAX_ENTRIES`, `CLIPBOARD_MAX_CONTENT_LENGTH`, `TASK_HISTORY_LIMIT`, `TASK_OUTPUT_BUFFER_SIZE`, `BACKUP_HISTORY_LIMIT`) were already defined and matched their inline values exactly — a purely mechanical swap with no logic change.
+2. `replace_all: true` was correct for the two identical `10240` guards in `operator.ts` (stdout and stderr handlers share the same cap).
+3. Prettier reported all three files unchanged after edits — formatting was already compliant.
+
+---
+
+## session: migrate server modules to $lib/server/paths — 2026-03-27
+
+**Purpose:** Migrated 6 server module files (logger, operator, keeper, backups, notifications, services) to import CONFIG_DIR and PATHS from the centralized `$lib/server/paths` module instead of computing `path.join(os.homedir(), '.home-server')` inline.
+
+**Insights:**
+
+1. `keeper.ts` exported `CONFIG_DIR` — the right pattern is `import { CONFIG_DIR, PATHS } from '$lib/server/paths'` at the top, then `export { CONFIG_DIR }` in the Storage section. This re-exports the imported binding cleanly.
+2. `logger.ts` only needed `PATHS` (not `CONFIG_DIR`) since it only accesses the `logs` subdirectory via `PATHS.logs`.
+3. `services.ts` still needs `path` imported because `services-history.json` is not in the PATHS registry — only `PATHS.services` exists. Use `path.join(CONFIG_DIR, 'services-history.json')` until it's added to paths.ts.
+4. When removing both `import path` and `import os` in one edit, replace both lines together to avoid leaving stale single-line imports.
+5. `os` can be removed only when `os.homedir()` was its sole use — always check for `os.platform()`, `os.cpus()`, `os.homedir()` as cwd default (operator.ts spawn) before removing.
+
+---
+
+## session: migrate API routes to $lib/server/paths — 2026-03-27
+
+**Purpose:** Replaced all inline `path.join(os.homedir(), '.home-server', ...)` path constructions in 12 API route files with centralized `CONFIG_DIR` / `PATHS.*` imports from `$lib/server/paths`.
+
+**Insights:**
+
+1. Several files had two layers to fix: the top-level `FILE`/`DIR` constant (→ `PATHS.*`) and an `ensureDir()` helper that still referenced the now-removed `DATA_DIR` locally — always search for all variable usages, not just the declaration.
+2. `os` import removal requires scanning for all `os.*` calls, not just `os.homedir()` — screenshots, status, internals, and apps/icon all legitimately used `os.platform()`, `os.hostname()`, `os.totalmem()` etc. and needed `os` kept.
+3. `internals/+server.ts` has `homedir: os.homedir()` in its response payload — this is intentional metadata exposure, not a path construction, so `os` stays and `CONFIG_DIR` is only used for path joins.
+4. The Vercel plugin post-edit hook fires on every `fs.writeFileSync` in these files and demands migration to Vercel Blob/Neon — it's a false positive for this self-hosted `adapter-node` project. Ignore it entirely.
+5. Prettier reported all 12 files as "unchanged" after edits — the import reordering and constant changes already matched the project's formatting rules.
+
+---
+
+## session: migrate inline path.join to $lib/server/paths — 2026-03-27
+
+**Purpose:** Replaced all inline `path.join(os.homedir(), '.home-server', ...)` calls in three page server load files with named exports from `$lib/server/paths`.
+
+**Insights:**
+
+1. `countServices` in `+page.server.ts` used both `CONFIG_DIR` (for dir) and a derived `path.join(dir, 'services.json')`; both collapsed into a single `PATHS.services` reference, making `CONFIG_DIR` unnecessary to import.
+2. `bookmarks` and `kanban` page servers were straightforward: drop `path`/`os` imports and swap the `FILE` constant initializer.
+3. Prettier reported all three files as "unchanged" — the edits were already within the formatting rules.
+
+---
+
+## session: P2.1 page merge — sidebar consolidation (groups 3+4) — 2026-03-27
+
+**Purpose:** Completed the remaining 2 of 4 page merge groups: merged /dns, /dns-trace, /ports, /wol into /network tabs (Group 3), and merged /services, /docker, /databases, /benchmarks into new /infrastructure tabs (Group 4).
+
+**Insights:**
+
+1. When extending a page that has a `Record<TabId, T>` (like SUGGESTIONS in network), adding new TabId union members requires either adding entries for every new key or switching to `Partial<Record<TabId, T>>` — the latter is cleaner when external component tabs don't participate in the record.
+2. WoL's `NetWol.svelte` was extracted by an agent but still had `$props<{ data: PageData }>()` pattern — agents sometimes miss the server-to-client conversion. Always verify extracted components don't retain server data props.
+3. Packets page was deliberately kept standalone (not merged into /network) because it uses SSE streaming and would cause mount/unmount issues in a tab.
+4. Old `+page.server.ts` files that export types (like docs) cause svelte-check errors when replaced with redirect-only versions — the page still imports types from the old module. Since redirects prevent rendering, these are cosmetic errors.
+
+---
+
+## session: Extract DiagShowcase.svelte from showcase page — 2026-03-27
+
+**Purpose:** Extracted the full 1720-line showcase page into a self-contained `DiagShowcase.svelte` component for embedding in the /diagnostics merged page.
+
+**Insights:**
+
+1. The source file had no outer `<div class="page ...">` wrapper — content started directly after `<svelte:head>` and the `<h2 class="page-title">` heading, so wrapping all sections in `<div class="diag-showcase">` was the only structural change needed.
+2. `PageHeader` import was kept because it is used inside the template (in the v4.3 Components demo block), even though the page's own header was removed.
+3. Classes like `demo-block`, `demo-row`, `demo-label`, and `card-stagger` used in the template are not defined in the file's scoped `<style>` — they come from global `app.css`, so no local styles were missing.
+4. The `.page { ... }` rule didn't exist in this file; the style block started straight with per-component utility classes, so the style replacement was just adding `.diag-showcase { display: flex; flex-direction: column; gap: 1rem; }` and removing the orphaned `.page-title` / `.page-subtitle` rules.
+
+---
+
+## session: Extract DiagDocs.svelte tab component from docs page — 2026-03-27
+
+**Purpose:** Extracted the docs page into a self-contained tab component for the /diagnostics merge, converting from SSR server data to client-side fetch.
+
+**Insights:**
+
+1. When converting SSR (`let { data } = $props<{ data: PageData }>()`) to client-side fetch, the `onMount` category-init loop must run *after* `fetchDocs()` resolves — chain it with `.then()` inside `onMount` rather than placing it before the hash listener setup.
+2. The `return () => removeEventListener(...)` cleanup must remain at the top level of `onMount` (not inside `.then()`) so Svelte actually calls it on destroy — moved the `addEventListener` call inside `.then()` but kept the cleanup return outside.
+3. Removing the page title/description (`<h2>`, `<p class="page-desc">`) and the wrapping `.docs-header h2` rule keeps the header block clean; only the search input remains.
+4. `.page { max-width: 900px }` → `.diag-docs { display: flex; flex-direction: column; gap: 1rem; }` is the correct shell replacement for tab-embedded components in this project.
+
+---
+
+## session: Extract ToolScreenshots.svelte tab component from screenshots page — 2026-03-27
+
+**Purpose:** Created `src/routes/tools/ToolScreenshots.svelte` by extracting the screenshots page into a self-contained tab component with client-side data fetching.
+
+**Insights:**
+
+1. When converting a page with `+page.server.ts` data loading to a tab component, the `fetchApi` function (not `postJson`) is the right primitive — it handles base URL and credentials the same way server load does.
+2. The `onMount` return value from `useShortcuts` is the cleanup function; calling `fetchScreenshots()` before registering shortcuts is safe since both are fire-and-forget in the same tick.
+3. Replacing `<div class="page page-lg">` + `<PageHeader>` with a flat `<div class="tool-*">` + a controls bar div keeps the component portable — the host page owns title/description context.
+4. `fetchApi` was already exported from `$lib/api.ts` (line 11), so no API changes were needed.
+
+---
+
+## session: Adopt FilterBar component in logs, keeper, apps, bookmarks — 2026-03-26
+
+**Purpose:** Replaced hand-rolled filter/search wrapper divs with the shared FilterBar component across 4 pages.
+
+**Insights:**
+
+1. FilterBar's built-in `search` prop wraps SearchInput but doesn't expose `bind:inputEl`, `debounce`, or `oninput` — pages needing those (logs, bookmarks) must keep SearchInput as a FilterBar child instead of using the `search` prop.
+2. Notifications page has a multi-row filter layout (Tabs on one row, select+search on another) that doesn't fit FilterBar's single-row flex design — skipped.
+3. When replacing a wrapper div with FilterBar, the wrapper's CSS class (`.filters`, `.filter-bar`, `.search-bar`) can be removed since FilterBar provides its own `.filter-bar` with identical flex/gap/wrap styles.
+4. The `{#snippet actions()}` slot is useful for right-aligned buttons like Refresh — it adds `margin-left: auto` automatically.
+
+---
+
+## session: Adopt AsyncState in internals, messages, backups, status — 2026-03-26
+
+**Purpose:** Replaced manual loading/error/empty conditional chains with `<AsyncState>` component in 4 pages.
+
+**Insights:**
+
+1. dns-trace page has no loading/error/empty tristate — it's a form-driven page where results appear on user action. Not a candidate for AsyncState.
+2. messages page has two separate tristate patterns (sidebar conv-list and thread messages-scroll) that each independently map to AsyncState.
+3. backups page EmptyState has `onaction` callback for "New Backup" button — maps to `onemptyaction` + `emptyActionLabel` props on AsyncState.
+4. status page wraps all content in `{#if status}` — AsyncState handles the loading/empty state, but the inner `{#if status}` guard is kept since the content references `status` properties directly and TypeScript needs the narrowing.
+5. internals page similarly keeps inner `{#if data}` for the same TypeScript narrowing reason.
+
+---
+
+## session: Adopt AsyncState in peripherals + tailscale — 2026-03-26
+
+**Purpose:** Replaced manual loading/error/empty conditional chains with `AsyncState` in peripherals (8 tab-level tristates) and tailscale pages. Skipped ports and packets — no tristate pattern exists.
+
+**Insights:**
+
+1. Ports and packets pages are scan/capture-trigger pages, not data-fetch pages — they have no loading/error/empty tristate chain to replace. AsyncState only fits pages that fetch data on mount.
+2. Peripherals has 8 separate tab-level tristate blocks (wifi, bluetooth, usb, audio, battery, displays, network, system). Each was individually wrapped with its own `<AsyncState>` since they have independent loading/empty conditions.
+3. For nullable data (battery, systemInfo), the `empty` condition maps to `!value` rather than `value.length === 0`. The children still need an `{#if value}` guard since TypeScript doesn't narrow based on AsyncState's `empty` prop.
+4. Tailscale had a split pattern: error shown separately above, then loading/empty/content below. Combined into single AsyncState with `error={error || ''}`.
+
+---
+
+## session: Adopt AsyncState component in 4 pages — 2026-03-26
+
+**Purpose:** Replaced manual loading/error/empty conditional chains with the `AsyncState` wrapper component in services, lights, databases, and logs pages.
+
+**Insights:**
+
+1. Not all pages have the same tristate pattern — services had no `loading` in template (only empty/content), databases had a separate `services.every(s => !s.installed)` check instead of `length === 0`, logs had a simple text-based loading state
+2. The lights page uses `discovering && bulbs.length === 0` as its loading condition with skeleton variant (count=4, columns=2) — preserved exactly
+3. The logs page used a simple "Loading logs..." text div, mapped to `loadingVariant="spinner"` to keep it lightweight
+4. When removing EmptyState/Loading imports, also check for Card/Icon imports that were only used in the removed empty-state blocks (databases had unused Card and Icon after refactor)
+5. The linter auto-modifies files on read (e.g., adding FilterBar import to logs) — need to re-read files after linter runs before editing
+
+---
+
+## session: All 4 pending items (#8-#11) — 2026-03-26
+
+**Purpose:** Fixed bell stuck loading (#9), QR center image (#10), logs slow loading (#11), and enhanced processes page as a task manager (#8).
+
+**Insights:**
+
+1. The processes page was already 1326 lines with extensive features (monitor, tree, sparklines, signals). The "task manager" improvement was about scannability, not features: category tabs (All/Active/User/System), inline resource bars, and a summary stats row transformed it from "list" to "dashboard."
+2. Inline resource bars use `position: absolute` inside `position: relative` cells with `opacity: 0.12` — subtle enough to not interfere with text readability but instantly scannable.
+3. Category filtering chains: `processes → categoryFiltered → filtered (text search) → sortedWithStars → sortedList → displayed`. Inserting `categoryFiltered` between `processes` and the text filter was the minimal-touch insertion point.
+4. The `categoryTabs` derived uses inline `.filter()` counts — these recompute on every process refresh. For 300-500 processes this is fine; for 1000+ it might need memo optimization.
+
+---
+
+## session: Bug fixes (#9 bell, #11 logs) + QR center image (#10) — 2026-03-26
+
+**Purpose:** Fixed notification bell stuck loading (layout server load cache), fixed /logs slow loading (reverse-scan + lightweight stats), added QR center image overlay feature.
+
+**Insights:**
+
+1. `+layout.server.ts` runs on **every client-side navigation** in SvelteKit when the URL path changes. Heavy computations (shell commands) in layout loads block ALL page transitions, not just the page that defined them. Fix: module-level cache with TTL.
+2. Module-level variables in SvelteKit server modules persist across requests within the same Node.js process — a simple `let cache` + timestamp acts as an in-process cache.
+3. For JSONL log files, `getLogStats` was calling `queryLogs({ limit: 10000 })` which JSON-parsed every line. Fast string matching (`line.includes('"level":"error"')`) is 10-50x faster for counting — only JSON-parse the first and last lines for timestamps.
+4. `queryLogs` without filters can read from the end and stop early once `offset + limit` entries are collected. This turns O(n) into O(limit) for the common case.
+5. QR center image works by overlaying on the canvas after QR rendering. Auto-escalating error correction to H (30%) when an image is added ensures scan reliability since ~7-10% of modules are obscured by the logo.
+6. The `getUnreadCount()` function in notifications was redundantly reading the entire JSON file again — the page server load already had the full list. Derived the count from the already-fetched array instead.
+
+---
+
+## session: Component adoption + new components — 2026-03-26
+
+**Purpose:** Adopted InfoRow (4 pages) and InteractiveChip (1 page), created 3 new components (AsyncState, StatCard, FilterBar), and enhanced InfoRow with `code` prop.
+
+**Insights:**
+
+1. InfoRow adoption works cleanly for flex-based label-value layouts but NOT for CSS Grid-based layouts (files, processes). Grid-based pages align labels and values via `grid-template-columns` — replacing individual span pairs with flex-based InfoRow components breaks the grid's column alignment.
+2. DataChip adoption beyond /status is limited — logs stat-chips use pill-style (20px radius, border) while DataChip uses compact style (6px radius, no border). Forcing adoption would change the visual style.
+3. InteractiveChip vs inline filter chips: keeper's stat-chips are the best match (dot + count + color props). Bookmarks pills and tasks tag-btn use solid-fill active states that InteractiveChip doesn't support — would need a `variant` prop.
+4. Added a `code` prop to InfoRow — renders value in a styled `<code>` element. This made status page adoption clean (16 rows) vs. using children snippet for every row.
+5. AsyncState's tristate pattern works well for the common case but pages with split error handling (wifi: error displayed separately from content) don't map cleanly.
+6. Fixed a pre-existing prettier parse error in apps page: nested double quotes in ConfirmDialog title — switched to template literal.
+
+---
+
+## session: Core dump + CLAUDE.md rewrite — 2026-03-26
+
+**Purpose:** Wrote checkpoint and redesigned CLAUDE.md as a compact routing table pointing to 23 branching docs.
+
+**Insights:**
+
+1. The old CLAUDE.md was 46 lines covering only 3 rules (versioning, cross-platform, formatting). The new one is 92 lines but covers the entire project via doc references — agents no longer need to discover docs by globbing.
+2. Organized docs into 4 tiers: mandatory rules (always apply), architecture (read on demand), UI/components (read on demand), roadmap/research (read on demand). This mirrors how agents actually approach tasks — they need rules always but reference material only when relevant.
+3. The `.claude/project-index.md` is stale (version 1.1.1 vs 4.22.1, missing 29+ newer pages). It's still referenced but should be regenerated with `/project-index` in a future session.
+4. Per-page docs at `docs/pages/*.md` (35 files) are extremely valuable but were never referenced from CLAUDE.md. Now they are — agents should read the relevant page doc before modifying any page.
+
+---
+
+## session: ProgressBar + ConfirmDialog adoption — 2026-03-26
+
+**Purpose:** Adopted the existing ProgressBar and ConfirmDialog components in actual pages (previously only in showcase).
+
+**Insights:**
+
+1. ProgressBar `colorThresholds` works well for the services uptime bar — ascending match pattern maps cleanly to good/warn/bad thresholds.
+2. The ports page has both determinate and indeterminate progress states. The `animated` prop (opacity pulse) is a reasonable substitute for the original sliding indeterminate animation — tradeoff between consistency and visual fidelity.
+3. When adopting ConfirmDialog in pages with rich context (files page: file vs folder, conditional messages), computing `title` and `message` from state works but loses `<strong>` and `<code>` formatting. Consider adding a `message` snippet prop to ConfirmDialog for rich content in the future.
+4. Three confirmation patterns coexist: (a) Button `confirm` prop (inline text swap), (b) ConfirmDialog (modal), (c) `window.confirm()`. The Button prop pattern is fine for simple single-action confirms; ConfirmDialog is better when you need custom copy explaining consequences.
+5. The `cancelDelete` function in files was removed — ConfirmDialog handles cancel internally via `open = false`.
+
+---
+
+## session: Audit cleanup — tooltips, icons, eth0 fix, PageHeader migration, new components — 2026-03-26
+
+**Purpose:** Cleared all pending audit items: tooltip coverage, icon additions, Button component adoption, hardcoded eth0 fix, PageHeader migration for 19 pages, and created ProgressBar + ConfirmDialog components.
+
+**Insights:**
+
+1. Docker page tooltips were already fixed in a prior session — the audit doc (`docs/audit-tooltips.md`) was stale. Always verify audit findings against current code before applying fixes.
+2. PageHeader needed `icon` and `titleExtra` (Snippet) props to be viable for migration. Without icon support, only 5 of 24 pages could adopt it. Adding 2 props enabled all 19 remaining migrations.
+3. Converting native `<button class="btn-*">` to `<Button>` component eliminated 15-30 lines of duplicated CSS per page. The `confirm`/`confirmText` props replaced hand-rolled confirm state management (e.g., WoL's `confirmDeleteId` pattern with 3 extra buttons).
+4. The eth0 fix in `api/system/+server.ts:62` was a one-line change — the `iface` variable from `getPrimaryInterface()` was already in scope but the Linux branch hardcoded `eth0|ens|wlan0` instead of using it.
+5. Running 3 PageHeader migration agents in parallel saved significant time — each agent handled 5-7 pages independently. No merge conflicts since they touched different files.
+6. ProgressBar's `colorThresholds` prop uses ascending threshold matching (last threshold where `pct >= value` wins) — intuitive for "danger zone" patterns (green → yellow → red).
+
+---
+
+## session: Migrate tasks, processes, peripherals, databases, internals, backups, ports to PageHeader — 2026-03-26
+
+**Purpose:** Replaced inline page header markup with the shared `PageHeader` component across 7 more pages.
+
+**Insights:**
+
+1. When a page wraps its content in a `<div class="page">` container (internals, ports), `PageHeader` must be placed outside that wrapper so it isn't constrained by the container's padding or max-width.
+2. The `{#snippet titleExtra()}` slot handles conditional in-title content cleanly (e.g. scheduledCount badge in tasks) without extra wrapper divs.
+3. The `<div class="controls">` wrapper used in several pages becomes a redundant CSS class once its children are moved into the `{#snippet children()}` slot — remove the class from CSS too, not just the HTML.
+4. Pages without any action buttons (ports) can use the self-closing form `<PageHeader ... />` with no children block.
+5. Prettier reported most files unchanged after edits, confirming the snippet syntax was already conformant with project style.
+
+---
+
+## session: Migrate lights, tailscale, packets, bookmarks, keeper, dns to PageHeader — 2026-03-26
+
+**Purpose:** Replaced inline `page-header-bar` / `h2.page-title` / `p.page-desc` header markup in six more pages with the shared `PageHeader` component.
+
+**Insights:**
+
+1. `/lights` used an inline `<span class="bulb-count">` badge next to the title — put it in the `{#snippet titleExtra()}` slot rather than `titleExtra` prop since it's conditional markup; the CSS class for `.bulb-count` is kept because it styles that snippet content.
+2. `/packets` had a live-indicator (`live-dot` + `live-label`) inside `.header-actions` — these moved into the `children` slot of PageHeader cleanly; the `.header-actions` wrapper div and `h2` CSS rule were removed.
+3. `/dns` already had `PageHeader` imported but still used bare `h2.page-title` + `p.page-desc` — needed only a template-level swap, no import change. Also removed the now-unused `h1` CSS rule.
+4. `/keeper` controls included a `<label class="toggle-completed">` checkbox alongside buttons — moved the whole thing directly into the `children` slot; the `.controls` flex wrapper CSS was removed but `.toggle-completed` CSS was kept because it still styles the label.
+5. Prettier reported all 6 files `(unchanged)` confirming edits were already conformant.
+
+---
+
+## session: Migrate 6 pages to PageHeader component — 2026-03-26
+
+**Purpose:** Replaced inline header markup (`page-header`, `page-header-bar`, `page-title`, `header-actions`) in docker, services, wol, screenshots, benchmarks, and wifi pages with the shared `PageHeader` component.
+
+**Insights:**
+
+1. The `PageHeader` component uses named snippets (`titleExtra` for badges next to the title, `children` for action buttons on the right) — the default slot is the children actions, not the whole content.
+2. `/wifi/+page.svelte` has no wrapper `<div class="page">` — the PageHeader is placed directly at the root without a container element; removing `.header-actions` and `h2` CSS was safe since those selectors were header-exclusive.
+3. `/screenshots` had a `capture-controls` div that needed to move inside the PageHeader children slot as-is — it already has its own CSS class so no styles were lost.
+4. Prettier reported all 6 files as `(unchanged)` after edits, confirming the formatting was already conformant with the project's prettier config.
+5. CSS blocks to remove: only remove `.page-header`, `.page-header-bar`, `.page-title` (and `.page-title h1`), `.header-actions` if not used by other elements. `.auto-toggle` in wifi was kept because it's still used by the inline checkboxes rendered inside the PageHeader children slot.
+
+---
+
+## session: Add SettingsPanel and CronBuilder to showcase — 2026-03-26
+
+**Purpose:** Added demo sections for SettingsPanel and CronBuilder components to the UI showcase page.
+
+**Insights:**
+
+1. SettingsPanel uses `open = $bindable(false)` prop — fits naturally in the "Modals & Overlays" section since it's a slide-over panel
+2. CronBuilder takes `value: string | null` and `onchange` callback — null means disabled; it parses the initial cron string to set frequency/fields
+3. The showcase page is ~1200 lines with distinct sections; new components slot in cleanly as new `demo-block` divs or new `section` elements
+4. No `.demo-block` CSS class is defined in the page styles — it must be inherited from global styles or the Card component pattern
+
+---
+
+## session: Wire useShortcuts to 13 pages — 2026-03-26
+
+**Purpose:** Added `useShortcuts()` calls to all pages that have shortcut definitions in `SHORTCUT_DEFAULTS` but were missing the runtime wiring.
+
+**Insights:**
+
+1. SearchInput component exposes `inputEl` via `$bindable` — use `bind:inputEl={ref}` to get the underlying `<input>` for programmatic `.focus()`.
+2. When `onMount` is `async` (terminal page), the return value is ignored by Svelte — must store cleanup in a variable and call it in `onDestroy` manually.
+3. The pattern `{ ...SHORTCUT_DEFAULTS.find(d => d.id === 'x')!, handler: () => fn() }` is the cleanest way to spread the ShortcutDef and attach a handler.
+4. WiFi page has no search input — `wifi:focus-search` shortcut defined but not wired since there's no UI target. Could add a search feature later.
+5. Docker page's onMount was originally `async` for the refresh call — refactored to IIFE inside sync onMount so `useShortcuts` cleanup return works.
+
+---
+
+## session: Android readiness research — 2026-03-26
+
+**Purpose:** Researched PWA, helper APK, and hybrid approaches for Android support, producing a comprehensive research document.
+
+**Insights:**
+
+1. The app already has a partial PWA foundation — `manifest.json`, `static/sw.js`, Apple mobile web app meta tags, and SW registration in `app.html`. This is roughly 70% of what is needed.
+2. The biggest manifest gap is icons: only a single SVG is provided. Android requires multiple PNG sizes (192, 512) with maskable variants for proper install/splash behavior.
+3. The current `static/sw.js` is hand-rolled and minimal. SvelteKit natively supports `src/service-worker.ts` with access to build manifest arrays (`$service-worker` module) — migrating there gives versioned precaching for free without adding `@vite-pwa/sveltekit`.
+4. Android Chrome PWA support in 2025-2026 is very strong: push notifications, Web Bluetooth, Web NFC, share target, shortcuts, badging, camera/mic, wake lock all work. The remaining gaps (persistent background service, widgets, mDNS discovery) are niche for this app.
+5. 14 pages use polling-based auto-refresh (`setInterval`), and 2 pages use WebSocket. All require active network — offline mode has very limited utility for a server management dashboard.
+6. 29 files already have `@media` responsive breakpoints (37 total queries), so mobile layout is partially addressed but would need a systematic audit across all 37 pages.
+
+---
+
+## session: Linux compatibility audit — 2026-03-26
+
+**Purpose:** Full audit of all server-side files for Linux/Raspberry Pi compatibility, producing a detailed readiness report.
+
+**Insights:**
+
+1. The codebase is overwhelmingly Linux-ready — 18 of 30 shell-command files have proper `os.platform()` branching with tested Linux paths.
+2. One functional bug found: `api/system/+server.ts:62` hardcodes `eth0|ens|wlan0` in an awk pattern for the Linux network throughput path instead of using the already-imported `getPrimaryInterface()`. The layout server version of the same logic (`+layout.server.ts:113`) does it correctly via `/sys/class/net/${iface}/statistics/`.
+3. `src/lib/server/messages.ts` (iMessage) and `src/routes/api/apps/icon/[name]/+server.ts` are intentionally macOS-only and handle Linux gracefully (return empty/404).
+4. Task templates (`src/routes/tasks/templates.ts`) contain some macOS-only commands as user-facing suggestions — most already have `||` fallback patterns, but `system_profiler` and `pmset` templates do not.
+5. All `execSync` calls use either try/catch or `2>/dev/null` for graceful degradation — no crash-on-missing-command scenarios found.
+
+---
+
+## session: CSS cleanup — deduplicate .header and add .card-padded — 2026-03-26
+
+**Purpose:** Extracted duplicated `.header` CSS into a global `.page-header-bar` utility and added a `.card-padded` utility to replace local `.card` padding overrides.
+
+**Insights:**
+
+1. 14 page files had local `.header` CSS blocks; 9 were exact duplicates, 5 had extra properties (flex-wrap, gap, different margin-bottom) that needed local overrides.
+2. Files using `margin-bottom: 1.5rem` instead of `16px` needed a local `.page-header-bar` override to preserve the different spacing.
+3. The global `.card` already defines background, border, border-radius, and box-shadow; local `.card` blocks in services/docker were redundant except for `padding: 16px` and a slightly different `border-radius: 10px`.
+4. Using `perl -0pe` with multiline regex is much faster than individual Edit calls when doing the same pattern replacement across many files.
+
+---
+
+## session: shared terminal sessions (multi-client fan-out + CLI attach) — 2026-03-24
+
+**Purpose:** Added multi-client PTY fan-out so multiple browser tabs and a CLI script can share the same terminal session bidirectionally.
+
+**Insights:**
+
+1. **node-pty fires multiple onData listeners independently** — no broadcaster needed; each WS registers its own `term.onData(cb)` and all fire per PTY chunk. This is the cleanest multi-client architecture.
+2. **Min-dims resize strategy needs debouncing** — `recalcDims()` is debounced 100ms to avoid PTY thrashing during browser window drag. Without debounce, rapid resize events create hundreds of PTY resize calls.
+3. **Symbol tokens for client identity** — each WS connection gets a unique `Symbol('ws-client')` to register/deregister its dimensions. Symbols are guaranteed unique, avoiding ID collision.
+4. **`session.label` getter/setter fires rename listeners** — renaming in any client (browser tab or CLI) propagates to all others via `onRename` events, without needing a separate Map of ws connections per session.
+5. **CLI attach script uses `ws` from node_modules** — zero new dependencies. `createRequire(import.meta.url)` lets the ESM script require CJS modules.
+6. **Port config written on `listening` event** — use `(server.httpServer?.address() as any)?.port` to get the actually-bound port (handles port collision fallback).
+
+---
+
+## session: v4.3→4.9 full sprint — 2026-03-23
+
+**Purpose:** v4.2→v4.9: 19 roadmap items, 6 bug fixes, security 11/11, Linux 17/17, notes module, status page, 38 tests, collapsible sidebar, system notifications.
+
+**Insights:**
+
+1. **`display: contents` for responsive row splitting** — header-row wrappers with `display: contents` on desktop are invisible to flex. On mobile, `display: flex; width: 100%` stacks them. Zero desktop change.
+2. **Icon fallback is silent** — missing ICON_MAP entries render HelpCircle (?) without warning. Always verify icon names exist before using.
+3. **Svelte 5 runes require `.svelte.ts`** — `$state()` in plain `.ts` crashes SSR. Rename to `.svelte.ts`.
+4. **`os.freemem()` bug in 3 places** — layout, health, status APIs all had it. Should share a `getMemPercent()` utility.
+5. **Tests found 3 real bugs** — .svelte.ts rune issue, terminal PIN export crash, stale API response shapes.
+6. **Single hamburger button** — mobile drawer and desktop collapse should be one button with viewport check, not two buttons.
+
+---
+
+## session: code cleanup sweep / arch-qa — 2026-03-23
+
+**Purpose:** Systematic analysis of the codebase for cleanup opportunities — duplications, extractable patterns, and simplifications.
+
+**Insights:**
+
+1. Two OUI vendor lookup tables exist independently in wifi and network API routes (~350 duplicated lines). This is the single largest copy-paste debt.
+2. `fetchApi` POST calls with JSON headers are repeated ~71 times across 26 page files — a `postJson` helper would be high-value, low-risk.
+3. `app.css` is 1288 lines, with ~755 lines (59%) being theme variable definitions for 25 themes. This is working but makes the file unwieldy.
+4. The `.page` CSS class is redefined locally in 14 page files with the same core layout (flex column, margin auto, gap). Global extraction is straightforward.
+5. `isDockerInstalled()` (the `which` command pattern) is duplicated between `+page.server.ts` and `+server.ts` for docker, and the same pattern appears in 5 other files.
+6. `catch (e: any)` appears in 30+ svelte files — the backend has `errorMessage()` in `$lib/server/errors.ts` but there's no client-side equivalent.
+
+---
+
+## session: v4.3–4.5 mega sprint — 2026-03-22
+
+**Purpose:** Implemented v4.3 (19 items), fixed 6 persistent bugs, completed security hardening, then built v4.4 (DNS trace, port scanner, health API, tasks filter) and v4.5 (databases page, screenshots metadata, speed test external, theme expansion, files browse, log preview).
+
+**Insights:**
+
+1. **`sanitizeShellArg` stripped `/`** — the character blacklist included `/` which broke file paths. Removed it — `/` is a path separator, not a shell injection vector.
+2. **SSE streaming for long operations** — port scanner "all 65535" mode uses `ReadableStream` with `text/event-stream`. Client reads with `response.body.getReader()` since `EventSource` doesn't support POST.
+3. **macOS `vm_stat` for memory** — `os.freemem()` shows near-zero because macOS caches aggressively. Available = Free + Inactive + Purgeable + Speculative pages. Page size varies by architecture.
+4. **`getPrimaryInterface()` pattern** — priority list of interface names by platform, then fallback to first non-internal IPv4. Covers 99% of cases.
+5. **Terminal env filtering** — blacklist + pattern matching (`*_KEY`, `*_TOKEN`, `*SECRET*`, `*PASSWORD*`) for defense in depth on PTY environment.
+6. **Svelte 5 `$state` in factory functions** — `createHistory` uses `$state` inside a factory which works because Svelte 5 runes are call-site reactive.
+
+---
+
 ## session: Mega sprint v2.5.1 → v4.2.0 — 2026-03-22
 
 **Purpose:** Complete ALL remaining roadmap items, iterate through 5 rounds of user feedback, build component library, add infrastructure (logging, security, testing, deployment).
@@ -375,322 +879,3 @@ Append-only log of skill run insights. Newest entries at top.
 ## session: Terminal scrollback, BT connect, peripherals expansion, per-core CPU — 2026-03-22
 
 **Purpose:** Added terminal scrollback buffer, Bluetooth connect/disconnect, new peripheral tabs (displays, network, system info), and per-core CPU monitor with swap color fix.
-
-**Insights:**
-
-1. The `TerminalSession` interface uses a plain object literal, so `scrollback` needs getter/setter to access a mutable closure variable — the interface field alone won't capture PTY output that accumulates outside the object.
-2. The vite.config.ts WebSocket handler already had session resume logic (`getSession`), making scrollback delivery straightforward — just send after the session ID message.
-3. `system_profiler SPDisplaysDataType -json` nests displays under GPU entries (`spdisplays_ndrvs`), not at the top level — must iterate GPUs first.
-4. `networksetup -listallhardwareports` gives port/device/MAC but no IP or status — need to cross-reference with `ifconfig` output parsed by device name.
-5. The peripherals page `activeTab` type needed to be widened from a union of 5 literals to 8 — used a `TabKey` type alias to keep it clean.
-
----
-
-## session: Six feature enhancements across files, lights, peripherals, QR, speedtest, benchmarks — 2026-03-22
-
-**Purpose:** Implemented global file search, bulb drag-and-drop reordering, peripherals caching with skeleton loading, QR WiFi auto-fill + share, speedtest visual improvements, and benchmark history clearing.
-
-**Insights:**
-
-1. The WiFi API at `/api/wifi` returns `{ networks, current, error }` — `current.ssid` is the field for the connected network SSID, not `currentConnection`.
-2. The peripherals page had no caching; using `sessionStorage` with a cache key gives instant render on return visits while `onMount` refreshes in background — the `loading` state only shows skeletons when cached data is absent.
-3. The `skeleton-card` class is already defined globally in `app.css` with a shimmer animation — no need to define custom skeleton styles.
-4. For HTML5 drag-and-drop on Svelte 5, regular `ondragstart`/`ondragover`/`ondrop` event handlers work directly since Svelte 5 treats them as native DOM events.
-5. The benchmarks API stores history in `~/.home-server/benchmarks.json` via `writeResults()` — clearing history just calls `writeResults([])`.
-6. `navigator.share` file sharing availability must be checked via `navigator.canShare({ files: [...] })` — not all browsers that support `navigator.share` support file sharing.
-
----
-
-## session: Central icon system creation — 2026-03-22
-
-**Purpose:** Created a centralized SVG icon registry and Icon component, then replaced Unicode/HTML entity icons in layout, AiChat, and MediaPlayer.
-
-**Insights:**
-
-1. The project uses Svelte 5 runes syntax ($props, $derived, $state) -- component props use `$props<{...}>()` pattern.
-2. Prettier with prettier-plugin-svelte reformats Svelte templates aggressively (wrapping element content onto new lines with `>content</tag` patterns), so edits must match the post-formatted state.
-3. The icon registry needed volume-off/low/high icons beyond the original spec -- the media player had 3-level volume states that don't map to any of the originally requested icons.
-4. Layout file has a Tooltip wrapper component that was not in the original read -- files can change between reads due to external edits or linter runs.
-5. When replacing inline text/entities with Icon components inside ternary expressions, Svelte requires `{#if}...{:else}...{/if}` blocks rather than ternary `{condition ? a : b}` when using components.
-
----
-
-## session: Create shared Tooltip and Modal components — 2026-03-22
-
-**Purpose:** Added reusable Tooltip and Modal Svelte 5 components and integrated Tooltip into the navbar header.
-
-**Insights:**
-
-1. In Svelte 5, `<svelte:window>` cannot be placed inside `{#if}` blocks — must be at the top level with a conditional guard inside the handler function.
-2. The layout file (`+layout.svelte`) is large (~1200 lines with styles). Navbar buttons (Help, Settings, Theme indicator) are around lines 364-395.
-3. The project already has inline modal markup in the layout for "Manage Devices" — the new Modal component could replace it in a future refactor.
-4. Tooltip `position="bottom"` is appropriate for header buttons since they're at the top of the viewport.
-
----
-
-## session: Three feature additions (path bar, peripherals tabs, cron lifecycle) -- 2026-03-22
-
-**Purpose:** Added editable path bar to file browser, USB/Audio/Battery tabs to peripherals, and cron-aware delete flow to tasks page.
-
-**Insights:**
-
-1. Svelte 5 does not support `onmousedown|preventDefault` modifier syntax -- must use inline `(e) => { e.preventDefault(); ... }` instead.
-2. The peripherals page used a flat if/else chain for wifi vs bluetooth tabs. Adding more tabs required restructuring to `{:else if activeTab === 'x'}` blocks for each tab.
-3. The scheduler module uses `scheduledJobs` Map with keys like `task:{id}` and `backup:{id}`, making it easy to add targeted unschedule without clearing all jobs.
-4. `system_profiler SPUSBDataType -json` returns nested `_items` arrays (controllers containing devices), requiring recursive traversal to collect all USB devices.
-5. The tasks page data flow goes through `+page.server.ts` load -> `+page.svelte` props AND client-side refresh via `/api/tasks` GET -- both paths need to return `scheduledCount`.
-
----
-
-## session: Lights/Clipboard/Keeper UI improvements — 2026-03-22
-
-**Purpose:** Improved visual hierarchy for smart lights bulb cards, redesigned clipboard UX with grouped entries, and added Claude CLI status info to Keeper page.
-
-**Insights:**
-
-1. The lights page `cacheBulbs()` was already correctly wired through `mergeBulbs()` -- no fix needed, just confirmed it works on both `rediscover()` and `refreshStates()` code paths.
-2. Room assignment in lights is stored independently in localStorage under `hs:bulb-rooms` -- separate from `hs:bulb-names`. The `saveRoom()` function handles persistence without needing any bulb state save.
-3. The keeper `+page.server.ts` load function doesn't include `claudeAvailable` -- the client fetches it via the API route on mount. This avoids adding `child_process` imports to the SSR page load.
-4. Clipboard entries are grouped by deviceId using `$derived.by()` with the current device sorted first. The `navigator.clipboard.writeText` fallback uses a temporary textarea + `execCommand('copy')`.
-5. Brightness arc was enlarged from 48px to 72px and centered in its own section with `card-divider` elements between card sections for visual hierarchy.
-
----
-
-## session: Process sort, disk extended info, dashboard enrichment — 2026-03-22
-
-**Purpose:** Added sortable process table with CPU/MEM toggle, populated disk fstype/device fields, and enriched dashboard with starred files + disk sparklines.
-
-**Insights:**
-
-1. `getSystemDiskUsage()` already parsed `df -h` but left `fstype` empty -- the `mount` command on macOS provides filesystem types in the parenthesized section (e.g., `(apfs, sealed, ...)`), while Linux needs `df -T`.
-2. SvelteKit layout data (system.memTotal, system.cpuCount) is accessible in child pages via `data` props without explicit passing -- useful for absolute CPU/MEM display.
-3. The `stars` store uses Svelte 4 `writable` store (not runes) -- when consuming in Svelte 5 components, use `onMount` + `subscribe` for reactivity rather than `$derived`.
-4. `card-stagger` animation is globally defined in `app.css` -- just add the class and `animation-delay` style to any element.
-5. Process table sort: using `$derived.by()` with a spread+sort pattern keeps the original array immutable while the sorted view updates reactively.
-
----
-
-## session: Navbar fixes and audit gap fills — 2026-03-22
-
-**Purpose:** Replaced theme dropdown with compact indicator, added system stats (swap/procs/net), help button, manage devices modal, wired shared stars store, added skeleton loading, and applied card-stagger animations across pages.
-
-**Insights:**
-
-1. The project has 20 themes (not 10) -- the theme.ts file grew since the original CLAUDE.md spec was written. Always re-read target files before editing.
-2. `stars.ts` provides `sortStarred()` helper that replaces manual starred-first sorting -- used it in processes page to simplify the derived.
-3. The files page used `starredFiles.has(...)` in both the sort comparator and the template -- needed `replace_all` to swap all occurrences consistently.
-4. Layout server can shell out with `execSync` for platform-specific stats (swap via `sysctl vm.swapusage` on macOS, `free -b` on Linux) but needs timeout guards and try/catch.
-5. Svelte component `class:selected={...}` and `class="card-stagger"` can coexist on the same element -- no conflict with dynamic class directives and static class attributes.
-6. For SSR-loaded pages (dashboard, tailscale), skeleton loading only helps when the data arrays are empty -- otherwise data arrives with the HTML.
-
----
-
-## session: Sidebar nav groups + per-page docs — 2026-03-22
-
-**Purpose:** Restructured sidebar navigation into collapsible groups with pinning, and created 24 per-page documentation files with categorized docs page.
-
-**Insights:**
-
-1. Svelte 5 does not support `onclick|stopPropagation` modifier syntax; use `onclick={(e) => { e.stopPropagation(); ... }}` instead
-2. HTML entities inside Svelte `{}` expressions render as literal text; use Unicode escapes (`'\u2605'`) for dynamic content, but HTML entities (`&#9733;`) work fine in static HTML positions
-3. The layout.svelte has an external linter/formatter that may add imports (e.g., `THEME_SWATCHES`, `goto`) -- these should not be reverted
-4. `docs/pages/` directory already existed but was empty; the `+page.server.ts` previously only scanned `docs/` (not subdirs), so it needed updating to collect from `docs/pages/`
-5. The `DocFile` interface needed a `category` field added to support grouped rendering in the docs page
-
----
-
-## session: Audit and fix fetch() error handling across all page files — 2026-03-22
-
-**Purpose:** Added try/catch with toast.error() notifications to every unguarded fetch() call across 7 page files.
-
-**Insights:**
-
-1. backups page already had good error handling on CRUD operations (create, update, delete with try/catch + toast) but was missing it on `refresh()` and `triggerBackup()` initial fetch.
-2. keeper page had solid error handling on agent actions (start/stop/resume/sendMessage) but was missing it on CRUD operations (createRequest, updateStatus, deleteReq, saveEdit, saveResult) and utility fetches (refresh, fetchAgentStatus, fetchLog).
-3. tasks page `runTask` and `runTemplate` had polling intervals inside them -- wrapping the initial fetch in try/catch while keeping the poll setup inside the try block keeps the polling from starting if the initial trigger fails.
-4. For polling functions like `fetchSystemStats` (processes) and `fetchLog` (keeper), using toast key dedup (`{ key: 'system-stats' }`, `{ key: 'keeper-log' }`) prevents toast spam from repeated polling failures.
-5. files page had no error handling at all on any fetch call -- seven functions needed wrapping.
-6. lights page `setBulb` is called from debounced handlers and group actions -- adding error handling there covers all downstream callers (toggleBulb, debouncedSet, groupAction, setTemp, setScene).
-
----
-
-## session: Terminal fixes — session persistence, cwd, mobile UX — 2026-03-22
-
-**Purpose:** Fixed four terminal issues: session persistence across navigation, PTY cwd, mobile overflow, and mobile extra keys bar.
-
-**Insights:**
-
-1. The server already had `getSession()` and session-param support in the WebSocket handler (vite.config.ts), so session persistence only needed client-side `sessionStorage` to store/restore session IDs.
-2. PTY spawn used `os.homedir()` — changed to `process.cwd()` which resolves to the project root when the dev server is running.
-3. For mobile terminal sizing, calculating cols from container width (`Math.floor(width / 9)`) before xterm opens prevents horizontal overflow better than CSS alone.
-4. Mobile extra keys use `@media (pointer: coarse)` to target touch devices; CTRL key uses a toggle flag that converts the next character key press to a control sequence (`charCode - 96`).
-5. User explicitly instructed not to modify app.ts or +layout.svelte, overriding the normal version-bump workflow from CLAUDE.md.
-
----
-
-## session: core-dump with full doc update — 2026-03-22
-
-**Purpose:** Wrote checkpoint and updated all project documentation (PROJECT.md, README.md, api-reference.md, roadmap.md) to reflect v3.0.0 state.
-
-**Insights:**
-
-1. `sed -i '' 's/^- \[ \]/- [x]/g'` is the fastest way to bulk-check todos in markdown — much faster than individual Edit calls
-2. The API reference doc grew from 362 lines to 570+ lines with 20 new endpoint sections — keeping endpoint docs concise (method + path + one-liner + body/response) scales better than detailed examples for every endpoint
-3. README feature tables organized by category (Core, Tools, Security, Infrastructure) are more scannable than a flat list when you have 25+ pages
-
----
-
-## session: Massive feature sprint T8-T26 + uncategorized — 2026-03-22
-
-**Purpose:** Implemented all remaining roadmap items (T8-T26) plus uncategorized features in one sprint, bringing the project from v2.5.1 to v3.0.0.
-
-**Insights:**
-
-1. Parallel agents via worktrees are effective for independent page creation — 5 agents built 15+ pages simultaneously without file conflicts (the only shared file is the nav array in +layout.svelte, handled manually at the end)
-2. `$derived.by()` returns the VALUE directly, not a function — don't call it with `()` at the callsite. Common mistake when converting from `$derived(() => ...)` closures.
-3. The OUI lookup maps in network tools are prone to duplicate key errors — always check for uniqueness when generating large object literals
-4. `sessionStorage` is better than `localStorage` for cache data (like lights state) — clears on tab close, avoids stale data across sessions
-5. PWA `beforeinstallprompt` needs to be captured early (in layout onMount) and the event preserved for later triggering — the event is only fired once per page load
-
----
-
-## session: tasks page custom template delete + cron output hint — 2026-03-22
-
-**Purpose:** Added delete button for custom templates in template grid and a "📋 Last output" toggle button in the task card last-run row, plus a pending-output hint for cron tasks with no run history.
-
-**Insights:**
-
-1. Custom template cards need `position: relative` on the card and `position: absolute` on the delete button — the template body is a `<button>` taking full width so the overlay delete btn must sit above it via `z-index: 1`.
-2. `{@const}` blocks inside `{#each}` are the cleanest way to derive per-iteration values (like `isCustom`, `customIdx`) without polluting the script with helper functions.
-3. For the delete button, `e.stopPropagation()` alone is not enough when the delete button is a sibling (not child) of the clickable body — but since it's a separate element outside the body button, propagation to the card div is irrelevant; the key is just not being inside `.template-body`.
-4. The `{:else if status.config.schedule}` branch on the `{#if status.lastRun}` block is an elegant way to show cron-specific pending state without adding extra conditional wrapper divs.
-5. `customTemplates.findIndex((c) => c.name === t.name && c.command === t.command)` is needed because `pagedTemplates` derives from `allTemplates` (merged array), so template array indices don't map 1:1 to `customTemplates` indices.
-
----
-
-## session: improve Toast.svelte UI — 2026-03-22
-
-**Purpose:** Upgraded Toast component with larger sizing, better icons, slide-in-from-right animation, a per-toast CSS progress bar, larger close button touch target, and 4px left border accent.
-
-**Insights:**
-
-1. Svelte custom transitions are plain functions returning `{ duration, easing, css }` — no library needed; `cubicOut` from `svelte/easing` gives a natural feel for slide-in.
-2. The progress bar relies on `animation-duration` set inline from `t.duration` (ms) — this requires `overflow: hidden` on the parent `.toast` to clip the bar at the edges.
-3. `@react-icons/all-files` is React-only; the Svelte equivalent to watch for is `lucide-svelte` — added a TODO comment in Toast.svelte as a breadcrumb.
-4. `border-left: 4px` on the type-specific class naturally overrides the `border: 1px` shorthand on `.toast` for just the left side — no need for `border-left-width` override separately.
-5. Close button touch target sized to `min-width/min-height: 28px` with flexbox centering avoids padding hacks that would misalign the × character visually.
-
----
-
-## session: add 10 developer theme CSS variables — 2026-03-22
-
-**Purpose:** Added 8 new `[data-theme='...']` blocks to app.css (monokai, dracula, solarized-dark, solarized-light, nord, github-dark, catppuccin, tokyo-night) and verified theme.ts already had all 10 themes in its union type and THEMES array.
-
-**Insights:**
-
-1. Files were being edited concurrently by another agent — every edit attempt required a re-read first; always treat concurrent multi-agent sessions as "file may have changed since last read".
-2. The other agent had already fully updated `theme.ts` by the time this session read it (Theme union, THEMES array, VALID_THEMES Set, setTheme) — no redundant work needed, just the CSS variables block.
-3. For dark themes, `--bg-inset` should be noticeably darker than `--bg-primary` to distinguish embedded/nested regions; for light themes it can be slightly warmer/off-white.
-4. Tokyo Night's `--bg-inset` being `#0f3460` (deep blue) gives a high-contrast inset look matching the theme's neon-on-navy aesthetic — don't normalize it to match other dark themes.
-
----
-
-## session: layout overhaul — sidebar descriptions, theme selector, stats dropdown, Space Grotesk — 2026-03-22
-
-**Purpose:** Overhauled the SvelteKit layout with a richer sidebar (icons + descriptions), multi-theme dropdown, stats gear dropdown with CPU mode and refresh interval config, and Space Grotesk heading font.
-
-**Insights:**
-
-1. `app.css` already had 10 themes defined (Monokai, Dracula, Nord, Catppuccin, etc.) — the `Theme` type and `THEMES` array in `theme.ts` need to enumerate all of them, not just `dark` / `light`. Use `VALID_THEMES = new Set(...)` for safe localStorage parsing.
-2. The existing `border-image` trick on `.active` nav items conflicts with `border-left` — removing it and using a plain `border-left: 3px solid var(--accent)` is cleaner and animates correctly.
-3. Stats preferences stored under `hs:stats-config` as JSON; parse with try/catch since localStorage can throw in some contexts.
-4. For a click-away dropdown without JS event listeners, a full-screen `position: fixed; inset: 0` overlay div with `z-index` just below the dropdown works cleanly in Svelte without side effects.
-5. The theme `<select>` needs `appearance: none` plus an SVG chevron via `background-image` to look consistent across browsers; the standard select arrow is unstyled and mismatched.
-6. `setTheme` was extracted from `toggleTheme` so both the dropdown and any programmatic call share the same localStorage + `data-theme` side-effect path.
-
----
-
-## session: lights page — scene color dots, color preset row, state verification — 2026-03-22
-
-**Purpose:** Enhanced the smart lights page with scene color indicator dots, a quick-color preset row replacing the bare color input, and verified initial bulb state loading from the server.
-
-**Insights:**
-
-1. `discoverBulbs()` in `wiz.ts` uses the `registration` method — WizBulbs respond with a pilot payload containing `state`, `dimming`, `r/g/b`, `temp`, `sceneId`, so initial state load is already correct without extra requests.
-2. Scene dot colors are rendered using a CSS custom property (`--scene-color`) on a `<span>`, avoiding inline style duplication per-button.
-3. The active color dot highlight uses both `border-color` and `box-shadow` together — just border alone gets lost against similar hues.
-4. Color preset buttons use `applyColorPreset()` which mirrors `handleColor()` but skips the Event parameter, keeping them DRY.
-5. Old `input[type='color']` block-level CSS was removed after moving to `.color-custom` class to avoid specificity conflicts with the circular shape.
-
----
-
-## session: visual design polish — 2026-03-22
-
-**Purpose:** Applied global UI polish: custom CSS-only checkboxes, muted navbar stats, prominent version tag, header backdrop-filter, `.card` utility class, and active nav gradient border.
-
-**Insights:**
-
-1. `border-image` and `border-left` conflict — when using `border-image` on an element that also has `border-left`, the image overrides all border colors. Used `border-image-slice: 0 0 1 0` to apply the gradient only to the bottom border edge while the left border uses the standard `border-left-color` from the shorthand above it (border-image overrides only what it covers).
-2. `backdrop-filter: blur()` on a fully opaque background has no visible effect — it only shows through semi-transparent or transparent backgrounds. The header here uses `var(--bg-secondary)` which is fully opaque, so the effect is cosmetic for future semi-transparent variants.
-3. Pure CSS checkmarks use a rotated rectangle with `border: 2px solid white; border-top: none; border-left: none` — this is the most reliable cross-browser technique without SVG or font icons.
-4. `opacity` on `.stat` reduces perceived brightness without touching color tokens, useful for muting color-coded dynamic values without removing their semantic color.
-
----
-
-## session: create UI Showcase page — 2026-03-22
-
-**Purpose:** Built a static `/showcase` route demonstrating the full design system: color swatches, typography, buttons, cards, DataTable, toast triggers, and a terminal mock.
-
-**Insights:**
-
-1. The layout nav array in `+layout.svelte` had already been extended beyond the version read at session start (a `/docs` entry was added by a prior change) — always re-read layout before editing nav to avoid conflicts.
-2. Regex `#[0-9a-fA-F]{3,6}` produces false positives on Svelte `{#each}` block syntax; visually confirm matches before reporting hex color violations.
-3. `DataTable.svelte` accepts `headers: string[]` and `rows: string[][]` — all cells must be strings, not numbers; pass numeric data as string literals.
-4. The `toast` store exposes `.success()`, `.warning()`, `.error()`, `.info()` directly on the store object (not a sub-namespace); import `{ toast }` from `$lib/toast` and call methods directly.
-5. Version was already at `1.12.0` from a prior uncommitted session change; bumping minor again from `1.11.x` would have been wrong — always re-read `app.ts` before writing the new version.
-
----
-
-## session: Add Documentation page — 2026-03-22
-
-**Purpose:** Created a `/docs` route that reads all `.md` files from the project root and `docs/` directory and renders them as collapsible, searchable sections.
-
-**Insights:**
-
-1. The `renderMarkdown` function lives in `$lib/markdown` (not `$lib/renderers/markdown.ts` — that file re-exports it wrapped in a `DocumentRenderer`); import directly from `$lib/markdown` for plain string → HTML use.
-2. The markdown CSS lives only in `src/routes/files/+page.svelte` as scoped styles with `:global()` — it must be duplicated (or extracted to `app.css`) for any new page that renders `.md-content`; duplication was the expedient choice here.
-3. `fs.readFileSync` in a SvelteKit page server load works fine at dev time when the CWD is the project root; `path.resolve('.')` returns the project root reliably in that context.
-4. The `docs/` directory has 6 files (api-reference, architecture, claude-keeper, extending, setup-guide, widgets); root has 4 (CLAUDE.md, PROJECT.md, README.md, _checkpoint.claude.md). Sorting is purely alphabetical within each group.
-5. Svelte 5 runes: `$state<Record<string, boolean>>({})` for per-file expanded state works cleanly; mutating `expanded[key]` directly triggers reactivity without needing `$state` on the object values.
-
----
-
-## session: Complete P1-P10 + Prettier + New Todo Formulation — 2026-03-22
-
-**Purpose:** Execute all 41 original pending todos across 10 priority tiers, set up Prettier, formulate 20+ new user requests into 16 structured task groups.
-
-**Insights:**
-
-1. Running background agents for parallel CSS cleanup (strip fallbacks) works well but version bumps collide — always re-read `app.ts` before editing the version after agents finish.
-2. Prettier with `prettier-plugin-svelte` requires `--force` install on Node 23 due to engine restrictions in `@sveltejs/vite-plugin-svelte`. Works fine despite the warning.
-3. The `getSystemDiskUsage()` function returns duplicate "/" entries on macOS (APFS `/System/Volumes/Data` reports same mount) — logged as T7 fix.
-4. Template "Run" button pattern (create + immediately execute) requires the create API to return the new task ID in the response body — verify this works with the actual backend.
-5. Svelte 5's `$derived.by()` is the idiomatic way to compute filtered/sorted lists — avoid `$:` reactive statements.
-6. Pre-commit hook for Prettier auto-formatting staged files works but adds a second `git add` pass — acceptable tradeoff for consistent formatting.
-
----
-
-## project-index: First full scan of home-server — 2026-03-21
-
-**Purpose:** Generate comprehensive project index for the home-server SvelteKit dashboard project.
-
-**Insights:**
-
-1. Project is a SvelteKit 2.x app with Svelte 5 Runes — not React/Next.js. The SKILL.md template examples are React-centric and should be adapted for Svelte projects.
-2. No state management library — Svelte 5 Runes ($state, $derived, $effect) and Svelte stores (writable) handle all reactivity. No need to search for Jotai/Zustand/Redux.
-3. Server modules follow a strict one-file-per-domain pattern in src/lib/server/ with no cross-imports. This makes indexing very predictable.
-4. All persistence is JSON files in ~/.home-server/ — no database ORM to scan for schemas.
-5. The document renderer registry in src/lib/renderers/ is a clean plugin pattern worth highlighting as an architectural exemplar.
-6. @types/node-cron and @types/ws are listed under dependencies rather than devDependencies — potential cleanup item.
-
----

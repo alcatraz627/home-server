@@ -9,6 +9,7 @@ export interface NavGroup {
   id: string;
   label: string;
   items: NavItem[];
+  collapsed?: boolean;
 }
 
 export const NAV_GROUPS: NavGroup[] = [
@@ -18,65 +19,62 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/', label: 'Dashboard', desc: 'System overview', icon: 'home' },
       { href: '/files', label: 'Files', desc: 'Transfer & manage', icon: 'folder' },
-      { href: '/processes', label: 'Processes', desc: 'System monitor', icon: 'cpu' },
       { href: '/terminal', label: 'Terminal', desc: 'Shell access', icon: 'terminal' },
+      { href: '/processes', label: 'Processes', desc: 'System monitor', icon: 'cpu' },
     ],
   },
   {
-    id: 'smart-home',
-    label: 'Smart Home',
+    id: 'system',
+    label: 'System',
     items: [
-      { href: '/lights', label: 'Lights', desc: 'Smart home', icon: 'sun' },
-      { href: '/peripherals', label: 'Peripherals', desc: 'WiFi & Bluetooth', icon: 'plug' },
+      { href: '/diagnostics', label: 'Diagnostics', desc: 'Status, logs & notifications', icon: 'activity' },
+      { href: '/infrastructure', label: 'Infrastructure', desc: 'Docker, services & databases', icon: 'server' },
+      { href: '/apps', label: 'Apps', desc: 'Launch programs', icon: 'grid' },
     ],
   },
   {
     id: 'network',
     label: 'Network',
     items: [
+      { href: '/network', label: 'Network Toolkit', desc: 'DNS, traceroute, ports & more', icon: 'globe' },
       { href: '/tailscale', label: 'Tailscale', desc: 'VPN network', icon: 'network' },
       { href: '/wifi', label: 'WiFi Scanner', desc: 'Network scan', icon: 'wifi' },
-      { href: '/packets', label: 'Packets', desc: 'Packet sniffer', icon: 'packet' },
-      { href: '/network', label: 'Network Tools', desc: 'Net toolkit', icon: 'globe' },
-      { href: '/wol', label: 'Wake-on-LAN', desc: 'Wake devices', icon: 'wol' },
-      { href: '/dns', label: 'DNS Lookup', desc: 'Domain resolver', icon: 'dns' },
-      { href: '/ports', label: 'Port Scanner', desc: 'Scan ports', icon: 'port' },
-      { href: '/dns-trace', label: 'DNS Trace', desc: 'Path trace', icon: 'dns' },
-      { href: '/services', label: 'Services', desc: 'Health monitor', icon: 'activity' },
+      { href: '/packets', label: 'Packets', desc: 'Packet sniffer', icon: 'radio' },
     ],
   },
   {
-    id: 'tools',
-    label: 'Tools',
+    id: 'devices',
+    label: 'Devices',
     items: [
-      { href: '/tasks', label: 'Tasks', desc: 'Automation', icon: 'settings' },
-      { href: '/backups', label: 'Backups', desc: 'Data protection', icon: 'rotate' },
+      { href: '/lights', label: 'Lights', desc: 'Smart lighting', icon: 'sun' },
+      { href: '/peripherals', label: 'Peripherals', desc: 'WiFi, Bluetooth, USB & more', icon: 'plug' },
+    ],
+  },
+  {
+    id: 'productivity',
+    label: 'Productivity',
+    items: [
+      { href: '/notes', label: 'Notes', desc: 'Block editor', icon: 'file-text' },
+      { href: '/kanban', label: 'Kanban', desc: 'Project board', icon: 'kanban' },
       { href: '/keeper', label: 'Keeper', desc: 'Feature tracker', icon: 'bookmark' },
       { href: '/bookmarks', label: 'Bookmarks', desc: 'Link manager', icon: 'link' },
       { href: '/messages', label: 'Messages', desc: 'iMessage reader', icon: 'message' },
-      { href: '/notes', label: 'Notes', desc: 'Block editor', icon: 'file-text' },
-      { href: '/kanban', label: 'Kanban', desc: 'Project board', icon: 'kanban' },
-      { href: '/apps', label: 'Apps', desc: 'Launch programs', icon: 'grid' },
-      { href: '/qr', label: 'QR Code', desc: 'Generate QR codes', icon: 'qr' },
-      { href: '/speedtest', label: 'Speed Test', desc: 'Bandwidth test', icon: 'speed' },
-      { href: '/clipboard', label: 'Clipboard', desc: 'Sync clipboard', icon: 'clipboard' },
-      { href: '/screenshots', label: 'Screenshots', desc: 'Screen gallery', icon: 'screenshot' },
-      { href: '/benchmarks', label: 'Benchmarks', desc: 'System bench', icon: 'benchmark' },
-      { href: '/docker', label: 'Docker', desc: 'Containers', icon: 'docker' },
-      { href: '/databases', label: 'Databases', desc: 'DB & services', icon: 'database' },
+      { href: '/reminders', label: 'Reminders', desc: 'Timed alerts', icon: 'bell' },
     ],
   },
   {
-    id: 'info',
-    label: 'Info',
+    id: 'utilities',
+    label: 'Utilities',
     items: [
-      { href: '/logs', label: 'Logs', desc: 'App diagnostics', icon: 'file-text' },
-      { href: '/docs', label: 'Docs', desc: 'Documentation', icon: 'file-text' },
-      { href: '/notifications', label: 'Notifications', desc: 'Alert center', icon: 'bell' },
-      { href: '/status', label: 'Status', desc: 'Server info', icon: 'activity' },
-      { href: '/internals', label: 'Internals', desc: 'App state', icon: 'code' },
-      { href: '/showcase', label: 'Showcase', desc: 'Design system', icon: 'palette' },
-      { href: '/shortcuts', label: 'Shortcuts', desc: 'Keyboard bindings', icon: 'settings' },
+      { href: '/tools', label: 'Tools', desc: 'QR, clipboard, speed test & more', icon: 'sliders' },
+      { href: '/backups', label: 'Backups', desc: 'Data protection', icon: 'rotate' },
+      { href: '/tasks', label: 'Tasks', desc: 'Scheduled automation', icon: 'clock' },
     ],
+  },
+  {
+    id: 'developer',
+    label: 'Developer',
+    collapsed: true,
+    items: [{ href: '/developer', label: 'Dev Tools', desc: 'Shortcuts, internals & docs', icon: 'code' }],
   },
 ];

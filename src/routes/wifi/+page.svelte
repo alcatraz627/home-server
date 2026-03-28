@@ -1,73 +1,49 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
+  import { onMount } from 'svelte';
+  import { useShortcuts, SHORTCUT_DEFAULTS } from '$lib/shortcuts';
   import { toast } from '$lib/toast';
   import { fetchApi } from '$lib/api';
+  import { getErrorMessage } from '$lib/errors';
   import Button from '$lib/components/Button.svelte';
   import Badge from '$lib/components/Badge.svelte';
   import Icon from '$lib/components/Icon.svelte';
-
-  interface WifiNetwork {
-    ssid: string;
-    bssid: string;
-    channel: string;
-    signal: number;
-    security: string;
-    isInsecure: boolean;
-    noise?: number;
-    snr?: number;
-    phyMode?: string;
-    channelWidth?: string;
-    channelBand?: string;
-    vendor?: string;
-  }
+  import { createAutoRefresh } from '$lib/auto-refresh.svelte';
+  import PageHeader from '$lib/components/PageHeader.svelte';
+  import { createTableSort } from '$lib/sort.svelte';
+  import type { WifiNetwork, CurrentConnection } from '$lib/types/wifi';
+  import { SK_WIFI_PRIVACY } from '$lib/constants/storage-keys';
 
   let showExtended = $state(false);
+  let privacyMode = $state(
+    typeof localStorage !== 'undefined' ? localStorage.getItem(SK_WIFI_PRIVACY) === 'true' : false,
+  );
 
-  interface CurrentConnection {
-    ssid: string;
-    bssid: string;
-    channel: string;
-    signal: number;
-    ip: string;
-    interface: string;
+  function togglePrivacy() {
+    privacyMode = !privacyMode;
+    localStorage.setItem(SK_WIFI_PRIVACY, String(privacyMode));
   }
 
   let networks = $state<WifiNetwork[]>([]);
   let current = $state<CurrentConnection | null>(null);
   let error = $state('');
   let loading = $state(false);
-  let autoRefresh = $state(false);
-  let refreshInterval: ReturnType<typeof setInterval> | null = null;
-  let sortKey = $state<keyof WifiNetwork>('signal');
-  let sortDir = $state<'asc' | 'desc'>('desc');
+  const sort = createTableSort<keyof WifiNetwork>('signal', 'desc');
 
   const sorted = $derived.by(() => {
     const arr = [...networks];
+    const sk = sort.key;
+    const sd = sort.dir;
     arr.sort((a, b) => {
-      let av: any = a[sortKey];
-      let bv: any = b[sortKey];
+      let av: any = a[sk];
+      let bv: any = b[sk];
       if (typeof av === 'string') av = av.toLowerCase();
       if (typeof bv === 'string') bv = bv.toLowerCase();
-      if (av < bv) return sortDir === 'asc' ? -1 : 1;
-      if (av > bv) return sortDir === 'asc' ? 1 : -1;
+      if (av < bv) return sd === 'asc' ? -1 : 1;
+      if (av > bv) return sd === 'asc' ? 1 : -1;
       return 0;
     });
     return arr;
   });
-
-  function toggleSort(key: keyof WifiNetwork) {
-    if (sortKey === key) {
-      sortDir = sortDir === 'asc' ? 'desc' : 'asc';
-    } else {
-      sortKey = key;
-      sortDir = key === 'signal' ? 'desc' : 'asc';
-    }
-  }
-
-  function sortIndicator(key: keyof WifiNetwork): string {
-    if (sortKey !== key) return '';
-    return sortDir === 'asc' ? ' \u25B2' : ' \u25BC';
-  }
 
   function signalBars(dBm: number): number {
     if (dBm >= -30) return 5;
@@ -100,22 +76,23 @@
       networks = data.networks || [];
       current = data.current || null;
       if (!data.error) toast.success(`Found ${networks.length} networks`);
-    } catch (e: any) {
-      error = e.message || 'Scan failed';
+    } catch (e: unknown) {
+      error = getErrorMessage(e, 'Scan failed');
       toast.error('WiFi scan failed');
     } finally {
       loading = false;
     }
   }
 
+  const autoRefresh = createAutoRefresh(scan, 5000);
+  // Start disabled — user opts in
+  autoRefresh.enabled = false;
+
   function toggleAutoRefresh() {
-    autoRefresh = !autoRefresh;
-    if (autoRefresh) {
-      refreshInterval = setInterval(scan, 5000);
+    autoRefresh.toggle();
+    if (autoRefresh.enabled) {
       toast.info('Auto-refresh enabled (5s)');
     } else {
-      if (refreshInterval) clearInterval(refreshInterval);
-      refreshInterval = null;
       toast.info('Auto-refresh disabled');
     }
   }
@@ -152,10 +129,7 @@
 
   onMount(() => {
     scan();
-  });
-
-  onDestroy(() => {
-    if (refreshInterval) clearInterval(refreshInterval);
+    return useShortcuts([{ ...SHORTCUT_DEFAULTS.find((d) => d.id === 'wifi:refresh')!, handler: () => scan() }]);
   });
 </script>
 
@@ -163,23 +137,26 @@
   <title>WiFi Scanner | Home Server</title>
 </svelte:head>
 
-<div class="header">
-  <h2 class="page-title">WiFi Scanner</h2>
-  <div class="header-actions">
-    <label class="auto-toggle">
-      <input type="checkbox" bind:checked={showExtended} />
-      Extended
-    </label>
-    <label class="auto-toggle">
-      <input type="checkbox" checked={autoRefresh} onchange={toggleAutoRefresh} />
-      Auto-refresh
-    </label>
-    <Button onclick={scan} disabled={loading} {loading}>
-      {loading ? 'Scanning...' : 'Scan'}
-    </Button>
-  </div>
-</div>
-<p class="page-desc">Scan nearby WiFi networks. View signal strength, channels, and encryption details.</p>
+<PageHeader
+  title="WiFi Scanner"
+  description="Scan nearby WiFi networks. View signal strength, channels, and encryption details."
+>
+  <label class="auto-toggle">
+    <input type="checkbox" bind:checked={showExtended} />
+    Extended
+  </label>
+  <label class="auto-toggle" title="Blur SSIDs and BSSIDs for privacy">
+    <input type="checkbox" checked={privacyMode} onchange={togglePrivacy} />
+    Privacy
+  </label>
+  <label class="auto-toggle">
+    <input type="checkbox" checked={autoRefresh.enabled} onchange={toggleAutoRefresh} />
+    Auto-refresh
+  </label>
+  <Button icon="refresh" onclick={scan} disabled={loading} {loading}>
+    {loading ? 'Scanning...' : 'Scan'}
+  </Button>
+</PageHeader>
 
 {#if current}
   <div class="card current-info">
@@ -187,12 +164,12 @@
     <div class="current-grid">
       <div class="current-item">
         <span class="label">SSID</span>
-        <span class="value">{current.ssid}</span>
+        <span class="value" class:redacted={privacyMode}>{current.ssid}</span>
       </div>
       {#if current.bssid}
         <div class="current-item">
           <span class="label">BSSID</span>
-          <code class="value">{current.bssid}</code>
+          <code class="value" class:redacted={privacyMode}>{current.bssid}</code>
         </div>
       {/if}
       {#if current.channel}
@@ -230,10 +207,10 @@
     <table class="wifi-table">
       <thead>
         <tr>
-          <th class="sortable" onclick={() => toggleSort('ssid')}>SSID{sortIndicator('ssid')}</th>
-          <th class="sortable" onclick={() => toggleSort('bssid')}>BSSID{sortIndicator('bssid')}</th>
-          <th class="sortable" onclick={() => toggleSort('channel')}>Channel{sortIndicator('channel')}</th>
-          <th class="sortable" onclick={() => toggleSort('signal')}>Signal{sortIndicator('signal')}</th>
+          <th class="sortable" onclick={() => sort.toggle('ssid')}>SSID{sort.indicator('ssid')}</th>
+          <th class="sortable" onclick={() => sort.toggle('bssid')}>BSSID{sort.indicator('bssid')}</th>
+          <th class="sortable" onclick={() => sort.toggle('channel')}>Channel{sort.indicator('channel')}</th>
+          <th class="sortable" onclick={() => sort.toggle('signal', 'desc')}>Signal{sort.indicator('signal')}</th>
           <th>Strength</th>
           {#if showExtended}
             <th>SNR</th>
@@ -243,7 +220,7 @@
             <th>PHY</th>
             <th>Vendor</th>
           {/if}
-          <th class="sortable" onclick={() => toggleSort('security')}>Security{sortIndicator('security')}</th>
+          <th class="sortable" onclick={() => sort.toggle('security')}>Security{sort.indicator('security')}</th>
         </tr>
       </thead>
       <tbody>
@@ -251,12 +228,12 @@
           {@const bars = signalBars(net.signal)}
           <tr class:insecure={net.isInsecure}>
             <td class="ssid-col">
-              {net.ssid}
+              <span class:redacted={privacyMode}>{net.ssid}</span>
               {#if current && net.ssid === current.ssid && net.bssid === current.bssid}
                 <Badge variant="accent">Connected</Badge>
               {/if}
             </td>
-            <td><code>{net.bssid}</code></td>
+            <td><code class:redacted={privacyMode}>{net.bssid}</code></td>
             <td class="center">{net.channel}</td>
             <td class="center">{net.signal} dBm</td>
             <td class="center">
@@ -319,23 +296,6 @@
 {/if}
 
 <style>
-  .header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 16px;
-  }
-
-  h2 {
-    font-size: 1.3rem;
-  }
-
-  .header-actions {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-
   .auto-toggle {
     display: flex;
     align-items: center;
@@ -460,6 +420,17 @@
     display: flex;
     align-items: center;
     gap: 8px;
+  }
+
+  .redacted {
+    filter: blur(5px);
+    transition: filter 0.15s ease;
+    cursor: default;
+    user-select: none;
+  }
+
+  .redacted:hover {
+    filter: blur(0);
   }
 
   code {
