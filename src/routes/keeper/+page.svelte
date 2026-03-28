@@ -10,7 +10,7 @@
   import PageHeader from '$lib/components/PageHeader.svelte';
   import InteractiveChip from '$lib/components/InteractiveChip.svelte';
   import { toast } from '$lib/toast';
-  import { fetchApi, postJson } from '$lib/api';
+  import { fetchApi, postJson, putJson, deleteJson } from '$lib/api';
   import { getErrorMessage } from '$lib/errors';
 
   let { data } = $props<{ data: PageData }>();
@@ -92,7 +92,7 @@
 
   async function deleteImage(id: string, filename: string) {
     try {
-      const res = await postJson(`/api/keeper/${id}/images`, { filename }, { method: 'DELETE' });
+      const res = await deleteJson(`/api/keeper/${id}/images`, { filename });
       if (!res.ok) {
         toast.error('Failed to delete image');
         return;
@@ -198,7 +198,7 @@
 
   async function updateStatus(id: string, status: FeatureStatus) {
     try {
-      const res = await postJson('/api/keeper', { id, status }, { method: 'PUT' });
+      const res = await putJson('/api/keeper', { id, status });
       if (!res.ok) throw new Error('Failed to update status');
       await refresh();
     } catch (e: unknown) {
@@ -208,7 +208,7 @@
 
   async function deleteReq(id: string) {
     try {
-      const res = await postJson('/api/keeper', { id }, { method: 'DELETE' });
+      const res = await deleteJson('/api/keeper', { id });
       if (!res.ok) throw new Error('Failed to delete request');
       await refresh();
     } catch (e: unknown) {
@@ -237,17 +237,13 @@
   async function saveEdit() {
     if (!editingId) return;
     try {
-      const res = await postJson(
-        '/api/keeper',
-        {
-          id: editingId,
-          title: formTitle,
-          goal: formGoal,
-          scope: formScope,
-          details: formDetails,
-        },
-        { method: 'PUT' },
-      );
+      const res = await putJson('/api/keeper', {
+        id: editingId,
+        title: formTitle,
+        goal: formGoal,
+        scope: formScope,
+        details: formDetails,
+      });
       if (!res.ok) throw new Error('Failed to save edit');
       clearForm();
       await refresh();
@@ -457,7 +453,7 @@
 
   async function saveResult(id: string) {
     try {
-      const res = await postJson('/api/keeper', { id, result: editingResult }, { method: 'PUT' });
+      const res = await putJson('/api/keeper', { id, result: editingResult });
       if (!res.ok) throw new Error('Failed to save result');
       await refresh();
     } catch (e: unknown) {

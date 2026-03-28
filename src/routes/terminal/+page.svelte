@@ -7,7 +7,7 @@
   import Badge from '$lib/components/Badge.svelte';
   import Icon from '$lib/components/Icon.svelte';
   import Button from '$lib/components/Button.svelte';
-  import { fetchApi, postJson } from '$lib/api';
+  import { fetchApi, postJson, deleteJson } from '$lib/api';
   import { SK_TERMINAL_SESSIONS } from '$lib/constants/storage-keys';
 
   interface Tab {
@@ -375,7 +375,7 @@
     // Kill server-side session
     if (sessionId) {
       try {
-        await fetchApi(`/api/terminal/${sessionId}`, { method: 'DELETE' });
+        await deleteJson(`/api/terminal/${sessionId}`);
       } catch {
         // ignore
       }

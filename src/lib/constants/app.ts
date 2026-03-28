@@ -10,5 +10,5 @@
  */
 export const APP = {
   title: 'Home Server',
-  version: '4.37.0-zero-warnings-4',
+  version: '4.38.0-json-helpers-5',
 } as const;

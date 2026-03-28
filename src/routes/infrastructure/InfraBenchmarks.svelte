@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { toast } from '$lib/toast';
-  import { fetchApi, postJson } from '$lib/api';
+  import { fetchApi, postJson, deleteJson } from '$lib/api';
   import Button from '$lib/components/Button.svelte';
 
   interface BenchmarkResult {
@@ -93,9 +93,7 @@
 
   async function clearHistory() {
     try {
-      const res = await fetchApi('/api/benchmarks', {
-        method: 'DELETE',
-      });
+      const res = await deleteJson('/api/benchmarks');
       if (!res.ok) throw new Error('Failed to clear history');
       history = [];
       current = {};

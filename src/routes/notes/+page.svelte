@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { fetchApi, postJson } from '$lib/api';
+  import { fetchApi, postJson, putJson, deleteJson } from '$lib/api';
   import { toast } from '$lib/toast';
   import { onMount } from 'svelte';
   import { useShortcuts, SHORTCUT_DEFAULTS } from '$lib/shortcuts';
@@ -82,7 +82,7 @@
 
   async function deleteNote(id: string) {
     try {
-      await postJson('/api/notes', { id }, { method: 'DELETE' });
+      await deleteJson('/api/notes', { id });
       if (activeNote?.id === id) activeNote = null;
       await loadNotes();
       toast.success('Note deleted');
@@ -100,7 +100,7 @@
     if (!activeNote) return;
     saving = true;
     try {
-      await postJson('/api/notes', activeNote, { method: 'PUT' });
+      await putJson('/api/notes', activeNote);
       // Update sidebar title
       notes = notes.map((n) =>
         n.id === activeNote!.id ? { ...n, title: activeNote!.title, updatedAt: new Date().toISOString() } : n,

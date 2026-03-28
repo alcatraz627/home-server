@@ -12,7 +12,7 @@
   import Loading from '$lib/components/Loading.svelte';
   import Icon from '$lib/components/Icon.svelte';
   import Tabs from '$lib/components/Tabs.svelte';
-  import { fetchApi } from '$lib/api';
+  import { fetchApi, deleteJson } from '$lib/api';
   import { createTableSort } from '$lib/sort.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
 
@@ -371,7 +371,7 @@
 
   async function confirmSignal(pid: number) {
     try {
-      const res = await fetchApi(`/api/processes/${pid}?signal=${selectedSignal}`, { method: 'DELETE' });
+      const res = await deleteJson(`/api/processes/${pid}?signal=${selectedSignal}`);
       if (!res.ok) throw new Error('Signal failed');
       toast.success(`Sent ${selectedSignal} to PID ${pid}`);
     } catch (e: unknown) {

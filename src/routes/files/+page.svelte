@@ -16,7 +16,7 @@
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
   import { onMount, onDestroy } from 'svelte';
-  import { fetchApi } from '$lib/api';
+  import { fetchApi, patchJson, putJson, deleteJson } from '$lib/api';
   import { createTableSort } from '$lib/sort.svelte';
   import { getErrorMessage } from '$lib/errors';
   import { useShortcuts, SHORTCUT_DEFAULTS } from '$lib/shortcuts';
@@ -308,7 +308,7 @@
     try {
       for (const name of names) {
         const params = currentPath ? `?path=${encodeURIComponent(currentPath)}` : '';
-        const res = await fetchApi(`/api/files/${encodeURIComponent(name)}${params}`, { method: 'DELETE' });
+        const res = await deleteJson(`/api/files/${encodeURIComponent(name)}${params}`);
         if (!res.ok) throw new Error(`Failed to delete ${name}`);
       }
       toast.success(`Deleted ${names.length} file${names.length > 1 ? 's' : ''}`);
@@ -518,11 +518,7 @@
     }
     try {
       const params = currentPath ? `?path=${encodeURIComponent(currentPath)}` : '';
-      const res = await fetchApi(`/api/files/${encodeURIComponent(oldName)}${params}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: renameValue }),
-      });
+      const res = await patchJson(`/api/files/${encodeURIComponent(oldName)}${params}`, { name: renameValue });
       if (!res.ok) throw new Error('Failed to rename file');
       await refreshFiles();
     } catch (e: unknown) {
@@ -828,11 +824,7 @@
   async function createDir() {
     if (!newDirName.trim()) return;
     try {
-      const res = await fetchApi('/api/files', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newDirName.trim(), path: currentPath || undefined }),
-      });
+      const res = await putJson('/api/files', { name: newDirName.trim(), path: currentPath || undefined });
       if (!res.ok) throw new Error('Failed to create directory');
       newDirName = '';
       showNewDir = false;
@@ -878,7 +870,7 @@
   async function doDeleteFile(filename: string) {
     try {
       const params = currentPath ? `?path=${encodeURIComponent(currentPath)}` : '';
-      const res = await fetchApi(`/api/files/${encodeURIComponent(filename)}${params}`, { method: 'DELETE' });
+      const res = await deleteJson(`/api/files/${encodeURIComponent(filename)}${params}`);
       if (!res.ok) throw new Error(`Failed to delete ${filename}`);
       toast.success(`Deleted ${filename}`);
       await refreshFiles();
@@ -903,7 +895,7 @@
   async function doDeleteDir(name: string) {
     try {
       const params = currentPath ? `path=${encodeURIComponent(currentPath)}&dir=true` : 'dir=true';
-      const res = await fetchApi(`/api/files/${encodeURIComponent(name)}?${params}`, { method: 'DELETE' });
+      const res = await deleteJson(`/api/files/${encodeURIComponent(name)}?${params}`);
       if (!res.ok) throw new Error(`Failed to delete directory ${name}`);
       toast.success(`Deleted folder ${name}`);
       await refreshFiles();

@@ -9,7 +9,7 @@
   import Button from '$lib/components/Button.svelte';
   import Badge from '$lib/components/Badge.svelte';
   import Icon from '$lib/components/Icon.svelte';
-  import { fetchApi, postJson } from '$lib/api';
+  import { fetchApi, postJson, putJson, patchJson, deleteJson } from '$lib/api';
   import PageHeader from '$lib/components/PageHeader.svelte';
 
   let { data } = $props<{ data: PageData }>();
@@ -193,11 +193,7 @@
         schedule: formSchedule || null,
         enabled: true,
       };
-      const res = await fetchApi('/api/backups', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(config),
-      });
+      const res = await patchJson('/api/backups', config);
       if (!res.ok) throw new Error('Failed to update backup');
       cancelForm();
       toast.success(`Backup "${config.name}" updated`);
@@ -213,11 +209,7 @@
     const config = statuses.find((s) => s.config.id === configId)?.config;
     toast.info(`Backup "${config?.name || configId}" started`, { key: `backup-${configId}` });
     try {
-      const res = await fetchApi('/api/backups', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ configId }),
-      });
+      const res = await putJson('/api/backups', { configId });
       if (!res.ok) throw new Error(`Failed to trigger backup "${config?.name || configId}"`);
       // Poll for completion
       const poll = setInterval(async () => {
@@ -244,11 +236,7 @@
   async function confirmDelete(configId: string) {
     const name = statuses.find((s) => s.config.id === configId)?.config.name ?? configId;
     try {
-      const res = await fetchApi('/api/backups', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: configId }),
-      });
+      const res = await deleteJson('/api/backups', { id: configId });
       if (!res.ok) throw new Error('Failed to delete backup');
       // If currently editing this config, close form
       if (editingId === configId) cancelForm();

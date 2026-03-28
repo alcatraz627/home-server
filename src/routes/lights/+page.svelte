@@ -11,7 +11,7 @@
   import PageHeader from '$lib/components/PageHeader.svelte';
 
   import { browser } from '$app/environment';
-  import { fetchApi, postJson } from '$lib/api';
+  import { fetchApi, postJson, putJson } from '$lib/api';
   import { LIGHTS_POLL_INTERVAL_MS } from '$lib/constants/defaults';
   import { SK_LIGHTS_CONFIG, SK_LIGHTS_CACHE, SK_BULB_ORDER } from '$lib/constants/storage-keys';
 
@@ -235,7 +235,7 @@
 
   async function setBulb(ip: string, params: Record<string, any>) {
     try {
-      const res = await postJson(`/api/lights/${encodeURIComponent(ip)}`, params, { method: 'PUT' });
+      const res = await putJson(`/api/lights/${encodeURIComponent(ip)}`, params);
       if (!res.ok) throw new Error('Failed to set bulb');
     } catch (e: unknown) {
       toast.error(getErrorMessage(e, 'Failed to control light'), { key: 'light-control' });

@@ -24,3 +24,32 @@ export async function postJson(path: string, data: unknown, init?: RequestInit):
     ...init,
   });
 }
+
+/** PUT JSON shorthand. */
+export async function putJson(path: string, data: unknown, init?: RequestInit): Promise<Response> {
+  return fetchApi(path, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+    ...init,
+  });
+}
+
+/** PATCH JSON shorthand. */
+export async function patchJson(path: string, data: unknown, init?: RequestInit): Promise<Response> {
+  return fetchApi(path, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+    ...init,
+  });
+}
+
+/** DELETE shorthand — optional body for endpoints that accept one. */
+export async function deleteJson(path: string, data?: unknown, init?: RequestInit): Promise<Response> {
+  return fetchApi(path, {
+    method: 'DELETE',
+    ...(data !== undefined ? { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) } : {}),
+    ...init,
+  });
+}

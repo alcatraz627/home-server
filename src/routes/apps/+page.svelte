@@ -5,7 +5,7 @@
   import Badge from '$lib/components/Badge.svelte';
   import Icon from '$lib/components/Icon.svelte';
   import { toast } from '$lib/toast';
-  import { fetchApi, postJson } from '$lib/api';
+  import { fetchApi, postJson, deleteJson } from '$lib/api';
   import { getErrorMessage } from '$lib/errors';
   import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
   import InfoRow from '$lib/components/InfoRow.svelte';
@@ -121,7 +121,7 @@
     killing = name;
     showConfirmKill = false;
     try {
-      const res = await postJson('/api/apps', { name, force }, { method: 'DELETE' });
+      const res = await deleteJson('/api/apps', { name, force });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Kill failed');
       toast.success(force ? `Force-killed ${name}` : `Quit ${name}`);

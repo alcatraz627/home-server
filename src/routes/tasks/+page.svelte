@@ -10,7 +10,7 @@
   import Collapsible from '$lib/components/Collapsible.svelte';
   import Icon from '$lib/components/Icon.svelte';
   import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
-  import { fetchApi, postJson } from '$lib/api';
+  import { fetchApi, postJson, putJson, deleteJson } from '$lib/api';
   import {
     sendNotification,
     requestNotificationPermission,
@@ -188,7 +188,7 @@
         terminalTaskId = taskId;
         terminalRunning = true;
         terminalOutput = `$ ${t.command}\n\n`;
-        await postJson('/api/tasks', { taskId }, { method: 'PUT' });
+        await putJson('/api/tasks', { taskId });
         const poll = setInterval(async () => {
           await refresh();
           const s = statuses.find((s) => s.config.id === taskId);
@@ -425,7 +425,7 @@
     const taskName = statuses.find((s) => s.config.id === taskId)?.config.name || taskId;
     toast.info(`Running "${taskName}"...`, { key: `task-run-${taskId}` });
     try {
-      const res = await postJson('/api/tasks', { taskId }, { method: 'PUT' });
+      const res = await putJson('/api/tasks', { taskId });
       if (!res.ok) throw new Error(`Failed to run "${taskName}"`);
       const poll = setInterval(async () => {
         await refresh();
@@ -468,7 +468,7 @@
   async function confirmDeleteTask(id: string) {
     cronDeleteTarget = null;
     try {
-      await postJson('/api/tasks', { id }, { method: 'DELETE' });
+      await deleteJson('/api/tasks', { id });
       toast.success('Task deleted');
       await refresh();
     } catch {
