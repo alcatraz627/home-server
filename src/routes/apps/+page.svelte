@@ -1,12 +1,16 @@
 <script lang="ts">
   import type { PageData } from './$types';
-  import SearchInput from '$lib/components/SearchInput.svelte';
+  import FilterBar from '$lib/components/FilterBar.svelte';
   import Button from '$lib/components/Button.svelte';
   import Badge from '$lib/components/Badge.svelte';
   import Icon from '$lib/components/Icon.svelte';
   import { toast } from '$lib/toast';
-  import { fetchApi } from '$lib/api';
-  import { onMount, onDestroy } from 'svelte';
+  import { fetchApi, postJson } from '$lib/api';
+  import { getErrorMessage } from '$lib/errors';
+  import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
+  import InfoRow from '$lib/components/InfoRow.svelte';
+  import { onMount } from 'svelte';
+  import { createAutoRefresh } from '$lib/auto-refresh.svelte';
 
   interface AppInfo {
     name: string;
@@ -14,7 +18,10 @@
   }
 
   let { data } = $props<{ data: PageData }>();
-  let apps = $state<AppInfo[]>(data.apps);
+  let apps = $state<AppInfo[]>([]);
+  $effect(() => {
+    apps = data.apps;
+  });
   let search = $state('');
   interface AppDetail {
     name: string;
@@ -29,7 +36,7 @@
 
   let launching = $state<string | null>(null);
   let runningApps = $state<Set<string>>(new Set());
-  let runningPollInterval: ReturnType<typeof setInterval> | null = null;
+  const autoRefresh = createAutoRefresh(fetchRunning, 10000);
   let expandedApp = $state<string | null>(null);
   let appDetails = $state<Record<string, AppDetail>>({});
 
@@ -53,18 +60,14 @@
   async function launchApp(app: AppInfo) {
     launching = app.path;
     try {
-      const res = await fetchApi('/api/apps', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: app.path }),
-      });
+      const res = await postJson('/api/apps', { path: app.path });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Launch failed');
       toast.success(`Launched ${app.name}`);
       // Refresh running status after launch
       setTimeout(fetchRunning, 2000);
-    } catch (e: any) {
-      toast.error(e.message || `Failed to launch ${app.name}`);
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, `Failed to launch ${app.name}`));
     } finally {
       launching = null;
     }
@@ -89,13 +92,14 @@
       const data = await res.json();
       apps = data.apps;
       runningApps = new Set(data.running ?? []);
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to refresh apps');
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, 'Failed to refresh apps'));
     }
   }
 
   let killing = $state<string | null>(null);
-  let confirmKill = $state<{ name: string; force: boolean } | null>(null);
+  let showConfirmKill = $state(false);
+  let confirmKillName = $state('');
 
   async function toggleDetails(appName: string) {
     if (expandedApp === appName) {
@@ -115,32 +119,22 @@
 
   async function killApp(name: string, force: boolean) {
     killing = name;
-    confirmKill = null;
+    showConfirmKill = false;
     try {
-      const res = await fetchApi('/api/apps', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, force }),
-      });
+      const res = await postJson('/api/apps', { name, force }, { method: 'DELETE' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Kill failed');
       toast.success(force ? `Force-killed ${name}` : `Quit ${name}`);
       setTimeout(fetchRunning, 1000);
-    } catch (e: any) {
-      toast.error(e.message || `Failed to kill ${name}`);
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, `Failed to kill ${name}`));
     } finally {
       killing = null;
     }
   }
 
-  onMount(() => {
-    fetchRunning();
-    runningPollInterval = setInterval(fetchRunning, 10000);
-  });
-
-  onDestroy(() => {
-    if (runningPollInterval) clearInterval(runningPollInterval);
-  });
+  // autoRefresh handles interval + cleanup; initial fetch on mount
+  onMount(() => fetchRunning());
 </script>
 
 <svelte:head>
@@ -150,15 +144,13 @@
 <div class="page-header">
   <h2 class="page-title">Apps</h2>
   <div class="page-actions">
-    <Button size="sm" onclick={refreshApps}>Refresh</Button>
+    <Button size="sm" icon="refresh" onclick={refreshApps}>Refresh</Button>
     <span class="app-count">{filtered.length} of {apps.length} apps</span>
   </div>
 </div>
 <p class="page-desc">Browse and launch applications installed on this machine.</p>
 
-<div class="search-bar">
-  <SearchInput bind:value={search} placeholder="Filter apps..." />
-</div>
+<FilterBar search bind:searchValue={search} searchPlaceholder="Filter apps..." />
 
 {#if apps.length === 0}
   <div class="empty-state">
@@ -174,11 +166,15 @@
       <div class="app-grid">
         {#each groupApps as app}
           <div class="app-card-wrap" class:expanded={expandedApp === app.name}>
-            <button
+            <!-- svelte-ignore a11y_no_static_element_interactions -->
+            <div
               class="app-card"
               class:launching={launching === app.path}
               class:running={runningApps.has(app.name)}
+              role="button"
+              tabindex="0"
               onclick={() => launchApp(app)}
+              onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && launchApp(app)}
               title={app.path}
             >
               <div class="app-icon">
@@ -202,6 +198,8 @@
                 <div class="app-badge">
                   <Badge variant="success" dot pulse>Running</Badge>
                 </div>
+                <!-- svelte-ignore a11y_click_events_have_key_events -->
+                <!-- svelte-ignore a11y_no_static_element_interactions -->
                 <div class="app-kill-actions" onclick={(e) => e.stopPropagation()}>
                   <button
                     class="kill-btn"
@@ -218,14 +216,15 @@
                     title="Force kill (SIGKILL)"
                     onclick={(e) => {
                       e.stopPropagation();
-                      confirmKill = { name: app.name, force: true };
+                      confirmKillName = app.name;
+                      showConfirmKill = true;
                     }}
                   >
                     <Icon name="close" size={12} /> Force
                   </button>
                 </div>
               {/if}
-            </button>
+            </div>
             {#if runningApps.has(app.name)}
               <button
                 class="info-toggle"
@@ -241,12 +240,12 @@
             {#if expandedApp === app.name && appDetails[app.name]}
               {@const d = appDetails[app.name]}
               <div class="app-details">
-                <div class="detail-row"><span class="dl">CPU</span><span>{d.cpu}%</span></div>
-                <div class="detail-row"><span class="dl">MEM</span><span>{d.mem}% ({d.memMB}MB)</span></div>
-                <div class="detail-row"><span class="dl">PIDs</span><span>{d.pids.join(', ')}</span></div>
-                <div class="detail-row"><span class="dl">Files</span><span>{d.openFiles}</span></div>
-                {#if d.version}<div class="detail-row"><span class="dl">Ver</span><span>{d.version}</span></div>{/if}
-                <div class="detail-row"><span class="dl">Path</span><span class="mono">{d.path}</span></div>
+                <InfoRow label="CPU" value="{d.cpu}%" />
+                <InfoRow label="MEM" value="{d.mem}% ({d.memMB}MB)" />
+                <InfoRow label="PIDs" value={d.pids.join(', ')} />
+                <InfoRow label="Files" value={String(d.openFiles)} />
+                {#if d.version}<InfoRow label="Ver" value={d.version} />{/if}
+                <InfoRow label="Path" value={d.path} mono />
               </div>
             {/if}
           </div>
@@ -256,20 +255,15 @@
   {/each}
 {/if}
 
-{#if confirmKill}
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="confirm-overlay" onclick={() => (confirmKill = null)} role="presentation">
-    <!-- svelte-ignore a11y_click_events_have_key_events -->
-    <div class="confirm-dialog" onclick={(e) => e.stopPropagation()} role="dialog">
-      <h3>Force Kill "{confirmKill.name}"?</h3>
-      <p>This will immediately terminate the app without saving. Unsaved work may be lost.</p>
-      <div class="confirm-actions">
-        <Button onclick={() => (confirmKill = null)}>Cancel</Button>
-        <Button variant="danger" onclick={() => confirmKill && killApp(confirmKill.name, true)}>Force Kill</Button>
-      </div>
-    </div>
-  </div>
-{/if}
+<ConfirmDialog
+  bind:open={showConfirmKill}
+  title={`Force Kill "${confirmKillName}"?`}
+  message="This will immediately terminate the app without saving. Unsaved work may be lost."
+  confirmLabel="Force Kill"
+  confirmVariant="danger"
+  confirmIcon="close"
+  onconfirm={() => killApp(confirmKillName, true)}
+/>
 
 <style>
   .app-kill-actions {
@@ -303,42 +297,6 @@
   .kill-btn.force:hover {
     border-color: var(--danger);
     color: var(--danger);
-  }
-
-  .confirm-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: 200;
-    background: rgba(0, 0, 0, 0.5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .confirm-dialog {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 20px 24px;
-    max-width: 400px;
-    width: 90%;
-  }
-
-  .confirm-dialog h3 {
-    font-size: 0.95rem;
-    margin: 0 0 8px 0;
-  }
-
-  .confirm-dialog p {
-    font-size: 0.8rem;
-    color: var(--text-muted);
-    margin: 0 0 16px 0;
-  }
-
-  .confirm-actions {
-    display: flex;
-    gap: 8px;
-    justify-content: flex-end;
   }
 
   .app-card-wrap {
@@ -377,27 +335,6 @@
     font-size: 0.68rem;
   }
 
-  .detail-row {
-    display: flex;
-    gap: 8px;
-    padding: 2px 0;
-    color: var(--text-secondary);
-  }
-
-  .detail-row .dl {
-    color: var(--text-faint);
-    font-weight: 600;
-    min-width: 36px;
-    text-transform: uppercase;
-    font-size: 0.6rem;
-  }
-
-  .detail-row .mono {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.6rem;
-    word-break: break-all;
-  }
-
   .page-header {
     display: flex;
     flex-direction: row;
@@ -427,11 +364,6 @@
     color: var(--text-muted);
     font-size: 0.85rem;
     margin-bottom: 16px;
-  }
-
-  .search-bar {
-    margin-bottom: 20px;
-    max-width: 400px;
   }
 
   .empty-state {
@@ -558,6 +490,7 @@
     text-overflow: ellipsis;
     display: -webkit-box;
     -webkit-line-clamp: 2;
+    line-clamp: 2;
     -webkit-box-orient: vertical;
     word-break: break-word;
     max-width: 100%;

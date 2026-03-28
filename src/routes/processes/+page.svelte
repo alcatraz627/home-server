@@ -896,22 +896,6 @@
     gap: 0;
   }
 
-  .view-toggle .btn {
-    border-radius: 0;
-  }
-
-  .view-toggle .btn:first-child {
-    border-radius: 6px 0 0 6px;
-  }
-  .view-toggle .btn:last-child {
-    border-radius: 0 6px 6px 0;
-  }
-
-  .btn.active {
-    border-color: var(--accent);
-    color: var(--accent);
-  }
-
   .refresh-group {
     display: flex;
     gap: 4px;
@@ -1012,13 +996,6 @@
 
   .col-sortable:hover {
     color: var(--accent);
-  }
-
-  .unit-toggle {
-    font-size: 0.6rem;
-    padding: 2px 6px;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
   }
 
   .process-row {
@@ -1181,23 +1158,6 @@
     font-family: monospace;
   }
 
-  .btn-sm {
-    padding: 3px 8px;
-    font-size: 0.75rem;
-    border-radius: 4px;
-    font-family: monospace;
-  }
-  .btn-danger:hover {
-    border-color: var(--danger);
-    color: var(--danger);
-  }
-  .btn-confirm {
-    border-color: var(--danger);
-    background: var(--danger-bg);
-    color: var(--danger);
-    animation: pulse 0.6s ease-in-out infinite alternate;
-  }
-
   /* Expandable detail panel */
   .detail-panel {
     padding: 12px 16px 12px 48px;
@@ -1240,12 +1200,6 @@
   .detail-active {
     padding-top: 8px;
     border-top: 1px dashed var(--border-subtle);
-  }
-
-  .inspect-btn {
-    font-size: 0.75rem;
-    color: var(--accent);
-    border-color: var(--accent-bg);
   }
 
   .detail-section {
@@ -1435,11 +1389,6 @@
   .env-list div {
     padding: 1px 0;
     word-break: break-all;
-  }
-
-  .show-all {
-    display: block;
-    margin: 12px auto;
   }
 
   @keyframes pulse {

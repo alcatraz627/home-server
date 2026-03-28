@@ -1,7 +1,8 @@
 <script lang="ts">
-  import { fetchApi } from '$lib/api';
+  import { fetchApi, postJson } from '$lib/api';
   import { toast } from '$lib/toast';
   import { onMount } from 'svelte';
+  import { useShortcuts, SHORTCUT_DEFAULTS } from '$lib/shortcuts';
   import Button from '$lib/components/Button.svelte';
   import Icon from '$lib/components/Icon.svelte';
   import SearchInput from '$lib/components/SearchInput.svelte';
@@ -68,11 +69,7 @@
 
   async function createNote() {
     try {
-      const res = await fetchApi('/api/notes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: 'Untitled' }),
-      });
+      const res = await postJson('/api/notes', { title: 'Untitled' });
       if (res.ok) {
         const note = await res.json();
         await loadNotes();
@@ -85,11 +82,7 @@
 
   async function deleteNote(id: string) {
     try {
-      await fetchApi('/api/notes', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id }),
-      });
+      await postJson('/api/notes', { id }, { method: 'DELETE' });
       if (activeNote?.id === id) activeNote = null;
       await loadNotes();
       toast.success('Note deleted');
@@ -107,11 +100,7 @@
     if (!activeNote) return;
     saving = true;
     try {
-      await fetchApi('/api/notes', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(activeNote),
-      });
+      await postJson('/api/notes', activeNote, { method: 'PUT' });
       // Update sidebar title
       notes = notes.map((n) =>
         n.id === activeNote!.id ? { ...n, title: activeNote!.title, updatedAt: new Date().toISOString() } : n,
@@ -213,7 +202,10 @@
     });
   }
 
-  onMount(loadNotes);
+  onMount(() => {
+    loadNotes();
+    return useShortcuts([{ ...SHORTCUT_DEFAULTS.find((d) => d.id === 'notes:new')!, handler: () => createNote() }]);
+  });
 </script>
 
 <svelte:head>
@@ -308,6 +300,7 @@
                     class="todo-text"
                     class:checked={block.checked}
                     contenteditable="true"
+                    tabindex="0"
                     data-block-id={block.id}
                     oninput={(e) => updateBlockContent(i, (e.currentTarget as HTMLElement).textContent || '')}
                     onkeydown={(e) => handleBlockKeydown(e, i)}
@@ -327,6 +320,7 @@
                   oninput={(e) => updateBlockContent(i, (e.currentTarget as HTMLElement).textContent || '')}
                   onkeydown={(e) => handleBlockKeydown(e, i)}
                   role="textbox"
+                  tabindex="0"
                 >
                   {block.content}
                 </div>

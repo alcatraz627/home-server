@@ -1,4 +1,4 @@
-<script lang="ts">
+<script module lang="ts">
   import {
     Save,
     Plus,
@@ -15,6 +15,7 @@
     Pause,
     Square,
     Copy,
+    CopyPlus,
     Download,
     Upload,
     Settings,
@@ -54,6 +55,7 @@
     Share2,
     QrCode,
     Bookmark,
+    BookOpen,
     Columns3,
     Power,
     Globe,
@@ -96,20 +98,18 @@
     Plug,
     Radio,
     Bell,
+    BellOff,
+    BellRing,
+    AlarmClock,
+    Timer,
+    Repeat,
+    User,
     Activity,
     Box,
     Database,
+    Server,
+    MessageSquare,
   } from 'lucide-svelte';
-
-  let {
-    name,
-    size = 16,
-    class: className = '',
-  } = $props<{
-    name: string;
-    size?: number;
-    class?: string;
-  }>();
 
   const ICON_MAP: Record<string, any> = {
     save: Save,
@@ -129,6 +129,8 @@
     pause: Pause,
     stop: Square,
     copy: Copy,
+    'copy-plus': CopyPlus,
+    duplicate: CopyPlus,
     download: Download,
     upload: Upload,
     settings: Settings,
@@ -170,6 +172,8 @@
     share: Share2,
     qr: QrCode,
     bookmark: Bookmark,
+    'book-open': BookOpen,
+    book: BookOpen,
     kanban: Columns3,
     wol: Power,
     power: Power,
@@ -217,16 +221,38 @@
     rotate: RotateCw,
     plug: Plug,
     bell: Bell,
+    'bell-off': BellOff,
+    'bell-ring': BellRing,
+    'alarm-clock': AlarmClock,
+    timer: Timer,
+    repeat: Repeat,
+    user: User,
     activity: Activity,
     docker: Box,
     database: Database,
+    server: Server,
+    message: MessageSquare,
   };
 
-  const component = $derived(ICON_MAP[name] || HelpCircle);
+  export const ICON_NAMES = Object.keys(ICON_MAP);
+</script>
+
+<script lang="ts">
+  let {
+    name,
+    size = 16,
+    class: className = '',
+  } = $props<{
+    name: string;
+    size?: number;
+    class?: string;
+  }>();
+
+  const IconComponent = $derived(ICON_MAP[name] || HelpCircle);
 </script>
 
 <span class="icon {className}" style="display: inline-flex; align-items: center; justify-content: center;">
-  <svelte:component this={component} {size} strokeWidth={1.75} />
+  <IconComponent {size} strokeWidth={1.75} />
 </span>
 
 <style>

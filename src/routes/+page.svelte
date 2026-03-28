@@ -4,148 +4,99 @@
   import { onMount } from 'svelte';
   import { stars } from '$lib/stars';
   import { browser } from '$app/environment';
+  import { useShortcuts } from '$lib/shortcuts';
+  import { createAutoRefresh } from '$lib/auto-refresh.svelte';
   import Icon from '$lib/components/Icon.svelte';
   import Button from '$lib/components/Button.svelte';
   import Modal from '$lib/components/Modal.svelte';
-  import { goto } from '$app/navigation';
+  import DashboardWidget from '$lib/components/DashboardWidget.svelte';
+  import {
+    type WidgetInstance,
+    type WidgetSize,
+    WIDGET_TYPES,
+    DASHBOARD_PRESETS,
+    getWidgetType,
+    getWidgetsByCategory,
+    loadLayout,
+    saveLayout,
+    applyPreset,
+    createDefaultLayout,
+  } from '$lib/widgets/registry';
 
   let { data } = $props<{ data: PageData & LayoutData }>();
 
-  // ── Dashboard section config ─────────────────────────────────────────────
-  const DASHBOARD_SECTIONS = [
-    { key: 'system-stats', label: 'System Stats' },
-    { key: 'tasks', label: 'Tasks' },
-    { key: 'backups', label: 'Backups' },
-    { key: 'keeper', label: 'Keeper' },
-    { key: 'notifications', label: 'Notifications' },
-    { key: 'notes', label: 'Notes' },
-    { key: 'docker', label: 'Docker' },
-    { key: 'services', label: 'Services' },
-    { key: 'disk', label: 'Disk' },
-    { key: 'activity-timeline', label: 'Activity Timeline' },
-    { key: 'top-processes', label: 'Top Processes' },
-    { key: 'quick-nav', label: 'Quick Nav' },
-    { key: 'quick-actions', label: 'Quick Actions' },
-    { key: 'starred-files', label: 'Starred Files' },
-  ] as const;
-
-  type SectionKey = (typeof DASHBOARD_SECTIONS)[number]['key'];
-  type SectionSize = 'small' | 'medium' | 'large';
-
-  interface SectionLayout {
-    id: string;
-    order: number;
-    visible: boolean;
-    size: SectionSize;
-  }
-
-  const DASH_LAYOUT_KEY = 'hs:dashboard-layout';
-
-  const DEFAULT_SIZES: Record<SectionKey, SectionSize> = {
-    'system-stats': 'medium',
-    tasks: 'small',
-    backups: 'small',
-    keeper: 'small',
-    notifications: 'small',
-    notes: 'small',
-    docker: 'small',
-    services: 'small',
-    disk: 'medium',
-    'activity-timeline': 'medium',
-    'top-processes': 'medium',
-    'quick-nav': 'medium',
-    'quick-actions': 'large',
-    'starred-files': 'medium',
-  };
-
-  function loadDashLayout(): SectionLayout[] {
-    if (!browser)
-      return DASHBOARD_SECTIONS.map((s, i) => ({
-        id: s.key,
-        order: i,
-        visible: true,
-        size: DEFAULT_SIZES[s.key],
-      }));
-    try {
-      const raw = localStorage.getItem(DASH_LAYOUT_KEY);
-      if (raw) {
-        const parsed: SectionLayout[] = JSON.parse(raw);
-        // Ensure all sections exist (handle new sections added later)
-        const existingIds = new Set(parsed.map((p) => p.id));
-        let maxOrder = Math.max(...parsed.map((p) => p.order));
-        for (const s of DASHBOARD_SECTIONS) {
-          if (!existingIds.has(s.key)) {
-            parsed.push({ id: s.key, order: ++maxOrder, visible: true, size: DEFAULT_SIZES[s.key] });
-          }
-        }
-        // Backfill size for old layouts missing it
-        for (const p of parsed) {
-          if (!p.size) p.size = DEFAULT_SIZES[p.id as SectionKey] ?? 'medium';
-        }
-        // Remove sections that no longer exist
-        const validKeys = DASHBOARD_SECTIONS.map((s) => s.key);
-        return parsed
-          .filter((p) => validKeys.includes(p.id as any))
-          .sort((a, b) => a.order - b.order) as SectionLayout[];
-      }
-    } catch {}
-    return DASHBOARD_SECTIONS.map((s, i) => ({
-      id: s.key,
-      order: i,
-      visible: true,
-      size: DEFAULT_SIZES[s.key],
-    }));
-  }
-
-  let dashLayout = $state<SectionLayout[]>(loadDashLayout());
+  // ── Widget layout state ─────────────────────────────────────────────────
+  let dashLayout = $state<WidgetInstance[]>(loadLayout());
   let settingsModalOpen = $state(false);
+  let settingsTab = $state<'layout' | 'presets' | 'add'>('layout');
 
   // Pending state for modal edits (apply on confirm)
-  let pendingLayout = $state<SectionLayout[]>([]);
+  let pendingLayout = $state<WidgetInstance[]>([]);
 
   function openSettingsModal() {
     pendingLayout = dashLayout.map((s) => ({ ...s }));
+    settingsTab = 'layout';
     settingsModalOpen = true;
   }
 
   function applySettings() {
-    // Re-assign order values based on current position
     pendingLayout.forEach((s, i) => (s.order = i));
     dashLayout = [...pendingLayout];
-    saveDashLayout();
+    saveLayout(dashLayout);
     settingsModalOpen = false;
   }
 
-  function saveDashLayout() {
-    if (browser) localStorage.setItem(DASH_LAYOUT_KEY, JSON.stringify(dashLayout));
+  function applyPresetTemplate(presetId: string) {
+    const preset = DASHBOARD_PRESETS.find((p) => p.id === presetId);
+    if (!preset) return;
+    pendingLayout = applyPreset(preset);
+    settingsTab = 'layout';
   }
 
-  function isSectionVisible(key: SectionKey): boolean {
-    const item = dashLayout.find((s) => s.id === key);
-    return item ? item.visible : true;
+  function addWidgetToLayout(typeId: string) {
+    const typeDef = getWidgetType(typeId);
+    if (!typeDef) return;
+    // Check if already in pending layout
+    const existing = pendingLayout.find((w) => w.typeId === typeId);
+    if (existing) {
+      existing.visible = true;
+      pendingLayout = [...pendingLayout];
+    } else {
+      const maxOrder = Math.max(0, ...pendingLayout.map((w) => w.order));
+      pendingLayout = [
+        ...pendingLayout,
+        {
+          id: `${typeId}-${Date.now()}`,
+          typeId,
+          order: maxOrder + 1,
+          visible: true,
+          size: typeDef.defaultSize,
+        },
+      ];
+    }
+    settingsTab = 'layout';
   }
 
-  function getSectionSize(key: SectionKey): SectionSize {
-    const item = dashLayout.find((s) => s.id === key);
-    return item?.size ?? 'medium';
-  }
-
-  function setSectionSize(key: SectionKey, size: SectionSize) {
-    const item = dashLayout.find((s) => s.id === key);
+  function removeWidget(id: string) {
+    const item = pendingLayout.find((w) => w.id === id);
     if (item) {
-      item.size = size;
-      dashLayout = [...dashLayout];
-      saveDashLayout();
+      item.visible = false;
+      pendingLayout = [...pendingLayout];
     }
   }
 
-  let orderedSections = $derived([...dashLayout].sort((a, b) => a.order - b.order));
-
-  function sectionLabel(key: string): string {
-    return DASHBOARD_SECTIONS.find((s) => s.key === key)?.label ?? key;
+  function setSectionSize(id: string, size: WidgetSize) {
+    const item = dashLayout.find((s) => s.id === id);
+    if (item) {
+      item.size = size;
+      dashLayout = [...dashLayout];
+      saveLayout(dashLayout);
+    }
   }
 
-  function sizeToSpan(size: SectionSize): string {
+  let orderedWidgets = $derived([...dashLayout].sort((a, b) => a.order - b.order));
+
+  function sizeToSpan(size: WidgetSize): string {
     switch (size) {
       case 'small':
         return 'span 1';
@@ -155,6 +106,24 @@
         return 'span 3';
     }
   }
+
+  function widgetLabel(w: WidgetInstance): string {
+    return w.label ?? getWidgetType(w.typeId)?.label ?? w.typeId;
+  }
+
+  // Available widgets not currently visible in pending layout
+  let availableWidgets = $derived.by(() => {
+    const visibleTypeIds = new Set(pendingLayout.filter((w) => w.visible).map((w) => w.typeId));
+    return WIDGET_TYPES.filter((wt) => !visibleTypeIds.has(wt.id));
+  });
+
+  const widgetsByCategory = getWidgetsByCategory();
+  const CATEGORY_LABELS: Record<string, string> = {
+    system: 'System',
+    apps: 'Applications',
+    data: 'Data',
+    navigation: 'Navigation',
+  };
 
   // ── Drag-and-drop state (live grid) ──────────────────────────────────────
   let draggedId = $state<string | null>(null);
@@ -196,7 +165,7 @@
     updated.splice(toIdx, 0, moved);
     updated.forEach((s, i) => (s.order = i));
     dashLayout = updated;
-    saveDashLayout();
+    saveLayout(dashLayout);
     draggedId = null;
   }
 
@@ -253,7 +222,7 @@
     modalDragOverId = null;
   }
 
-  // Starred files for quick-access
+  // ── Data ─────────────────────────────────────────────────────────────────
   let starredFiles = $state<string[]>([]);
 
   onMount(() => {
@@ -263,56 +232,108 @@
     });
     return unsub;
   });
-  let dashboard = $state(data.dashboard);
-  let system = $state(data.system);
+
+  let dashboard: typeof data.dashboard = $state(undefined as unknown as typeof data.dashboard);
+  let system: typeof data.system = $state(undefined as unknown as typeof data.system);
+  $effect.pre(() => {
+    dashboard = data.dashboard;
+    system = data.system;
+  });
+
+  async function refreshData() {
+    try {
+      const res = await fetch('/?_data=routes%2F_page');
+      if (res.ok) {
+        const fresh = await res.json();
+        if (fresh.dashboard) dashboard = fresh.dashboard;
+        if (fresh.system) system = fresh.system;
+      }
+    } catch {}
+  }
 
   // Live refresh every 30s
-  let refreshTimer: ReturnType<typeof setInterval> | null = null;
+  const autoRefresh = createAutoRefresh(refreshData, 30000);
 
   onMount(() => {
-    refreshTimer = setInterval(async () => {
-      try {
-        const res = await fetch('/?_data=routes%2F_page');
-        if (res.ok) {
-          const fresh = await res.json();
-          if (fresh.dashboard) dashboard = fresh.dashboard;
-          if (fresh.system) system = fresh.system;
-        }
-      } catch {}
-    }, 30000);
-    return () => {
-      if (refreshTimer) clearInterval(refreshTimer);
-    };
+    const unsub = useShortcuts([
+      {
+        id: 'dashboard:refresh',
+        page: 'Dashboard',
+        description: 'Refresh dashboard data',
+        defaultKey: 'r',
+        category: 'Actions',
+        handler: refreshData,
+      },
+      {
+        id: 'dashboard:settings',
+        page: 'Dashboard',
+        description: 'Open dashboard settings',
+        defaultKey: 'e',
+        category: 'Navigation',
+        handler: openSettingsModal,
+      },
+    ]);
+    return unsub;
   });
 
-  function formatRelativeTime(iso: string): string {
-    const diff = Date.now() - new Date(iso).getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 1) return 'just now';
-    if (mins < 60) return `${mins}m ago`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs}h ago`;
-    return `${Math.floor(hrs / 24)}d ago`;
+  /** One-line text summary per widget — powers the collapsed section header */
+  function getWidgetSummary(typeId: string): string {
+    switch (typeId) {
+      case 'system-stats':
+        return `MEM ${system.memUsedPercent}% · CPU ${system.loadAvg} · UP ${system.uptime}h`;
+      case 'disk':
+        return dashboard.disk
+          .map((d: { mount: string; usePercent: string }) => `${d.mount} ${d.usePercent}`)
+          .join(' · ');
+      case 'tasks': {
+        const t = dashboard.tasks;
+        const parts: string[] = [];
+        if (t.running) parts.push(`${t.running} running`);
+        if (t.failed) parts.push(`${t.failed} failed`);
+        parts.push(`${t.scheduled} scheduled`);
+        return parts.join(' · ');
+      }
+      case 'backups':
+        return dashboard.backups.lastRun
+          ? `${dashboard.backups.total} configs · last: ${dashboard.backups.lastRun.status}`
+          : `${dashboard.backups.total} configs`;
+      case 'keeper': {
+        const k = dashboard.keeper;
+        const parts: string[] = [];
+        if (k['in-progress']) parts.push(`${k['in-progress']} active`);
+        if (k.ready) parts.push(`${k.ready} ready`);
+        if (k.backlog) parts.push(`${k.backlog} backlog`);
+        return parts.join(' · ') || 'No items';
+      }
+      case 'notifications':
+        return dashboard.notifications > 0 ? `${dashboard.notifications} unread` : 'All caught up';
+      case 'notes':
+        return `${dashboard.notes} note${dashboard.notes !== 1 ? 's' : ''}`;
+      case 'docker':
+        return dashboard.docker.total > 0
+          ? `${dashboard.docker.running} running · ${dashboard.docker.total} total`
+          : 'No containers';
+      case 'services':
+        return dashboard.services.total > 0
+          ? `${dashboard.services.healthy} healthy · ${dashboard.services.total} monitored`
+          : 'None configured';
+      case 'top-processes':
+        return dashboard.topProcesses.length > 0
+          ? dashboard.topProcesses
+              .slice(0, 3)
+              .map((p: { name: string }) => p.name)
+              .join(', ')
+          : 'No data';
+      case 'activity-timeline':
+        return dashboard.recentRuns.length > 0 ? `${dashboard.recentRuns.length} recent runs` : 'No activity';
+      case 'starred-files':
+        return starredFiles.length > 0 ? `${starredFiles.length} starred` : 'None';
+      default:
+        return '';
+    }
   }
 
-  const memColor = $derived(
-    system.memUsedPercent >= 90 ? 'var(--danger)' : system.memUsedPercent >= 70 ? 'var(--warning)' : 'var(--success)',
-  );
-
-  const loadColor = $derived.by(() => {
-    const ratio = system.loadAvg / system.cpuCount;
-    return ratio >= 0.9 ? 'var(--danger)' : ratio >= 0.7 ? 'var(--warning)' : 'var(--success)';
-  });
-
-  function diskUsagePercent(d: { usePercent: string }): number {
-    return parseInt(d.usePercent) || 0;
-  }
-
-  function diskColor(pct: number): string {
-    return pct > 90 ? 'var(--danger)' : pct > 70 ? 'var(--warning)' : 'var(--success)';
-  }
-
-  const widgets = [
+  const navWidgets = [
     { href: '/files', icon: 'folder', label: 'Files' },
     { href: '/lights', icon: 'sun', label: 'Lights' },
     { href: '/processes', icon: 'cpu', label: 'Processes' },
@@ -321,8 +342,8 @@
     { href: '/terminal', icon: 'terminal', label: 'Terminal' },
   ];
 
-  const SIZE_OPTIONS: SectionSize[] = ['small', 'medium', 'large'];
-  const SIZE_LABELS: Record<SectionSize, string> = { small: 'S', medium: 'M', large: 'L' };
+  const SIZE_OPTIONS: WidgetSize[] = ['small', 'medium', 'large'];
+  const SIZE_LABELS: Record<WidgetSize, string> = { small: 'S', medium: 'M', large: 'L' };
 </script>
 
 <svelte:head>
@@ -338,52 +359,127 @@
 <p class="page-desc">At-a-glance overview of your server's health, running tasks, and quick navigation to all tools.</p>
 
 <!-- Dashboard Settings Modal -->
-<Modal bind:open={settingsModalOpen} title="Dashboard Settings" width="480px">
-  <div class="settings-list">
-    {#each pendingLayout as s, i (s.id)}
-      <!-- svelte-ignore a11y_no_static_element_interactions -->
-      <div
-        class="settings-item"
-        class:settings-drag-over={modalDragOverId === s.id}
-        draggable="true"
-        ondragstart={(e) => onModalDragStart(e, s.id)}
-        ondragover={(e) => onModalDragOver(e, s.id)}
-        ondragleave={onModalDragLeave}
-        ondrop={(e) => onModalDrop(e, s.id)}
-        ondragend={onModalDragEnd}
-        role="listitem"
-      >
-        <span class="settings-grip" title="Drag to reorder">
-          <Icon name="grip" size={14} />
-        </span>
-        <label class="settings-vis">
-          <input
-            type="checkbox"
-            checked={s.visible}
-            onchange={() => {
-              s.visible = !s.visible;
-              pendingLayout = [...pendingLayout];
-            }}
-          />
-        </label>
-        <span class="settings-label">{sectionLabel(s.id)}</span>
-        <div class="settings-size-btns">
-          {#each SIZE_OPTIONS as sz}
-            <button
-              class="size-btn"
-              class:active={s.size === sz}
-              onclick={() => {
-                s.size = sz;
-                pendingLayout = [...pendingLayout];
-              }}
-            >
-              {SIZE_LABELS[sz]}
-            </button>
-          {/each}
-        </div>
-      </div>
-    {/each}
+<Modal bind:open={settingsModalOpen} title="Dashboard Settings" width="520px">
+  <!-- Tab bar -->
+  <div class="settings-tabs">
+    <button class="settings-tab" class:active={settingsTab === 'layout'} onclick={() => (settingsTab = 'layout')}>
+      <Icon name="grid" size={13} /> Layout
+    </button>
+    <button class="settings-tab" class:active={settingsTab === 'presets'} onclick={() => (settingsTab = 'presets')}>
+      <Icon name="layout" size={13} /> Presets
+    </button>
+    <button class="settings-tab" class:active={settingsTab === 'add'} onclick={() => (settingsTab = 'add')}>
+      <Icon name="plus" size={13} /> Add Widget
+    </button>
   </div>
+
+  {#if settingsTab === 'layout'}
+    <!-- Layout editor -->
+    <div class="settings-list">
+      {#each pendingLayout.filter((s) => s.visible) as s (s.id)}
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <div
+          class="settings-item"
+          class:settings-drag-over={modalDragOverId === s.id}
+          draggable="true"
+          ondragstart={(e) => onModalDragStart(e, s.id)}
+          ondragover={(e) => onModalDragOver(e, s.id)}
+          ondragleave={onModalDragLeave}
+          ondrop={(e) => onModalDrop(e, s.id)}
+          ondragend={onModalDragEnd}
+          role="listitem"
+        >
+          <span class="settings-grip" title="Drag to reorder">
+            <Icon name="grip" size={14} />
+          </span>
+          {#if getWidgetType(s.typeId)}
+            <span class="settings-icon"><Icon name={getWidgetType(s.typeId)?.icon ?? 'box'} size={13} /></span>
+          {/if}
+          <span class="settings-label">{widgetLabel(s)}</span>
+          <div class="settings-size-btns">
+            {#each SIZE_OPTIONS as sz}
+              <button
+                class="size-btn"
+                class:active={s.size === sz}
+                onclick={() => {
+                  s.size = sz;
+                  pendingLayout = [...pendingLayout];
+                }}
+              >
+                {SIZE_LABELS[sz]}
+              </button>
+            {/each}
+          </div>
+          <button class="settings-remove" title="Remove widget" onclick={() => removeWidget(s.id)}>
+            <Icon name="x" size={12} />
+          </button>
+        </div>
+      {/each}
+    </div>
+
+    {#if pendingLayout.filter((s) => !s.visible).length > 0}
+      <div class="settings-hidden-label">
+        <Icon name="eye-off" size={12} />
+        {pendingLayout.filter((s) => !s.visible).length} hidden widget{pendingLayout.filter((s) => !s.visible)
+          .length !== 1
+          ? 's'
+          : ''}
+        <button
+          class="settings-show-all"
+          onclick={() => {
+            pendingLayout.forEach((s) => (s.visible = true));
+            pendingLayout = [...pendingLayout];
+          }}
+        >
+          Show all
+        </button>
+      </div>
+    {/if}
+  {:else if settingsTab === 'presets'}
+    <!-- Preset templates -->
+    <div class="presets-grid">
+      {#each DASHBOARD_PRESETS as preset}
+        <button class="preset-card" onclick={() => applyPresetTemplate(preset.id)}>
+          <div class="preset-icon"><Icon name={preset.icon} size={18} /></div>
+          <div class="preset-body">
+            <div class="preset-name">{preset.label}</div>
+            <div class="preset-desc">{preset.description}</div>
+            <div class="preset-count">{preset.widgets.length} widget{preset.widgets.length !== 1 ? 's' : ''}</div>
+          </div>
+        </button>
+      {/each}
+    </div>
+  {:else if settingsTab === 'add'}
+    <!-- Add widget catalog -->
+    {#if availableWidgets.length === 0}
+      <div class="add-empty">
+        <Icon name="check" size={18} />
+        <span>All widgets are on the dashboard</span>
+      </div>
+    {:else}
+      {#each Object.entries(CATEGORY_LABELS) as [catKey, catLabel]}
+        {@const catWidgets = availableWidgets.filter((w) => w.category === catKey)}
+        {#if catWidgets.length > 0}
+          <div class="add-category">
+            <h4 class="add-category-label">{catLabel}</h4>
+            <div class="add-list">
+              {#each catWidgets as wt}
+                <button class="add-item" onclick={() => addWidgetToLayout(wt.id)}>
+                  <span class="add-item-icon"><Icon name={wt.icon} size={14} /></span>
+                  <div class="add-item-body">
+                    <span class="add-item-name">{wt.label}</span>
+                    <span class="add-item-desc">{wt.description}</span>
+                  </div>
+                  <Icon name="plus" size={14} />
+                </button>
+              {/each}
+            </div>
+          </div>
+        {/if}
+      {/each}
+    {/if}
+  {/if}
+
   {#snippet footer()}
     <Button size="sm" onclick={() => (settingsModalOpen = false)}>Cancel</Button>
     <Button size="sm" onclick={applySettings}>Apply</Button>
@@ -392,19 +488,19 @@
 
 <!-- Dashboard Grid -->
 <div class="dashboard-grid">
-  {#each orderedSections as section (section.id)}
-    {#if section.visible}
+  {#each orderedWidgets as widget (widget.id)}
+    {#if widget.visible}
       <!-- svelte-ignore a11y_no_static_element_interactions -->
       <div
-        class="dashboard-section size-{section.size}"
-        class:drag-over={dragOverId === section.id}
-        class:dragging={draggedId === section.id}
-        style="grid-column: {sizeToSpan(section.size)}"
+        class="dashboard-section size-{widget.size}"
+        class:drag-over={dragOverId === widget.id}
+        class:dragging={draggedId === widget.id}
+        style="grid-column: {sizeToSpan(widget.size)}"
         draggable="true"
-        ondragstart={(e) => onDragStart(e, section.id)}
-        ondragover={(e) => onDragOver(e, section.id)}
+        ondragstart={(e) => onDragStart(e, widget.id)}
+        ondragover={(e) => onDragOver(e, widget.id)}
         ondragleave={onDragLeave}
-        ondrop={(e) => onDrop(e, section.id)}
+        ondrop={(e) => onDrop(e, widget.id)}
         ondragend={onDragEnd}
         role="listitem"
       >
@@ -412,13 +508,16 @@
           <span class="drag-handle" title="Drag to reorder">
             <Icon name="grip" size={14} />
           </span>
-          <span class="section-drag-label">{sectionLabel(section.id)}</span>
+          <span class="section-drag-label">{widgetLabel(widget)}</span>
+          {#if getWidgetSummary(widget.typeId)}
+            <span class="section-summary">{getWidgetSummary(widget.typeId)}</span>
+          {/if}
           <div class="section-size-toggle">
             {#each SIZE_OPTIONS as sz}
               <button
                 class="size-btn-inline"
-                class:active={section.size === sz}
-                onclick={() => setSectionSize(section.id as SectionKey, sz)}
+                class:active={widget.size === sz}
+                onclick={() => setSectionSize(widget.id, sz)}
                 title="{sz} size"
               >
                 {SIZE_LABELS[sz]}
@@ -427,438 +526,7 @@
           </div>
         </div>
 
-        {#if section.id === 'quick-actions'}
-          <div class="quick-actions">
-            <Button size="sm" onclick={() => goto('/lights')}>
-              <Icon name="search" size={12} /> Scan Lights
-            </Button>
-            <Button size="sm" onclick={() => goto('/backups')}>
-              <Icon name="save" size={12} /> Run Backup
-            </Button>
-            <Button size="sm" onclick={() => goto('/terminal')}>
-              <Icon name="terminal" size={12} /> New Terminal
-            </Button>
-            <Button
-              size="sm"
-              onclick={async () => {
-                try {
-                  const res = await fetch('/?_data=routes%2F_page');
-                  if (res.ok) {
-                    const fresh = await res.json();
-                    if (fresh.dashboard) dashboard = fresh.dashboard;
-                    if (fresh.system) system = fresh.system;
-                  }
-                } catch {}
-              }}
-            >
-              <Icon name="refresh" size={12} /> Refresh Stats
-            </Button>
-          </div>
-        {:else if section.id === 'system-stats'}
-          {@const sectionSize = section.size}
-          {#if sectionSize === 'small'}
-            <!-- Compact: just numbers -->
-            <div class="stats-compact">
-              <div class="stat-compact-item">
-                <span class="stat-compact-label">MEM</span>
-                <span class="stat-compact-value" style="color: {memColor}">{system.memUsedPercent}%</span>
-              </div>
-              <div class="stat-compact-item">
-                <span class="stat-compact-label">CPU</span>
-                <span class="stat-compact-value" style="color: {loadColor}">{system.loadAvg}</span>
-              </div>
-              <div class="stat-compact-item">
-                <span class="stat-compact-label">UP</span>
-                <span class="stat-compact-value">{system.uptime}h</span>
-              </div>
-            </div>
-          {:else if sectionSize === 'large'}
-            <!-- Large: numbers + bars + mini charts -->
-            <div class="stats-row">
-              <div class="stat-card card-stagger" style="animation-delay: 0ms">
-                <div class="stat-header">Memory</div>
-                <div class="stat-value" style="color: {memColor}">{system.memUsedPercent}%</div>
-                <div class="stat-bar">
-                  <div class="stat-fill" style="width: {system.memUsedPercent}%; background: {memColor}"></div>
-                </div>
-                <svg class="stat-sparkline" viewBox="0 0 60 20" preserveAspectRatio="none">
-                  <rect
-                    x="0"
-                    y={20 - (system.memUsedPercent / 100) * 20}
-                    width="60"
-                    height={(system.memUsedPercent / 100) * 20}
-                    fill={memColor}
-                    opacity="0.2"
-                    rx="2"
-                  />
-                  <line
-                    x1="0"
-                    y1={20 - (system.memUsedPercent / 100) * 20}
-                    x2="60"
-                    y2={20 - (system.memUsedPercent / 100) * 20}
-                    stroke={memColor}
-                    stroke-width="1.5"
-                  />
-                </svg>
-                <div class="stat-detail">{system.memTotal} GB total</div>
-              </div>
-
-              <div class="stat-card card-stagger" style="animation-delay: 40ms">
-                <div class="stat-header">CPU Load</div>
-                <div class="stat-value" style="color: {loadColor}">{system.loadAvg}</div>
-                <div class="stat-bar">
-                  <div
-                    class="stat-fill"
-                    style="width: {Math.min(100, (system.loadAvg / system.cpuCount) * 100)}%; background: {loadColor}"
-                  ></div>
-                </div>
-                <svg class="stat-sparkline" viewBox="0 0 60 20" preserveAspectRatio="none">
-                  <rect
-                    x="0"
-                    y={20 - (Math.min(100, (system.loadAvg / system.cpuCount) * 100) / 100) * 20}
-                    width="60"
-                    height={(Math.min(100, (system.loadAvg / system.cpuCount) * 100) / 100) * 20}
-                    fill={loadColor}
-                    opacity="0.2"
-                    rx="2"
-                  />
-                  <line
-                    x1="0"
-                    y1={20 - (Math.min(100, (system.loadAvg / system.cpuCount) * 100) / 100) * 20}
-                    x2="60"
-                    y2={20 - (Math.min(100, (system.loadAvg / system.cpuCount) * 100) / 100) * 20}
-                    stroke={loadColor}
-                    stroke-width="1.5"
-                  />
-                </svg>
-                <div class="stat-detail">{system.cpuCount} cores</div>
-              </div>
-
-              <div class="stat-card card-stagger" style="animation-delay: 80ms">
-                <div class="stat-header">Uptime</div>
-                <div class="stat-value">{system.uptime}h</div>
-                <div class="stat-detail">{Math.floor(system.uptime / 24)}d {system.uptime % 24}h</div>
-              </div>
-            </div>
-          {:else}
-            <!-- Medium: numbers + bars (default/current) -->
-            <div class="stats-row">
-              <div class="stat-card card-stagger" style="animation-delay: 0ms">
-                <div class="stat-header">Memory</div>
-                <div class="stat-value" style="color: {memColor}">{system.memUsedPercent}%</div>
-                <div class="stat-bar">
-                  <div class="stat-fill" style="width: {system.memUsedPercent}%; background: {memColor}"></div>
-                </div>
-                <div class="stat-detail">{system.memTotal} GB total</div>
-              </div>
-
-              <div class="stat-card card-stagger" style="animation-delay: 40ms">
-                <div class="stat-header">CPU Load</div>
-                <div class="stat-value" style="color: {loadColor}">{system.loadAvg}</div>
-                <div class="stat-bar">
-                  <div
-                    class="stat-fill"
-                    style="width: {Math.min(100, (system.loadAvg / system.cpuCount) * 100)}%; background: {loadColor}"
-                  ></div>
-                </div>
-                <div class="stat-detail">{system.cpuCount} cores</div>
-              </div>
-
-              <div class="stat-card card-stagger" style="animation-delay: 80ms">
-                <div class="stat-header">Uptime</div>
-                <div class="stat-value">{system.uptime}h</div>
-                <div class="stat-detail">{Math.floor(system.uptime / 24)}d {system.uptime % 24}h</div>
-              </div>
-            </div>
-          {/if}
-        {:else if section.id === 'disk'}
-          {@const sectionSize = section.size}
-          {#if sectionSize === 'small'}
-            <!-- Compact: just usage % per mount -->
-            <div class="stats-compact">
-              {#each dashboard.disk as d}
-                {@const pct = diskUsagePercent(d)}
-                {@const color = diskColor(pct)}
-                <div class="stat-compact-item">
-                  <span class="stat-compact-label">{d.mount}</span>
-                  <span class="stat-compact-value" style="color: {color}">{d.usePercent}</span>
-                </div>
-              {/each}
-            </div>
-          {:else}
-            <!-- Medium/Large: usage bars -->
-            <div class="stats-row">
-              {#each dashboard.disk as d, i}
-                {@const pct = diskUsagePercent(d)}
-                {@const color = diskColor(pct)}
-                <div class="stat-card card-stagger" style="animation-delay: {i * 40}ms">
-                  <div class="stat-header">Disk <code>{d.mount}</code></div>
-                  <div class="stat-value" style="color: {color}">{d.usePercent}</div>
-                  <div class="stat-bar">
-                    <div class="stat-fill" style="width: {d.usePercent}; background: {color}"></div>
-                  </div>
-                  {#if sectionSize === 'large'}
-                    <svg class="disk-sparkline" viewBox="0 0 60 20" preserveAspectRatio="none">
-                      <rect
-                        x="0"
-                        y={20 - (pct / 100) * 20}
-                        width="60"
-                        height={(pct / 100) * 20}
-                        fill={color}
-                        opacity="0.2"
-                        rx="2"
-                      />
-                      <line
-                        x1="0"
-                        y1={20 - (pct / 100) * 20}
-                        x2="60"
-                        y2={20 - (pct / 100) * 20}
-                        stroke={color}
-                        stroke-width="1.5"
-                      />
-                    </svg>
-                  {/if}
-                  <div class="stat-detail">
-                    {d.used} / {d.total}
-                    {#if d.fstype}<span class="disk-fstype">{d.fstype}</span>{/if}
-                  </div>
-                  {#if d.device}
-                    <div class="stat-device" title={d.device}>{d.device.split('/').pop()}</div>
-                  {/if}
-                </div>
-              {/each}
-            </div>
-          {/if}
-        {:else if section.id === 'tasks'}
-          {@const sectionSize = section.size}
-          <div class="status-grid">
-            <a href="/tasks" class="status-card card-stagger" style="animation-delay: 0ms">
-              <div class="status-icon"><Icon name="settings" size={sectionSize === 'small' ? 14 : 18} /></div>
-              <div class="status-body">
-                <h3>{sectionSize === 'small' ? 'Tasks' : 'Tasks'}</h3>
-                <div class="status-metrics">
-                  {#if dashboard.tasks.running > 0}
-                    <span class="metric running">{dashboard.tasks.running} running</span>
-                  {/if}
-                  {#if dashboard.tasks.failed > 0}
-                    <span class="metric failed">{dashboard.tasks.failed} failed</span>
-                  {/if}
-                  <span class="metric">{dashboard.tasks.scheduled} scheduled</span>
-                  {#if sectionSize !== 'small'}
-                    <span class="metric muted">{dashboard.tasks.total} total</span>
-                  {/if}
-                </div>
-              </div>
-            </a>
-          </div>
-        {:else if section.id === 'backups'}
-          {@const sectionSize = section.size}
-          <div class="status-grid">
-            <a href="/backups" class="status-card card-stagger" style="animation-delay: 0ms">
-              <div class="status-icon"><Icon name="rotate" size={sectionSize === 'small' ? 14 : 18} /></div>
-              <div class="status-body">
-                <h3>Backups</h3>
-                <div class="status-metrics">
-                  <span class="metric muted">{dashboard.backups.total} configs</span>
-                  {#if dashboard.backups.lastRun}
-                    <span
-                      class="metric"
-                      class:success={dashboard.backups.lastRun.status === 'success'}
-                      class:failed={dashboard.backups.lastRun.status === 'failed'}
-                    >
-                      {#if sectionSize !== 'small'}{dashboard.backups.lastRun.name}:{/if}
-                      {dashboard.backups.lastRun.status}
-                    </span>
-                    {#if sectionSize !== 'small'}
-                      <span class="metric muted">{formatRelativeTime(dashboard.backups.lastRun.time)}</span>
-                    {/if}
-                  {:else}
-                    <span class="metric muted">No runs yet</span>
-                  {/if}
-                </div>
-              </div>
-            </a>
-          </div>
-        {:else if section.id === 'keeper'}
-          {@const sectionSize = section.size}
-          <div class="status-grid">
-            <a href="/keeper" class="status-card card-stagger" style="animation-delay: 0ms">
-              <div class="status-icon"><Icon name="bookmark" size={sectionSize === 'small' ? 14 : 18} /></div>
-              <div class="status-body">
-                <h3>Keeper</h3>
-                <div class="status-metrics">
-                  {#if dashboard.keeper['in-progress']}
-                    <span class="metric running">{dashboard.keeper['in-progress']} in progress</span>
-                  {/if}
-                  {#if dashboard.keeper.ready}
-                    <span class="metric accent">{dashboard.keeper.ready} ready</span>
-                  {/if}
-                  {#if dashboard.keeper.backlog}
-                    <span class="metric muted">{dashboard.keeper.backlog} backlog</span>
-                  {/if}
-                  {#if sectionSize !== 'small' && dashboard.keeper.done}
-                    <span class="metric success">{dashboard.keeper.done} done</span>
-                  {/if}
-                </div>
-              </div>
-            </a>
-          </div>
-        {:else if section.id === 'activity-timeline'}
-          <div class="detail-card">
-            <h3 class="section-title">Recent Activity</h3>
-            {#if dashboard.recentRuns.length > 0}
-              <div class="timeline">
-                {#each section.size === 'small' ? dashboard.recentRuns.slice(0, 3) : dashboard.recentRuns as run}
-                  <div class="timeline-item">
-                    <span
-                      class="timeline-dot"
-                      style="background: {run.status === 'success'
-                        ? 'var(--success)'
-                        : run.status === 'failed' || run.status === 'timeout'
-                          ? 'var(--danger)'
-                          : 'var(--warning)'}"
-                    ></span>
-                    <div class="timeline-content">
-                      <span class="timeline-name">{run.name}</span>
-                      <span class="timeline-meta">
-                        {run.status}
-                        {#if run.duration}
-                          · {run.duration < 1000 ? run.duration + 'ms' : (run.duration / 1000).toFixed(1) + 's'}{/if}
-                        · {formatRelativeTime(run.time)}
-                      </span>
-                    </div>
-                  </div>
-                {/each}
-              </div>
-            {:else}
-              <p class="detail-empty">No recent task runs</p>
-            {/if}
-          </div>
-        {:else if section.id === 'top-processes'}
-          <div class="detail-card">
-            <h3 class="section-title">Top Processes</h3>
-            {#if dashboard.topProcesses.length > 0}
-              <div class="top-procs">
-                {#each section.size === 'small' ? dashboard.topProcesses.slice(0, 3) : dashboard.topProcesses as proc}
-                  <div class="proc-row">
-                    <span class="proc-name">{proc.name}</span>
-                    {#if section.size !== 'small'}
-                      <div class="proc-bars">
-                        <div class="proc-bar">
-                          <div class="proc-fill proc-cpu" style="width: {Math.min(100, proc.cpu)}%"></div>
-                        </div>
-                        <div class="proc-bar">
-                          <div class="proc-fill proc-mem" style="width: {Math.min(100, proc.mem)}%"></div>
-                        </div>
-                      </div>
-                    {/if}
-                    <span class="proc-vals">{proc.cpu.toFixed(1)}% · {proc.mem.toFixed(1)}%</span>
-                  </div>
-                {/each}
-                {#if section.size !== 'small'}
-                  <div class="proc-legend">
-                    <span><span class="legend-dot" style="background: var(--accent)"></span> CPU</span>
-                    <span><span class="legend-dot" style="background: var(--purple)"></span> MEM</span>
-                  </div>
-                {/if}
-              </div>
-            {:else}
-              <p class="detail-empty">No process data</p>
-            {/if}
-          </div>
-        {:else if section.id === 'notifications'}
-          <div class="status-grid">
-            <a href="/notifications" class="status-card card-stagger">
-              <div class="status-icon"><Icon name="bell" size={section.size === 'small' ? 14 : 18} /></div>
-              <div class="status-body">
-                <h3>Notifications</h3>
-                <div class="status-metrics">
-                  {#if dashboard.notifications > 0}
-                    <span class="metric accent">{dashboard.notifications} unread</span>
-                  {:else}
-                    <span class="metric muted">All caught up</span>
-                  {/if}
-                </div>
-              </div>
-            </a>
-          </div>
-        {:else if section.id === 'notes'}
-          <div class="status-grid">
-            <a href="/notes" class="status-card card-stagger">
-              <div class="status-icon"><Icon name="file-text" size={section.size === 'small' ? 14 : 18} /></div>
-              <div class="status-body">
-                <h3>Notes</h3>
-                <div class="status-metrics">
-                  <span class="metric">{dashboard.notes} note{dashboard.notes !== 1 ? 's' : ''}</span>
-                </div>
-              </div>
-            </a>
-          </div>
-        {:else if section.id === 'docker'}
-          <div class="status-grid">
-            <a href="/docker" class="status-card card-stagger">
-              <div class="status-icon"><Icon name="docker" size={section.size === 'small' ? 14 : 18} /></div>
-              <div class="status-body">
-                <h3>Docker</h3>
-                <div class="status-metrics">
-                  {#if dashboard.docker.total > 0}
-                    <span class="metric success">{dashboard.docker.running} running</span>
-                    <span class="metric muted">{dashboard.docker.total} total</span>
-                  {:else}
-                    <span class="metric muted">No containers</span>
-                  {/if}
-                </div>
-              </div>
-            </a>
-          </div>
-        {:else if section.id === 'services'}
-          <div class="status-grid">
-            <a href="/services" class="status-card card-stagger">
-              <div class="status-icon"><Icon name="activity" size={section.size === 'small' ? 14 : 18} /></div>
-              <div class="status-body">
-                <h3>Services</h3>
-                <div class="status-metrics">
-                  {#if dashboard.services.total > 0}
-                    <span class="metric success">{dashboard.services.healthy} healthy</span>
-                    <span class="metric muted">{dashboard.services.total} monitored</span>
-                  {:else}
-                    <span class="metric muted">None configured</span>
-                  {/if}
-                </div>
-              </div>
-            </a>
-          </div>
-        {:else if section.id === 'starred-files'}
-          {#if starredFiles.length > 0}
-            <h3 class="section-title">Starred Files</h3>
-            <div class="starred-files">
-              {#each section.size === 'small' ? starredFiles.slice(0, 4) : starredFiles as filePath, i}
-                <a
-                  href="/files?path={encodeURIComponent(filePath)}"
-                  class="starred-file card-stagger"
-                  style="animation-delay: {i * 30}ms"
-                  title={filePath}
-                >
-                  <span class="starred-icon">★</span>
-                  <span class="starred-name">{filePath.split('/').pop()}</span>
-                  {#if section.size !== 'small'}
-                    <span class="starred-path">{filePath.split('/').slice(0, -1).join('/')}</span>
-                  {/if}
-                </a>
-              {/each}
-            </div>
-          {/if}
-        {:else if section.id === 'quick-nav'}
-          <h3 class="section-title">Quick Access</h3>
-          <div class="nav-grid">
-            {#each widgets as w, i}
-              <a href={w.href} class="nav-card card-stagger" style="animation-delay: {i * 40}ms">
-                <span class="nav-icon"><Icon name={w.icon} size={18} /></span>
-                <span>{w.label}</span>
-              </a>
-            {/each}
-          </div>
-        {/if}
+        <DashboardWidget {widget} {dashboard} {system} {starredFiles} {navWidgets} onrefresh={refreshData} />
       </div>
     {/if}
   {/each}
@@ -879,16 +547,6 @@
   h2 {
     font-size: 1.3rem;
     margin-bottom: 16px;
-  }
-  h3 {
-    font-size: 1rem;
-  }
-  .section-title {
-    margin: 0 0 12px;
-    color: var(--text-muted);
-    font-size: 0.8rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
   }
 
   /* ── Dashboard Grid ─────────────────────────────────────────────────── */
@@ -962,6 +620,16 @@
     flex: 1;
   }
 
+  .section-summary {
+    font-size: 0.6rem;
+    color: var(--text-faint);
+    font-family: 'JetBrains Mono', monospace;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+  }
+
   /* ── Size toggle (inline in header) ─────────────────────────────────── */
   .section-size-toggle {
     display: flex;
@@ -996,418 +664,50 @@
     color: var(--bg-primary);
   }
 
-  /* ── Quick Actions ──────────────────────────────────────────────────── */
-  .quick-actions {
+  /* ── Settings Modal Tabs ─────────────────────────────────────────────── */
+  .settings-tabs {
     display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
+    gap: 2px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--border-subtle);
+    padding-bottom: 8px;
   }
 
-  /* ── System Stats ───────────────────────────────────────────────────── */
-  .stats-row {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(150px, 100%), 1fr));
-    gap: 12px;
-  }
-
-  .stats-compact {
+  .settings-tab {
     display: flex;
-    flex-wrap: wrap;
-    gap: 8px 16px;
+    align-items: center;
+    gap: 5px;
+    background: none;
+    border: none;
+    padding: 6px 12px;
+    font-size: 0.78rem;
+    font-family: inherit;
+    color: var(--text-muted);
+    border-radius: 6px;
+    cursor: pointer;
+    transition:
+      color 0.15s,
+      background 0.15s;
   }
 
-  .stat-compact-item {
-    display: flex;
-    align-items: baseline;
-    gap: 6px;
+  .settings-tab:hover {
+    color: var(--text-secondary);
+    background: var(--bg-inset);
   }
 
-  .stat-compact-label {
-    font-size: 0.65rem;
-    color: var(--text-faint);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+  .settings-tab.active {
+    color: var(--accent);
+    background: var(--bg-inset);
     font-weight: 600;
   }
 
-  .stat-compact-value {
-    font-size: 1.1rem;
-    font-weight: 700;
-    font-family: 'JetBrains Mono', monospace;
-  }
-
-  .stat-card {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 14px;
-  }
-
-  .stat-header {
-    font-size: 0.7rem;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    margin-bottom: 6px;
-  }
-
-  .stat-header code {
-    font-size: 0.65rem;
-    text-transform: none;
-    letter-spacing: 0;
-  }
-
-  .stat-value {
-    font-size: 1.4rem;
-    font-weight: 700;
-    font-family: 'JetBrains Mono', monospace;
-    line-height: 1.2;
-  }
-
-  .stat-bar {
-    height: 4px;
-    background: var(--border-subtle);
-    border-radius: 2px;
-    margin: 8px 0 6px;
-    overflow: hidden;
-  }
-
-  .stat-fill {
-    height: 100%;
-    border-radius: 2px;
-    transition: width 0.3s;
-  }
-
-  .stat-detail {
-    font-size: 0.65rem;
-    color: var(--text-faint);
-    font-family: 'JetBrains Mono', monospace;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    flex-wrap: wrap;
-  }
-
-  .stat-sparkline,
-  .disk-sparkline {
-    width: 60px;
-    height: 20px;
-    margin: 4px 0 2px;
-  }
-
-  .disk-fstype {
-    font-size: 0.55rem;
-    color: var(--text-faint);
-    background: var(--bg-inset);
-    padding: 1px 3px;
-    border-radius: 3px;
-  }
-
-  .stat-device {
-    font-size: 0.55rem;
-    color: var(--text-faint);
-    font-family: 'JetBrains Mono', monospace;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    margin-top: 2px;
-  }
-
-  /* ── Status Cards ───────────────────────────────────────────────────── */
-  .status-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
-
-  .status-card {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 14px 16px;
-    display: flex;
-    gap: 12px;
-    align-items: flex-start;
-    text-decoration: none;
-    color: inherit;
-    transition: border-color 0.15s;
-  }
-
-  .status-card:hover {
-    border-color: var(--accent);
-  }
-
-  .status-icon {
-    font-size: 1.3rem;
-    width: 28px;
-    text-align: center;
-    flex-shrink: 0;
-    padding-top: 2px;
-  }
-
-  .status-body {
-    flex: 1;
-    min-width: 0;
-  }
-  .status-body h3 {
-    font-size: 0.9rem;
-    margin-bottom: 6px;
-  }
-
-  .status-metrics {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px 10px;
-  }
-  .metric {
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-  }
-  .metric.muted {
-    color: var(--text-faint);
-  }
-  .metric.running {
-    color: var(--warning);
-  }
-  .metric.failed {
-    color: var(--danger);
-  }
-  .metric.success {
-    color: var(--success);
-  }
-  .metric.accent {
-    color: var(--accent);
-  }
-
-  /* ── Activity & Processes ───────────────────────────────────────────── */
-  .detail-card {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 14px;
-  }
-
-  .detail-empty {
-    font-size: 0.75rem;
-    color: var(--text-faint);
-    text-align: center;
-    padding: 16px;
-  }
-
-  /* Timeline */
-  .timeline {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .timeline-item {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-  }
-
-  .timeline-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    flex-shrink: 0;
-    margin-top: 4px;
-  }
-
-  .timeline-content {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-  }
-
-  .timeline-name {
-    font-size: 0.78rem;
-    color: var(--text-primary);
-  }
-
-  .timeline-meta {
-    font-size: 0.65rem;
-    color: var(--text-faint);
-    font-family: 'JetBrains Mono', monospace;
-  }
-
-  /* Top Processes */
-  .top-procs {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  .proc-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .proc-name {
-    font-size: 0.75rem;
-    width: 100px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    color: var(--text-secondary);
-    flex-shrink: 0;
-  }
-
-  .proc-bars {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  .proc-bar {
-    height: 3px;
-    background: var(--border-subtle);
-    border-radius: 2px;
-    overflow: hidden;
-  }
-
-  .proc-fill {
-    height: 100%;
-    border-radius: 2px;
-    transition: width 0.3s;
-  }
-
-  .proc-cpu {
-    background: var(--accent);
-  }
-
-  .proc-mem {
-    background: var(--purple);
-  }
-
-  .proc-vals {
-    font-size: 0.6rem;
-    color: var(--text-faint);
-    font-family: 'JetBrains Mono', monospace;
-    white-space: nowrap;
-    width: 80px;
-    text-align: right;
-    flex-shrink: 0;
-  }
-
-  .proc-legend {
-    display: flex;
-    gap: 12px;
-    justify-content: flex-end;
-    margin-top: 4px;
-    font-size: 0.6rem;
-    color: var(--text-faint);
-  }
-
-  .legend-dot {
-    display: inline-block;
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    margin-right: 3px;
-    vertical-align: middle;
-  }
-
-  /* ── Quick Nav ──────────────────────────────────────────────────────── */
-  .nav-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-    gap: 10px;
-  }
-
-  .nav-card {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 14px;
-    text-decoration: none;
-    color: var(--text-secondary);
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 0.85rem;
-    transition:
-      border-color 0.15s,
-      color 0.15s;
-  }
-
-  .nav-card:hover {
-    border-color: var(--accent);
-    color: var(--text-primary);
-  }
-
-  .nav-icon {
-    font-size: 1.1rem;
-  }
-
-  /* ── Starred Files ──────────────────────────────────────────────────── */
-  .starred-files {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-
-  .starred-file {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    background: var(--bg-secondary);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 6px 12px;
-    text-decoration: none;
-    color: var(--text-secondary);
-    font-size: 0.8rem;
-    transition:
-      border-color 0.15s,
-      color 0.15s;
-    max-width: 280px;
-    overflow: hidden;
-  }
-
-  .starred-file:hover {
-    border-color: var(--purple);
-    color: var(--text-primary);
-  }
-
-  .starred-icon {
-    color: var(--purple);
-    font-size: 0.75rem;
-    flex-shrink: 0;
-  }
-
-  .starred-name {
-    font-weight: 500;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .starred-path {
-    font-size: 0.6rem;
-    color: var(--text-faint);
-    font-family: 'JetBrains Mono', monospace;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    display: none;
-  }
-
-  @media (min-width: 640px) {
-    .starred-path {
-      display: inline;
-      max-width: 120px;
-    }
-  }
-
-  /* ── Settings Modal ─────────────────────────────────────────────────── */
+  /* ── Settings Layout List ────────────────────────────────────────────── */
   .settings-list {
     display: flex;
     flex-direction: column;
     gap: 4px;
+    max-height: 400px;
+    overflow-y: auto;
   }
 
   .settings-item {
@@ -1442,14 +742,10 @@
     cursor: grabbing;
   }
 
-  .settings-vis {
+  .settings-icon {
+    color: var(--text-muted);
+    display: inline-flex;
     flex-shrink: 0;
-    display: flex;
-    align-items: center;
-  }
-
-  .settings-vis input[type='checkbox'] {
-    accent-color: var(--accent);
   }
 
   .settings-label {
@@ -1490,6 +786,183 @@
     color: var(--bg-primary);
   }
 
+  .settings-remove {
+    background: none;
+    border: none;
+    color: var(--text-faint);
+    cursor: pointer;
+    padding: 2px;
+    border-radius: 3px;
+    display: inline-flex;
+    transition:
+      color 0.15s,
+      background 0.15s;
+  }
+
+  .settings-remove:hover {
+    color: var(--danger);
+    background: var(--danger-bg);
+  }
+
+  .settings-hidden-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.72rem;
+    color: var(--text-faint);
+    padding: 8px 4px 0;
+  }
+
+  .settings-show-all {
+    background: none;
+    border: none;
+    color: var(--accent);
+    font-size: 0.72rem;
+    font-family: inherit;
+    cursor: pointer;
+    padding: 0;
+    text-decoration: underline;
+  }
+
+  .settings-show-all:hover {
+    color: var(--text-primary);
+  }
+
+  /* ── Presets Grid ────────────────────────────────────────────────────── */
+  .presets-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 8px;
+  }
+
+  .preset-card {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 12px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    text-align: left;
+    font-family: inherit;
+    transition:
+      border-color 0.15s,
+      background 0.15s;
+  }
+
+  .preset-card:hover {
+    border-color: var(--accent);
+    background: var(--bg-hover);
+  }
+
+  .preset-icon {
+    color: var(--accent);
+    flex-shrink: 0;
+    padding-top: 2px;
+  }
+
+  .preset-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .preset-name {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .preset-desc {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+  }
+
+  .preset-count {
+    font-size: 0.62rem;
+    color: var(--text-faint);
+    font-family: 'JetBrains Mono', monospace;
+    margin-top: 2px;
+  }
+
+  /* ── Add Widget Catalog ──────────────────────────────────────────────── */
+  .add-empty {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 20px;
+    justify-content: center;
+    color: var(--success);
+    font-size: 0.82rem;
+  }
+
+  .add-category {
+    margin-bottom: 12px;
+  }
+
+  .add-category-label {
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-faint);
+    margin: 0 0 6px;
+  }
+
+  .add-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .add-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    background: none;
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: inherit;
+    text-align: left;
+    transition:
+      border-color 0.15s,
+      background 0.15s;
+    width: 100%;
+  }
+
+  .add-item:hover {
+    border-color: var(--accent);
+    background: var(--bg-hover);
+  }
+
+  .add-item-icon {
+    color: var(--text-muted);
+    flex-shrink: 0;
+    display: inline-flex;
+  }
+
+  .add-item-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+  }
+
+  .add-item-name {
+    font-size: 0.78rem;
+    color: var(--text-primary);
+    font-weight: 500;
+  }
+
+  .add-item-desc {
+    font-size: 0.65rem;
+    color: var(--text-faint);
+  }
+
   /* ── Responsive ─────────────────────────────────────────────────────── */
   @media (max-width: 767px) {
     .dashboard-grid {
@@ -1498,14 +971,6 @@
 
     .dashboard-section {
       grid-column: span 1 !important;
-    }
-
-    .stats-row {
-      grid-template-columns: repeat(2, 1fr);
-    }
-
-    .status-grid {
-      grid-template-columns: 1fr;
     }
 
     .section-size-toggle {

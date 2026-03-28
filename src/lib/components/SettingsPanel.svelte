@@ -335,7 +335,7 @@
     <div class="settings-body">
       <!-- Theme -->
       <div class="setting-group">
-        <label class="setting-label">Theme</label>
+        <span class="setting-label">Theme</span>
         <div class="theme-grid">
           {#each THEMES as t}
             <button class="theme-chip" class:active={$theme === t.id} onclick={() => setTheme(t.id)} title={t.label}>
@@ -348,7 +348,7 @@
 
       <!-- Accent Color -->
       <div class="setting-group">
-        <label class="setting-label">Accent Color</label>
+        <span class="setting-label">Accent Color</span>
         <div class="accent-row">
           {#each ACCENT_PRESETS as preset}
             <button
@@ -371,9 +371,7 @@
 
       <!-- Font Size -->
       <div class="setting-group">
-        <label class="setting-label"
-          >Font Size <span class="setting-hint">(base px — affects all rem sizes)</span></label
-        >
+        <span class="setting-label">Font Size <span class="setting-hint">(base px — affects all rem sizes)</span></span>
         <div class="font-size-row">
           {#each FONT_SIZES as size}
             <button class="size-btn" class:active={config.fontSize === size} onclick={() => setFontSize(size)}
@@ -386,7 +384,7 @@
 
       <!-- Body Font -->
       <div class="setting-group">
-        <label class="setting-label">Body Font</label>
+        <span class="setting-label">Body Font</span>
         <div class="font-dropdown-wrap">
           <button
             class="font-dropdown-trigger"
@@ -419,7 +417,7 @@
 
       <!-- Heading Font -->
       <div class="setting-group">
-        <label class="setting-label">Heading Font</label>
+        <span class="setting-label">Heading Font</span>
         <div class="font-dropdown-wrap">
           <button
             class="font-dropdown-trigger"
@@ -452,7 +450,7 @@
 
       <!-- Border Radius -->
       <div class="setting-group">
-        <label class="setting-label">Corner Style</label>
+        <span class="setting-label">Corner Style</span>
         <div class="option-row">
           <button class="option-btn" class:active={config.borderRadius === 'sharp'} onclick={() => setRadius('sharp')}>
             <span class="radius-preview" style="border-radius: 2px"></span> Sharp
@@ -472,15 +470,21 @@
 
       <!-- High Contrast -->
       <div class="setting-group row-toggle">
-        <label class="setting-label">High Contrast</label>
-        <button class="toggle-switch" class:on={config.highContrast} onclick={toggleContrast}>
+        <span class="setting-label">High Contrast</span>
+        <button
+          class="toggle-switch"
+          class:on={config.highContrast}
+          onclick={toggleContrast}
+          aria-label="Toggle high contrast"
+          aria-pressed={config.highContrast}
+        >
           <span class="toggle-knob"></span>
         </button>
       </div>
 
       <!-- Font Weight -->
       <div class="setting-group">
-        <label class="setting-label">Body Weight</label>
+        <span class="setting-label">Body Weight</span>
         <div class="slider-row">
           <input
             type="range"
@@ -496,7 +500,7 @@
       </div>
 
       <div class="setting-group">
-        <label class="setting-label">Heading Weight</label>
+        <span class="setting-label">Heading Weight</span>
         <div class="slider-row">
           <input
             type="range"
@@ -513,7 +517,7 @@
 
       <!-- Line Height -->
       <div class="setting-group">
-        <label class="setting-label">Line Height</label>
+        <span class="setting-label">Line Height</span>
         <div class="option-row">
           {#each [1.2, 1.4, 1.5, 1.6] as lh}
             <button
@@ -530,7 +534,7 @@
 
       <!-- Letter Spacing -->
       <div class="setting-group">
-        <label class="setting-label">Letter Spacing</label>
+        <span class="setting-label">Letter Spacing</span>
         <div class="option-row">
           {#each [-0.02, 0, 0.02, 0.04] as ls}
             <button
@@ -547,7 +551,7 @@
 
       <!-- Custom Colors -->
       <div class="setting-group">
-        <label class="setting-label">Custom Colors</label>
+        <span class="setting-label">Custom Colors</span>
         {#each ['Brand', 'Text', 'Surface'] as group}
           <span class="color-group-label">{group}</span>
           <div class="color-overrides">

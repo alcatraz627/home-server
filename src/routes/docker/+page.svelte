@@ -1,37 +1,35 @@
 <script lang="ts">
   import type { PageData } from './$types';
-
-  interface DockerContainer {
-    id: string;
-    name: string;
-    image: string;
-    status: string;
-    state: string;
-    ports: string;
-    created: string;
-  }
+  import type { DockerContainer } from '$lib/types/docker';
   import { toast } from '$lib/toast';
-  import { fetchApi } from '$lib/api';
+  import { fetchApi, postJson } from '$lib/api';
+  import { getErrorMessage } from '$lib/errors';
   import Button from '$lib/components/Button.svelte';
   import Badge from '$lib/components/Badge.svelte';
   import Icon from '$lib/components/Icon.svelte';
   import Tooltip from '$lib/components/Tooltip.svelte';
+  import PageHeader from '$lib/components/PageHeader.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
-  import Loading from '$lib/components/Loading.svelte';
+  import AsyncState from '$lib/components/AsyncState.svelte';
+  import InfoRow from '$lib/components/InfoRow.svelte';
   import { onMount } from 'svelte';
+  import { useShortcuts, SHORTCUT_DEFAULTS } from '$lib/shortcuts';
 
   let { data } = $props<{ data: PageData }>();
-  const dockerInstalled = data.installed;
+  const dockerInstalled = $derived(data.installed);
 
   let containers = $state<DockerContainer[]>([]);
   let loading = $state(true);
   let actionLoading = $state<string | null>(null);
 
-  onMount(async () => {
-    if (dockerInstalled) {
-      await refresh();
-    }
-    loading = false;
+  onMount(() => {
+    (async () => {
+      if (dockerInstalled) {
+        await refresh();
+      }
+      loading = false;
+    })();
+    return useShortcuts([{ ...SHORTCUT_DEFAULTS.find((d) => d.id === 'docker:refresh')!, handler: () => refresh() }]);
   });
 
   async function refresh() {
@@ -47,19 +45,15 @@
   async function containerAction(id: string, action: 'start' | 'stop' | 'restart') {
     actionLoading = `${id}-${action}`;
     try {
-      const res = await fetchApi('/api/docker', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, id }),
-      });
+      const res = await postJson('/api/docker', { action, id });
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error || 'Failed');
       }
       toast.success(`Container ${action}ed`);
       await refresh();
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err));
     } finally {
       actionLoading = null;
     }
@@ -77,19 +71,17 @@
   }
 </script>
 
-<div class="page">
-  <header class="page-header">
-    <div class="page-title">
-      <Icon name="monitor" size={20} />
-      <h1>Docker</h1>
+<div class="page page-lg">
+  <PageHeader title="Docker" icon="monitor">
+    {#snippet titleExtra()}
       {#if dockerInstalled}
         <Badge variant="success" size="sm" dot>Available</Badge>
       {/if}
-    </div>
+    {/snippet}
     {#if dockerInstalled}
       <Button variant="ghost" size="sm" icon="refresh" onclick={refresh}>Refresh</Button>
     {/if}
-  </header>
+  </PageHeader>
 
   {#if !dockerInstalled}
     <EmptyState
@@ -97,129 +89,83 @@
       title="Docker not installed"
       hint="Install Docker to manage containers from this dashboard."
     />
-  {:else if loading}
-    <Loading variant="skeleton" count={3} height="80px" />
-  {:else if containers.length === 0}
-    <EmptyState
-      icon="monitor"
-      title="No containers found"
-      hint="No Docker containers are running or stopped on this host."
-    />
   {:else}
-    <div class="container-grid">
-      {#each containers as c (c.id)}
-        <div class="container-card card">
-          <div class="container-top">
-            <div class="container-info">
-              <div class="container-name">{c.name}</div>
-              <div class="container-image">{c.image}</div>
-            </div>
-            <Badge variant={stateVariant(c.state)} size="md" dot pulse={c.state === 'running'}>
-              {stateLabel(c.state)}
-            </Badge>
-          </div>
-
-          <div class="container-details">
-            <div class="detail">
-              <span class="detail-label">ID</span>
-              <span class="detail-value mono">{c.id.slice(0, 12)}</span>
-            </div>
-            <div class="detail">
-              <span class="detail-label">Status</span>
-              <span class="detail-value">{c.status}</span>
-            </div>
-            {#if c.ports}
-              <div class="detail">
-                <span class="detail-label">Ports</span>
-                <span class="detail-value mono">{c.ports}</span>
+    <AsyncState
+      {loading}
+      empty={containers.length === 0}
+      emptyIcon="monitor"
+      emptyTitle="No containers found"
+      emptyHint="No Docker containers are running or stopped on this host."
+      loadingCount={3}
+      loadingHeight="80px"
+    >
+      <div class="container-grid">
+        {#each containers as c (c.id)}
+          <div class="container-card card card-padded">
+            <div class="container-top">
+              <div class="container-info">
+                <div class="container-name">{c.name}</div>
+                <div class="container-image">{c.image}</div>
               </div>
-            {/if}
-            {#if c.created}
-              <div class="detail">
-                <span class="detail-label">Created</span>
-                <span class="detail-value">{c.created}</span>
-              </div>
-            {/if}
-          </div>
+              <Badge variant={stateVariant(c.state)} size="md" dot pulse={c.state === 'running'}>
+                {stateLabel(c.state)}
+              </Badge>
+            </div>
 
-          <div class="container-actions">
-            {#if c.state !== 'running'}
-              <Tooltip text="Start">
+            <div class="container-details">
+              <InfoRow label="ID" value={c.id.slice(0, 12)} mono />
+              <InfoRow label="Status" value={c.status} />
+              {#if c.ports}
+                <InfoRow label="Ports" value={c.ports} mono />
+              {/if}
+              {#if c.created}
+                <InfoRow label="Created" value={c.created} />
+              {/if}
+            </div>
+
+            <div class="container-actions">
+              {#if c.state !== 'running'}
+                <Tooltip text="Start">
+                  <Button
+                    variant="ghost"
+                    size="xs"
+                    icon="play"
+                    iconOnly
+                    loading={actionLoading === `${c.id}-start`}
+                    onclick={() => containerAction(c.id, 'start')}
+                  />
+                </Tooltip>
+              {:else}
+                <Tooltip text="Stop">
+                  <Button
+                    variant="ghost"
+                    size="xs"
+                    icon="stop"
+                    iconOnly
+                    loading={actionLoading === `${c.id}-stop`}
+                    onclick={() => containerAction(c.id, 'stop')}
+                  />
+                </Tooltip>
+              {/if}
+              <Tooltip text="Restart">
                 <Button
                   variant="ghost"
                   size="xs"
-                  icon="play"
+                  icon="refresh"
                   iconOnly
-                  loading={actionLoading === `${c.id}-start`}
-                  onclick={() => containerAction(c.id, 'start')}
+                  loading={actionLoading === `${c.id}-restart`}
+                  onclick={() => containerAction(c.id, 'restart')}
                 />
               </Tooltip>
-            {:else}
-              <Tooltip text="Stop">
-                <Button
-                  variant="ghost"
-                  size="xs"
-                  icon="stop"
-                  iconOnly
-                  loading={actionLoading === `${c.id}-stop`}
-                  onclick={() => containerAction(c.id, 'stop')}
-                />
-              </Tooltip>
-            {/if}
-            <Tooltip text="Restart">
-              <Button
-                variant="ghost"
-                size="xs"
-                icon="refresh"
-                iconOnly
-                loading={actionLoading === `${c.id}-restart`}
-                onclick={() => containerAction(c.id, 'restart')}
-              />
-            </Tooltip>
+            </div>
           </div>
-        </div>
-      {/each}
-    </div>
+        {/each}
+      </div>
+    </AsyncState>
   {/if}
 </div>
 
 <style>
-  .page {
-    max-width: 1100px;
-    margin: 0 auto;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-  }
-
-  .page-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 12px;
-  }
-
-  .page-title {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .page-title h1 {
-    font-size: 1.2rem;
-    font-weight: 600;
-    margin: 0;
-    color: var(--text-primary);
-  }
-
-  .card {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 16px;
-  }
-
   .container-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
@@ -261,29 +207,6 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
-  }
-
-  .detail {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-  }
-
-  .detail-label {
-    font-size: 0.65rem;
-    color: var(--text-faint);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    min-width: 50px;
-  }
-
-  .detail-value {
-    font-size: 0.78rem;
-    color: var(--text-secondary);
-  }
-
-  .mono {
-    font-family: var(--font-mono, monospace);
   }
 
   .container-actions {

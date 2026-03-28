@@ -1,7 +1,6 @@
 <script lang="ts">
   import { toast } from '$lib/toast';
   import { getErrorMessage } from '$lib/errors';
-  import PageHeader from '$lib/components/PageHeader.svelte';
   import ProgressBar from '$lib/components/ProgressBar.svelte';
   import { fetchApi } from '$lib/api';
   import { SK_SPEEDTEST_HISTORY } from '$lib/constants/storage-keys';
@@ -201,12 +200,7 @@
   }
 </script>
 
-<div class="page">
-  <h2 class="page-title">Speed Test</h2>
-  <p class="page-desc">
-    Measure LAN throughput between your browser and this server. Tests latency, download, and upload speeds.
-  </p>
-
+<div class="tool-speedtest">
   <div class="phases-info card">
     <div class="phase-step">
       <span class="phase-num">1</span>
@@ -363,7 +357,10 @@
 </div>
 
 <style>
-  .page {
+  .tool-speedtest {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
     max-width: 800px;
   }
   .phases-info {

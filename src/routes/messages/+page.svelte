@@ -1,12 +1,13 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { fetchApi } from '$lib/api';
+  import { fetchApi, postJson } from '$lib/api';
   import { toast } from '$lib/toast';
+  import { getErrorMessage } from '$lib/errors';
   import Icon from '$lib/components/Icon.svelte';
   import Button from '$lib/components/Button.svelte';
   import SearchInput from '$lib/components/SearchInput.svelte';
+  import AsyncState from '$lib/components/AsyncState.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
-  import Loading from '$lib/components/Loading.svelte';
 
   interface Conversation {
     chatId: number;
@@ -106,8 +107,8 @@
       available = data.available;
       unavailableReason = data.reason || '';
       conversations = data.conversations || [];
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to load conversations', { key: 'msg-conv' });
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, 'Failed to load conversations'), { key: 'msg-conv' });
     }
     convLoading = false;
   }
@@ -182,8 +183,8 @@
           if (messagesEl) messagesEl.scrollTop = messagesEl.scrollHeight;
         }, 50);
       }
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to load messages', { key: 'msg-thread' });
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, 'Failed to load messages'), { key: 'msg-thread' });
     }
     msgLoading = false;
   }
@@ -194,11 +195,7 @@
     const text = sendText.trim();
     sendText = '';
     try {
-      const res = await fetchApi('/api/messages/thread', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ handle: selectedHandle, text }),
-      });
+      const res = await postJson('/api/messages/thread', { handle: selectedHandle, text });
       if (!res.ok) {
         const d = await res.json();
         toast.error(d.error || 'Failed to send');
@@ -294,11 +291,12 @@
         </div>
 
         <div class="conv-list">
-          {#if convLoading && !conversations.length}
-            <Loading />
-          {:else if filteredConvs.length === 0 && available !== false}
-            <p class="conv-empty">No conversations found.</p>
-          {:else}
+          <AsyncState
+            loading={convLoading && !conversations.length}
+            empty={filteredConvs.length === 0 && available !== false}
+            emptyTitle="No conversations found"
+            emptyIcon="message-square"
+          >
             {#each filteredConvs as conv}
               <!-- svelte-ignore a11y_click_events_have_key_events -->
               <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -321,7 +319,7 @@
                 </div>
               </div>
             {/each}
-          {/if}
+          </AsyncState>
         </div>
       </aside>
 
@@ -348,11 +346,12 @@
           </div>
 
           <div class="messages-scroll" bind:this={messagesEl}>
-            {#if msgLoading && !messages.length}
-              <Loading />
-            {:else if messages.length === 0}
-              <p class="no-messages">No messages yet. Say hi!</p>
-            {:else}
+            <AsyncState
+              loading={msgLoading && !messages.length}
+              empty={messages.length === 0}
+              emptyTitle="No messages yet. Say hi!"
+              emptyIcon="message-square"
+            >
               {#if messages.length >= 100}
                 <div class="load-more-row">
                   <Button
@@ -402,7 +401,7 @@
                   </div>
                 </div>
               {/each}
-            {/if}
+            </AsyncState>
           </div>
 
           <div class="input-bar">
@@ -597,13 +596,6 @@
     overflow-y: auto;
   }
 
-  .conv-empty {
-    font-size: 0.78rem;
-    color: var(--text-faint);
-    text-align: center;
-    padding: 24px;
-  }
-
   .conv-item {
     display: flex;
     align-items: center;
@@ -728,13 +720,6 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
-  }
-
-  .no-messages {
-    text-align: center;
-    color: var(--text-faint);
-    font-size: 0.78rem;
-    margin: auto;
   }
 
   .load-more-row {

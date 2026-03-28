@@ -1,6 +1,5 @@
 <script lang="ts">
   import { toast } from '$lib/toast';
-  import PageHeader from '$lib/components/PageHeader.svelte';
   import { fetchApi } from '$lib/api';
   import { getErrorMessage } from '$lib/errors';
 
@@ -550,10 +549,7 @@
   }
 </script>
 
-<div class="page">
-  <h2 class="page-title">QR Code Generator</h2>
-  <p class="page-desc">Generate QR codes from text, URLs, or WiFi credentials. Download as PNG or share directly.</p>
-
+<div class="tool-qr">
   <div class="layout">
     <div class="controls card">
       <div class="mode-tabs">
@@ -653,6 +649,11 @@
 </div>
 
 <style>
+  .tool-qr {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
   .layout {
     display: grid;
     grid-template-columns: 1fr 1fr;

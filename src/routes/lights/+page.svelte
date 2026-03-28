@@ -3,13 +3,17 @@
   import type { WizBulb } from '$lib/server/wiz';
   import { onMount } from 'svelte';
   import { toast } from '$lib/toast';
+  import { getErrorMessage } from '$lib/errors';
   import Button from '$lib/components/Button.svelte';
-  import Loading from '$lib/components/Loading.svelte';
+  import AsyncState from '$lib/components/AsyncState.svelte';
   import Collapsible from '$lib/components/Collapsible.svelte';
   import Icon from '$lib/components/Icon.svelte';
+  import PageHeader from '$lib/components/PageHeader.svelte';
 
   import { browser } from '$app/environment';
-  import { fetchApi } from '$lib/api';
+  import { fetchApi, postJson } from '$lib/api';
+  import { LIGHTS_POLL_INTERVAL_MS } from '$lib/constants/defaults';
+  import { SK_LIGHTS_CONFIG, SK_LIGHTS_CACHE, SK_BULB_ORDER } from '$lib/constants/storage-keys';
 
   let { data } = $props<{ data: PageData }>();
 
@@ -20,7 +24,7 @@
     presets: CustomPreset[];
   }
 
-  const CONFIG_CACHE_KEY = 'hs:lights-config';
+  const CONFIG_CACHE_KEY = SK_LIGHTS_CONFIG;
 
   function loadCachedConfig(): LightsConfig {
     if (!browser) return { names: {}, rooms: {}, presets: [] };
@@ -48,8 +52,8 @@
       rooms = cfg.rooms;
       customPresets = cfg.presets;
       cacheConfig(cfg);
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to load lights config');
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, 'Failed to load lights config'));
     }
   }
 
@@ -57,18 +61,14 @@
     const cfg: LightsConfig = { names: bulbNames, rooms, presets: customPresets };
     cacheConfig(cfg);
     try {
-      await fetchApi('/api/lights/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(cfg),
-      });
+      await postJson('/api/lights/config', cfg);
     } catch {
       // Silent fail — cache is already updated
     }
   }
 
   // Load cached bulbs for instant render, then refresh
-  const CACHE_KEY = 'hs:lights-cache';
+  const CACHE_KEY = SK_LIGHTS_CACHE;
   function loadCachedBulbs(): WizBulb[] {
     if (!browser) return [];
     try {
@@ -89,10 +89,14 @@
   const cachedConfig = loadCachedConfig();
 
   let bulbs = $state<WizBulb[]>(loadCachedBulbs());
-  let discovering = $state(bulbs.length === 0);
+  let discovering = $state(false);
   let polling = $state(false);
   let pollInterval: ReturnType<typeof setInterval> | null = null;
-  let initialLoad = $state(bulbs.length === 0);
+  let initialLoad = $state(false);
+  $effect.pre(() => {
+    discovering = bulbs.length === 0;
+    initialLoad = bulbs.length === 0;
+  });
 
   onMount(async () => {
     await Promise.all([rediscover(), fetchConfig()]);
@@ -199,8 +203,8 @@
       if (!res.ok) throw new Error('Failed to discover lights');
       const fresh: WizBulb[] = await res.json();
       mergeBulbs(fresh);
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to discover lights');
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, 'Failed to discover lights'));
     }
     discovering = false;
   }
@@ -231,14 +235,10 @@
 
   async function setBulb(ip: string, params: Record<string, any>) {
     try {
-      const res = await fetchApi(`/api/lights/${encodeURIComponent(ip)}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(params),
-      });
+      const res = await postJson(`/api/lights/${encodeURIComponent(ip)}`, params, { method: 'PUT' });
       if (!res.ok) throw new Error('Failed to set bulb');
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to control light', { key: 'light-control' });
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, 'Failed to control light'), { key: 'light-control' });
     }
   }
 
@@ -308,7 +308,7 @@
   function togglePolling() {
     polling = !polling;
     if (polling) {
-      pollInterval = setInterval(refreshStates, 5000);
+      pollInterval = setInterval(refreshStates, LIGHTS_POLL_INTERVAL_MS);
     } else if (pollInterval) {
       clearInterval(pollInterval);
       pollInterval = null;
@@ -321,8 +321,8 @@
       if (!res.ok) throw new Error('Failed to refresh lights');
       const fresh: WizBulb[] = await res.json();
       mergeBulbs(fresh);
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to refresh lights', { key: 'light-control' });
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, 'Failed to refresh lights'), { key: 'light-control' });
     }
   }
 
@@ -372,7 +372,7 @@
   let roomFilter = $state('');
 
   // Drag-and-drop reordering
-  const ORDER_KEY = 'hs:bulb-order';
+  const ORDER_KEY = SK_BULB_ORDER;
   let draggedMac = $state<string | null>(null);
   let dragOverMac = $state<string | null>(null);
 
@@ -550,8 +550,8 @@
       cacheConfig({ names: result.names, rooms, presets: customPresets });
       const removed = result.removed?.length ?? 0;
       toast.success(removed > 0 ? `Cleaned ${removed} stale name(s)` : 'All names are current');
-    } catch (e: any) {
-      toast.error(e.message || 'Reconcile failed');
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, 'Reconcile failed'));
     }
     reconciling = false;
   }
@@ -561,34 +561,34 @@
   <title>Lights | Home Server</title>
 </svelte:head>
 
-<div class="header">
-  <h2 class="page-title">Smart Lights</h2>
-  {#if bulbs.length > 0}
-    <span class="bulb-count">{bulbs.length} {bulbs.length === 1 ? 'Bulb' : 'Bulbs'} Online</span>
-  {/if}
-  <div class="controls">
-    <Button onclick={rediscover} disabled={discovering} loading={discovering}>
-      {#if discovering && bulbs.length > 0}
-        Refreshing...
-      {:else if discovering}
-        Scanning...
-      {:else}
-        Rediscover
-      {/if}
-    </Button>
-    <Button variant={polling ? 'accent' : 'default'} onclick={togglePolling}>
-      Poll {polling ? 'ON' : 'OFF'}
-    </Button>
-    {#if Object.keys(bulbNames).length > 0}
-      <Button size="sm" onclick={reconcileNames} disabled={reconciling || bulbs.length === 0} loading={reconciling}>
-        Reconcile
-      </Button>
+<PageHeader
+  title="Smart Lights"
+  icon="sun"
+  description="Discover and control smart bulbs on your network. Adjust brightness, color temperature, and scenes."
+>
+  {#snippet titleExtra()}
+    {#if bulbs.length > 0}
+      <span class="bulb-count">{bulbs.length} {bulbs.length === 1 ? 'Bulb' : 'Bulbs'} Online</span>
     {/if}
-  </div>
-</div>
-<p class="page-desc">
-  Discover and control smart bulbs on your network. Adjust brightness, color temperature, and scenes.
-</p>
+  {/snippet}
+  <Button onclick={rediscover} disabled={discovering} loading={discovering}>
+    {#if discovering && bulbs.length > 0}
+      Refreshing...
+    {:else if discovering}
+      Scanning...
+    {:else}
+      Rediscover
+    {/if}
+  </Button>
+  <Button variant={polling ? 'accent' : 'default'} onclick={togglePolling}>
+    Poll {polling ? 'ON' : 'OFF'}
+  </Button>
+  {#if Object.keys(bulbNames).length > 0}
+    <Button size="sm" onclick={reconcileNames} disabled={reconciling || bulbs.length === 0} loading={reconciling}>
+      Reconcile
+    </Button>
+  {/if}
+</PageHeader>
 
 <!-- Quick Presets -->
 {#if bulbs.length > 0}
@@ -696,14 +696,16 @@
   </div>
 {/if}
 
-{#if discovering && bulbs.length === 0}
-  <Loading count={4} height="200px" columns={2} />
-{:else if bulbs.length === 0}
-  <div class="empty">
-    <p>No Wiz bulbs found on the network.</p>
-    <p class="hint">Make sure your bulbs are powered on and connected to the same Wi-Fi network.</p>
-  </div>
-{:else}
+<AsyncState
+  loading={discovering && bulbs.length === 0}
+  empty={bulbs.length === 0}
+  emptyTitle="No Wiz bulbs found on the network"
+  emptyIcon="lightbulb"
+  emptyHint="Make sure your bulbs are powered on and connected to the same Wi-Fi network."
+  loadingCount={4}
+  loadingHeight="200px"
+  loadingColumns={2}
+>
   <div class="bulb-grid">
     {#each filteredBulbs as bulb, i}
       <!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -915,18 +917,9 @@
       </div>
     {/each}
   </div>
-{/if}
+</AsyncState>
 
 <style>
-  .header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 16px;
-  }
-  h2 {
-    font-size: 1.3rem;
-  }
   .bulb-count {
     font-size: 0.8rem;
     color: var(--text-muted);
@@ -935,10 +928,6 @@
     padding: 3px 12px;
     border-radius: 12px;
     font-weight: 600;
-  }
-  .controls {
-    display: flex;
-    gap: 8px;
   }
   /* Presets section */
   .presets-section {
@@ -1105,18 +1094,6 @@
     display: flex;
     gap: 4px;
     margin-left: auto;
-  }
-
-  .empty {
-    text-align: center;
-    padding: 40px;
-  }
-  .empty p {
-    color: var(--text-muted);
-  }
-  .hint {
-    font-size: 0.8rem;
-    margin-top: 8px;
   }
 
   .bulb-grid {
@@ -1389,13 +1366,6 @@
     width: 70px;
     flex-shrink: 0;
   }
-  .control-value {
-    font-size: 0.75rem;
-    color: var(--text-muted);
-    font-family: monospace;
-    width: 40px;
-    text-align: right;
-  }
   input[type='range'] {
     flex: 1;
     accent-color: var(--accent);
@@ -1515,30 +1485,5 @@
   }
   .scene-presets {
     max-width: 100%;
-  }
-
-  .loading-state {
-    text-align: center;
-    padding: 60px 20px;
-  }
-  .loading-state p {
-    color: var(--text-muted);
-    font-size: 0.9rem;
-  }
-
-  .spinner {
-    width: 32px;
-    height: 32px;
-    border: 3px solid var(--border);
-    border-top-color: var(--accent);
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-    margin: 0 auto 16px;
-  }
-
-  @keyframes spin {
-    to {
-      transform: rotate(360deg);
-    }
   }
 </style>

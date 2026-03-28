@@ -1,11 +1,15 @@
 <script lang="ts">
   import type { PageData } from './$types';
+  import { onMount } from 'svelte';
+  import { useShortcuts, SHORTCUT_DEFAULTS } from '$lib/shortcuts';
   import { toast } from '$lib/toast';
   import EmptyState from '$lib/components/EmptyState.svelte';
-  import { fetchApi } from '$lib/api';
+  import { postJson } from '$lib/api';
   import Button from '$lib/components/Button.svelte';
   import Badge from '$lib/components/Badge.svelte';
   import SearchInput from '$lib/components/SearchInput.svelte';
+  import FilterBar from '$lib/components/FilterBar.svelte';
+  import PageHeader from '$lib/components/PageHeader.svelte';
 
   interface Bookmark {
     id: string;
@@ -17,7 +21,10 @@
   }
 
   let { data } = $props<{ data: PageData }>();
-  let bookmarks = $state<Bookmark[]>(data.bookmarks ?? []);
+  let bookmarks = $state<Bookmark[]>([]);
+  $effect(() => {
+    bookmarks = data.bookmarks ?? [];
+  });
 
   let showForm = $state(false);
   let editingId = $state<string | null>(null);
@@ -26,6 +33,7 @@
   let formDesc = $state('');
   let formTags = $state('');
   let search = $state('');
+  let searchInputEl = $state<HTMLInputElement | undefined>();
   let activeTag = $state<string | null>(null);
 
   const allTags = $derived.by(() => {
@@ -87,11 +95,7 @@
     }
 
     try {
-      const res = await fetchApi('/api/bookmarks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+      const res = await postJson('/api/bookmarks', payload);
       if (!res.ok) throw new Error('Failed to save');
 
       if (editingId) {
@@ -111,11 +115,7 @@
 
   async function deleteBookmark(id: string) {
     try {
-      const res = await fetchApi('/api/bookmarks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ _action: 'delete', id }),
-      });
+      const res = await postJson('/api/bookmarks', { _action: 'delete', id });
       if (!res.ok) throw new Error('Failed');
       bookmarks = bookmarks.filter((b) => b.id !== id);
       toast.success('Bookmark deleted');
@@ -156,23 +156,39 @@
       return '';
     }
   }
+
+  onMount(() => {
+    return useShortcuts([
+      {
+        ...SHORTCUT_DEFAULTS.find((d) => d.id === 'bookmarks:new')!,
+        handler: () => {
+          resetForm();
+          showForm = true;
+        },
+      },
+      {
+        ...SHORTCUT_DEFAULTS.find((d) => d.id === 'bookmarks:focus-search')!,
+        handler: () => searchInputEl?.focus(),
+      },
+    ]);
+  });
 </script>
 
 <div class="page">
-  <div class="header">
-    <h2 class="page-title">Bookmarks</h2>
-    <div class="header-actions">
-      <Button
-        variant="primary"
-        onclick={() => {
-          resetForm();
-          showForm = true;
-        }}>Add Bookmark</Button
-      >
-      <Button onclick={exportHTML}>Export HTML</Button>
-    </div>
-  </div>
-  <p class="page-desc">Save and organize your bookmarks with tags. Search, edit, and export as HTML.</p>
+  <PageHeader
+    title="Bookmarks"
+    icon="link"
+    description="Save and organize your bookmarks with tags. Search, edit, and export as HTML."
+  >
+    <Button
+      variant="primary"
+      onclick={() => {
+        resetForm();
+        showForm = true;
+      }}>Add Bookmark</Button
+    >
+    <Button icon="download" onclick={exportHTML}>Export HTML</Button>
+  </PageHeader>
 
   {#if showForm}
     <div class="card form-card">
@@ -202,9 +218,9 @@
     </div>
   {/if}
 
-  <div class="search-bar">
-    <SearchInput bind:value={search} placeholder="Search bookmarks..." />
-  </div>
+  <FilterBar>
+    <SearchInput bind:value={search} bind:inputEl={searchInputEl} placeholder="Search bookmarks..." />
+  </FilterBar>
 
   {#if allTags.length > 0}
     <div class="tag-pills">
@@ -260,27 +276,6 @@
 </div>
 
 <style>
-  .page {
-    padding: 1.5rem;
-    max-width: 900px;
-    margin: 0 auto;
-  }
-  .header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1.5rem;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-  }
-  h1 {
-    margin: 0;
-    color: var(--text-primary);
-  }
-  .header-actions {
-    display: flex;
-    gap: 0.5rem;
-  }
   .form-card {
     padding: 1.25rem;
     margin-bottom: 1.5rem;
@@ -320,9 +315,6 @@
     display: flex;
     gap: 0.5rem;
     margin-top: 1rem;
-  }
-  .search-bar {
-    margin-bottom: 1rem;
   }
   .tag-pills {
     display: flex;
@@ -405,10 +397,5 @@
     display: flex;
     gap: 0.35rem;
     flex-shrink: 0;
-  }
-  .empty {
-    padding: 2rem;
-    text-align: center;
-    color: var(--text-muted);
   }
 </style>

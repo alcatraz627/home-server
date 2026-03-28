@@ -3,7 +3,6 @@
   import { toast } from '$lib/toast';
   import { getErrorMessage } from '$lib/errors';
   import { useShortcuts } from '$lib/shortcuts';
-  import PageHeader from '$lib/components/PageHeader.svelte';
   import { fetchApi } from '$lib/api';
   import Button from '$lib/components/Button.svelte';
   import Badge from '$lib/components/Badge.svelte';
@@ -188,202 +187,207 @@
   }
 </script>
 
-<svelte:head>
-  <title>Logs | Home Server</title>
-</svelte:head>
-
-<h2 class="page-title">Logs</h2>
-<p class="page-desc">View application logs, diagnose errors, and manage log files.</p>
-
-<!-- Stats bar -->
-{#if stats}
-  <div class="stats-bar">
-    <div class="stat-chip">
-      <Icon name="file-text" size={14} />
-      <span>{stats.totalFiles} files ({formatBytes(stats.totalSize)})</span>
-    </div>
-    <div class="stat-chip error-chip">
-      <Icon name="error" size={14} />
-      <span>{stats.errorCount} errors</span>
-    </div>
-    <div class="stat-chip warn-chip">
-      <Icon name="warning" size={14} />
-      <span>{stats.warnCount} warnings</span>
-    </div>
-    {#if stats.newestEntry}
+<div class="diag-logs">
+  <!-- Stats bar -->
+  {#if stats}
+    <div class="stats-bar">
       <div class="stat-chip">
-        <Icon name="clock" size={14} />
-        <span>Latest: {formatTime(stats.newestEntry)}</span>
+        <Icon name="file-text" size={14} />
+        <span>{stats.totalFiles} files ({formatBytes(stats.totalSize)})</span>
       </div>
-    {/if}
-  </div>
-{/if}
-
-<Tabs
-  tabs={[
-    { id: 'viewer', label: 'Log Viewer' },
-    { id: 'files', label: 'Files', count: files.length },
-  ]}
-  bind:active={activeTab}
-  syncHash
-/>
-
-{#if activeTab === 'viewer'}
-  <!-- Filters -->
-  <FilterBar>
-    <SearchInput
-      bind:value={search}
-      bind:inputEl={searchInputEl}
-      placeholder="Search logs..."
-      debounce={300}
-      oninput={applyFilters}
-    />
-    <select class="filter-select" bind:value={levelFilter} onchange={applyFilters}>
-      <option value="">All levels</option>
-      <option value="error">Error</option>
-      <option value="warn">Warning</option>
-      <option value="info">Info</option>
-      <option value="debug">Debug</option>
-    </select>
-    <select class="filter-select" bind:value={moduleFilter} onchange={applyFilters}>
-      <option value="">All modules</option>
-      {#each modules as mod}
-        <option value={mod}>{mod}</option>
-      {/each}
-    </select>
-    <select class="filter-select" bind:value={limit} onchange={applyFilters}>
-      <option value={50}>50 entries</option>
-      <option value={200}>200 entries</option>
-      <option value={500}>500 entries</option>
-      <option value={1000}>1000 entries</option>
-    </select>
-    {#snippet actions()}
-      <Button
-        icon="refresh"
-        size="sm"
-        onclick={() => {
-          fetchLogs();
-          fetchStats();
-        }}>Refresh</Button
-      >
-    {/snippet}
-  </FilterBar>
-
-  <!-- Log entries -->
-  <AsyncState
-    {loading}
-    empty={entries.length === 0}
-    emptyTitle="No log entries found"
-    emptyIcon="file-text"
-    emptyHint="No log entries found matching filters."
-    loadingVariant="spinner"
-  >
-    <div class="log-list">
-      {#each entries as entry, i}
-        <div
-          class="log-entry"
-          class:expanded={expandedIdx === i}
-          class:error={entry.level === 'error'}
-          class:warn={entry.level === 'warn'}
-          onclick={() => (expandedIdx = expandedIdx === i ? null : i)}
-          role="button"
-          tabindex="0"
-          onkeydown={(e) => e.key === 'Enter' && (expandedIdx = expandedIdx === i ? null : i)}
-        >
-          <div class="log-row">
-            <span class="log-time">{formatTime(entry.timestamp)}</span>
-            <Badge variant={levelVariant(entry.level)} size="sm">{entry.level.toUpperCase()}</Badge>
-            <span class="log-module">{entry.module}</span>
-            <span class="log-message">{entry.message}</span>
-          </div>
-          {#if expandedIdx === i}
-            <div class="log-detail">
-              <InfoRow label="Timestamp" value={entry.timestamp} mono />
-              <InfoRow label="Module" value={entry.module} />
-              {#if entry.data}
-                <InfoRow label="Data">
-                  <pre class="detail-pre">{JSON.stringify(entry.data, null, 2)}</pre>
-                </InfoRow>
-              {/if}
-              {#if entry.error}
-                <InfoRow label="Error">
-                  <pre class="detail-pre error-pre">{entry.error.message}{entry.error.stack
-                      ? '\n\n' + entry.error.stack
-                      : ''}</pre>
-                </InfoRow>
-              {/if}
-            </div>
-          {/if}
+      <div class="stat-chip error-chip">
+        <Icon name="error" size={14} />
+        <span>{stats.errorCount} errors</span>
+      </div>
+      <div class="stat-chip warn-chip">
+        <Icon name="warning" size={14} />
+        <span>{stats.warnCount} warnings</span>
+      </div>
+      {#if stats.newestEntry}
+        <div class="stat-chip">
+          <Icon name="clock" size={14} />
+          <span>Latest: {formatTime(stats.newestEntry)}</span>
         </div>
-      {/each}
-    </div>
-    <div class="log-footer">
-      <div class="result-count">Showing {entries.length} of {totalEntries} entries</div>
-      {#if hasMore}
-        <Button size="sm" icon="chevron-down" onclick={loadMoreLogs} disabled={loadingMore}>
-          {loadingMore ? 'Loading...' : `Load ${Math.min(limit, totalEntries - entries.length)} more`}
-        </Button>
       {/if}
     </div>
-  </AsyncState>
-{:else if activeTab === 'files'}
-  <div class="files-list">
-    <Button icon="refresh" size="sm" onclick={fetchFiles}>Refresh</Button>
-    {#if files.length === 0}
-      <div class="empty-text">No log files found.</div>
-    {:else}
-      <table class="files-table">
-        <thead>
-          <tr>
-            <th>File</th>
-            <th>Size</th>
-            <th>Last Modified</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {#each files as file}
-            <tr>
-              <td class="file-name">{file.name}</td>
-              <td>{formatBytes(file.size)}</td>
-              <td>{formatTime(file.modified)}</td>
-              <td class="file-actions">
-                <Button size="xs" onclick={() => openPreview(file.name)}>
-                  <Icon name="eye" size={12} /> View
-                </Button>
-                <a href="/api/logs?action=download&file={encodeURIComponent(file.name)}" class="btn-download" download>
-                  <Icon name="download" size={12} />
-                </a>
-              </td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
-    {/if}
-  </div>
-{/if}
+  {/if}
 
-{#if previewFile}
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="preview-overlay" onclick={() => (previewFile = null)} role="presentation">
-    <!-- svelte-ignore a11y_click_events_have_key_events -->
-    <div class="preview-panel" onclick={(e) => e.stopPropagation()} role="dialog" tabindex="-1">
-      <div class="preview-header">
-        <h3>{previewFile}</h3>
-        <span class="preview-meta">{previewTotalLines} lines</span>
-        <a href="/api/logs?action=download&file={encodeURIComponent(previewFile)}" class="btn-download" download>
-          <Icon name="download" size={14} />
-        </a>
-        <button class="icon-btn" aria-label="Close preview" onclick={() => (previewFile = null)}
-          ><Icon name="close" size={16} /></button
+  <Tabs
+    tabs={[
+      { id: 'viewer', label: 'Log Viewer' },
+      { id: 'files', label: 'Files', count: files.length },
+    ]}
+    bind:active={activeTab}
+    syncHash
+  />
+
+  {#if activeTab === 'viewer'}
+    <!-- Filters -->
+    <FilterBar>
+      <SearchInput
+        bind:value={search}
+        bind:inputEl={searchInputEl}
+        placeholder="Search logs..."
+        debounce={300}
+        oninput={applyFilters}
+      />
+      <select class="filter-select" bind:value={levelFilter} onchange={applyFilters}>
+        <option value="">All levels</option>
+        <option value="error">Error</option>
+        <option value="warn">Warning</option>
+        <option value="info">Info</option>
+        <option value="debug">Debug</option>
+      </select>
+      <select class="filter-select" bind:value={moduleFilter} onchange={applyFilters}>
+        <option value="">All modules</option>
+        {#each modules as mod}
+          <option value={mod}>{mod}</option>
+        {/each}
+      </select>
+      <select class="filter-select" bind:value={limit} onchange={applyFilters}>
+        <option value={50}>50 entries</option>
+        <option value={200}>200 entries</option>
+        <option value={500}>500 entries</option>
+        <option value={1000}>1000 entries</option>
+      </select>
+      {#snippet actions()}
+        <Button
+          icon="refresh"
+          size="sm"
+          onclick={() => {
+            fetchLogs();
+            fetchStats();
+          }}>Refresh</Button
         >
+      {/snippet}
+    </FilterBar>
+
+    <!-- Log entries -->
+    <AsyncState
+      {loading}
+      empty={entries.length === 0}
+      emptyTitle="No log entries found"
+      emptyIcon="file-text"
+      emptyHint="No log entries found matching filters."
+      loadingVariant="spinner"
+    >
+      <div class="log-list">
+        {#each entries as entry, i}
+          <div
+            class="log-entry"
+            class:expanded={expandedIdx === i}
+            class:error={entry.level === 'error'}
+            class:warn={entry.level === 'warn'}
+            onclick={() => (expandedIdx = expandedIdx === i ? null : i)}
+            role="button"
+            tabindex="0"
+            onkeydown={(e) => e.key === 'Enter' && (expandedIdx = expandedIdx === i ? null : i)}
+          >
+            <div class="log-row">
+              <span class="log-time">{formatTime(entry.timestamp)}</span>
+              <Badge variant={levelVariant(entry.level)} size="sm">{entry.level.toUpperCase()}</Badge>
+              <span class="log-module">{entry.module}</span>
+              <span class="log-message">{entry.message}</span>
+            </div>
+            {#if expandedIdx === i}
+              <div class="log-detail">
+                <InfoRow label="Timestamp" value={entry.timestamp} mono />
+                <InfoRow label="Module" value={entry.module} />
+                {#if entry.data}
+                  <InfoRow label="Data">
+                    <pre class="detail-pre">{JSON.stringify(entry.data, null, 2)}</pre>
+                  </InfoRow>
+                {/if}
+                {#if entry.error}
+                  <InfoRow label="Error">
+                    <pre class="detail-pre error-pre">{entry.error.message}{entry.error.stack
+                        ? '\n\n' + entry.error.stack
+                        : ''}</pre>
+                  </InfoRow>
+                {/if}
+              </div>
+            {/if}
+          </div>
+        {/each}
       </div>
-      <pre class="preview-content">{previewContent}</pre>
+      <div class="log-footer">
+        <div class="result-count">Showing {entries.length} of {totalEntries} entries</div>
+        {#if hasMore}
+          <Button size="sm" icon="chevron-down" onclick={loadMoreLogs} disabled={loadingMore}>
+            {loadingMore ? 'Loading...' : `Load ${Math.min(limit, totalEntries - entries.length)} more`}
+          </Button>
+        {/if}
+      </div>
+    </AsyncState>
+  {:else if activeTab === 'files'}
+    <div class="files-list">
+      <Button icon="refresh" size="sm" onclick={fetchFiles}>Refresh</Button>
+      {#if files.length === 0}
+        <div class="empty-text">No log files found.</div>
+      {:else}
+        <table class="files-table">
+          <thead>
+            <tr>
+              <th>File</th>
+              <th>Size</th>
+              <th>Last Modified</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {#each files as file}
+              <tr>
+                <td class="file-name">{file.name}</td>
+                <td>{formatBytes(file.size)}</td>
+                <td>{formatTime(file.modified)}</td>
+                <td class="file-actions">
+                  <Button size="xs" onclick={() => openPreview(file.name)}>
+                    <Icon name="eye" size={12} /> View
+                  </Button>
+                  <a
+                    href="/api/logs?action=download&file={encodeURIComponent(file.name)}"
+                    class="btn-download"
+                    download
+                  >
+                    <Icon name="download" size={12} />
+                  </a>
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      {/if}
     </div>
-  </div>
-{/if}
+  {/if}
+
+  {#if previewFile}
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="preview-overlay" onclick={() => (previewFile = null)} role="presentation">
+      <!-- svelte-ignore a11y_click_events_have_key_events -->
+      <div class="preview-panel" onclick={(e) => e.stopPropagation()} role="dialog" tabindex="-1">
+        <div class="preview-header">
+          <h3>{previewFile}</h3>
+          <span class="preview-meta">{previewTotalLines} lines</span>
+          <a href="/api/logs?action=download&file={encodeURIComponent(previewFile)}" class="btn-download" download>
+            <Icon name="download" size={14} />
+          </a>
+          <button class="icon-btn" aria-label="Close preview" onclick={() => (previewFile = null)}
+            ><Icon name="close" size={16} /></button
+          >
+        </div>
+        <pre class="preview-content">{previewContent}</pre>
+      </div>
+    </div>
+  {/if}
+</div>
 
 <style>
+  .diag-logs {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
   .preview-overlay {
     position: fixed;
     inset: 0;

@@ -1,10 +1,9 @@
 <script lang="ts">
-  import type { PageData } from './$types';
+  import { onMount } from 'svelte';
   import { toast } from '$lib/toast';
   import EmptyState from '$lib/components/EmptyState.svelte';
   import Button from '$lib/components/Button.svelte';
   import { fetchApi, postJson } from '$lib/api';
-  import PageHeader from '$lib/components/PageHeader.svelte';
 
   interface WolDevice {
     id: string;
@@ -13,10 +12,19 @@
     ip: string;
   }
 
-  let { data } = $props<{ data: PageData }>();
   let devices = $state<WolDevice[]>([]);
-  $effect(() => {
-    devices = data.devices ?? [];
+
+  async function fetchDevices() {
+    try {
+      const res = await fetchApi('/api/wol');
+      devices = await res.json();
+    } catch {
+      toast.error('Failed to load devices');
+    }
+  }
+
+  onMount(() => {
+    fetchDevices();
   });
 
   let showForm = $state(false);
@@ -127,21 +135,16 @@
   }
 </script>
 
-<div class="page">
-  <PageHeader
-    title="Wake-on-LAN"
-    description="Wake devices on your network by sending magic packets. Manage saved devices and check online status."
+<div class="net-wol">
+  <Button
+    variant="primary"
+    size="sm"
+    icon="add"
+    onclick={() => {
+      resetForm();
+      showForm = true;
+    }}>Add Device</Button
   >
-    <Button
-      variant="primary"
-      size="sm"
-      icon="add"
-      onclick={() => {
-        resetForm();
-        showForm = true;
-      }}>Add Device</Button
-    >
-  </PageHeader>
 
   {#if showForm}
     <div class="card form-card">
@@ -226,6 +229,11 @@
 </div>
 
 <style>
+  .net-wol {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
   .form-card {
     padding: 1.25rem;
     margin-bottom: 1.5rem;

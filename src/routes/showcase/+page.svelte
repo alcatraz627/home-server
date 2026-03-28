@@ -6,7 +6,7 @@
   import SearchInput from '$lib/components/SearchInput.svelte';
   import Loading from '$lib/components/Loading.svelte';
   import Collapsible from '$lib/components/Collapsible.svelte';
-  import Icon from '$lib/components/Icon.svelte';
+  import Icon, { ICON_NAMES } from '$lib/components/Icon.svelte';
   import Card from '$lib/components/Card.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
   import Toolbar from '$lib/components/Toolbar.svelte';
@@ -17,6 +17,15 @@
   import Modal from '$lib/components/Modal.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
   import Tooltip from '$lib/components/Tooltip.svelte';
+  import SettingsPanel from '$lib/components/SettingsPanel.svelte';
+  import CronBuilder from '$lib/components/CronBuilder.svelte';
+  import ProgressBar from '$lib/components/ProgressBar.svelte';
+  import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
+  import ActionGroup from '$lib/components/ActionGroup.svelte';
+  import DropdownMenu from '$lib/components/DropdownMenu.svelte';
+  import FilterBar from '$lib/components/FilterBar.svelte';
+  import AsyncState from '$lib/components/AsyncState.svelte';
+  import StatCard from '$lib/components/StatCard.svelte';
   import { toast } from '$lib/toast';
 
   // Component library demo state
@@ -38,6 +47,29 @@
   let progressValue = $state(65);
   let toggleOn = $state(false);
   let counter = $state(0);
+
+  // ── Settings & Cron state ─────────────────────────────────────────────────
+  let settingsOpen = $state(false);
+  let cronValue = $state<string | null>('30 8 * * 1');
+  let confirmDialogOpen = $state(false);
+  let progressDemoValue = $state(65);
+
+  // ── Icon gallery state ───────────────────────────────────────────────────
+  let iconSearch = $state('');
+  const filteredIcons = $derived(
+    iconSearch ? ICON_NAMES.filter((n) => n.includes(iconSearch.toLowerCase())) : ICON_NAMES,
+  );
+  let copiedIcon = $state('');
+
+  // ── CommandPalette state ────────────────────────────────────────────────
+  import CommandPalette from '$lib/components/CommandPalette.svelte';
+  let cmdPaletteOpen = $state(false);
+
+  // ── Extra prop demo state ───────────────────────────────────────────────
+  let syncHashTab = $state('first');
+  let cardClickCount = $state(0);
+  let modalNoTitleOpen = $state(false);
+  let debounceSearch = $state('');
 
   // ── v4.3 Component state ──────────────────────────────────────────────────
   let chipActive = $state(false);
@@ -565,6 +597,15 @@
   </div>
 
   <div class="demo-block">
+    <h4 class="demo-label">SettingsPanel</h4>
+    <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 8px;">
+      Slide-over panel for theme, fonts, accent colors, and typography settings. Changes persist to localStorage.
+    </p>
+    <Button onclick={() => (settingsOpen = true)} icon="settings">Open Settings Panel</Button>
+    <SettingsPanel bind:open={settingsOpen} />
+  </div>
+
+  <div class="demo-block">
     <h4 class="demo-label">Tooltips</h4>
     <div class="demo-row">
       <Tooltip text="Top tooltip" position="top"><Button size="sm">Top</Button></Tooltip>
@@ -599,6 +640,79 @@
   </div>
 </section>
 
+<!-- ════════════════════════════ CRON BUILDER ══════════════════════════════ -->
+<section class="section">
+  <h3 class="section-heading">Cron Builder</h3>
+
+  <div class="demo-block">
+    <h4 class="demo-label">CronBuilder (interactive schedule editor)</h4>
+    <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 8px;">
+      Visual cron expression builder with frequency presets, next-run preview, and enable/disable toggle.
+    </p>
+    <div style="max-width: 520px;">
+      <CronBuilder value={cronValue} onchange={(v) => (cronValue = v)} />
+    </div>
+    <p style="font-size: 0.78rem; color: var(--text-faint); margin-top: 8px;">
+      Current value: <code>{cronValue ?? 'null (disabled)'}</code>
+    </p>
+  </div>
+</section>
+
+<!-- ════════════════════════════ PROGRESS BAR ══════════════════════════════ -->
+<section class="section">
+  <h3 class="section-heading">Progress Bar</h3>
+
+  <div class="demo-block">
+    <h4 class="demo-label">Basic + label + value</h4>
+    <div style="display: flex; flex-direction: column; gap: 16px; max-width: 400px;">
+      <ProgressBar value={progressDemoValue} label="Memory" showValue />
+      <ProgressBar value={38} color="var(--success)" height="4px" />
+      <ProgressBar
+        value={progressDemoValue}
+        label="Disk Usage"
+        showValue
+        height="10px"
+        colorThresholds={[
+          { value: 0, color: 'var(--success)' },
+          { value: 70, color: 'var(--warning)' },
+          { value: 90, color: 'var(--danger)' },
+        ]}
+      />
+      <ProgressBar value={100} animated color="var(--accent)" height="4px" label="Syncing..." />
+    </div>
+    <input
+      type="range"
+      min="0"
+      max="100"
+      bind:value={progressDemoValue}
+      class="range-input"
+      style="margin-top: 12px;"
+    />
+  </div>
+</section>
+
+<!-- ════════════════════════════ CONFIRM DIALOG ══════════════════════════════ -->
+<section class="section">
+  <h3 class="section-heading">Confirm Dialog</h3>
+
+  <div class="demo-block">
+    <h4 class="demo-label">ConfirmDialog (modal confirmation for destructive actions)</h4>
+    <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 8px;">
+      Replaces <code>window.confirm()</code> and inline confirm buttons with a styled, accessible dialog.
+    </p>
+    <Button variant="danger" icon="delete" onclick={() => (confirmDialogOpen = true)}>Delete Something</Button>
+    <ConfirmDialog
+      bind:open={confirmDialogOpen}
+      title="Delete this item?"
+      message="This action cannot be undone. All associated data will be permanently removed."
+      confirmLabel="Delete"
+      confirmVariant="danger"
+      confirmIcon="delete"
+      onconfirm={() => toast.success('Item deleted (demo)')}
+    />
+  </div>
+</section>
+
 <!-- ════════════════════════════ INTERACTIONS ══════════════════════════════ -->
 <section class="section">
   <h3 class="section-heading">Interactions & State</h3>
@@ -615,11 +729,8 @@
 
   <div class="demo-block">
     <h4 class="demo-label">Progress bar</h4>
-    <div class="progress-demo">
-      <div class="progress-track">
-        <div class="progress-fill-demo" style="width: {progressValue}%"></div>
-      </div>
-      <span class="progress-label">{progressValue}%</span>
+    <div style="max-width: 300px;">
+      <ProgressBar value={progressValue} showValue />
     </div>
     <input type="range" min="0" max="100" bind:value={progressValue} class="range-input" />
   </div>
@@ -663,6 +774,317 @@
   </div>
 </section>
 
+<!-- ════════════════════════════ NEW COMPONENTS ════════════════════════════ -->
+<section class="section">
+  <h3 class="section-heading">New Components</h3>
+
+  <div class="demo-block">
+    <h4 class="demo-label">ActionGroup (icon button row with tooltips)</h4>
+    <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 8px;">
+      Standardized row actions for tables and cards. Each action gets a tooltip automatically.
+    </p>
+    <div class="demo-row" style="gap: 24px;">
+      <div>
+        <span style="font-size: 0.72rem; color: var(--text-faint); display: block; margin-bottom: 6px;"
+          >File actions</span
+        >
+        <ActionGroup
+          actions={[
+            { icon: 'edit', label: 'Rename', onclick: () => toast.info('Rename') },
+            { icon: 'copy', label: 'Copy path', onclick: () => toast.info('Copied') },
+            { icon: 'download', label: 'Download', onclick: () => toast.info('Download'), href: '#' },
+            { icon: 'delete', label: 'Delete', onclick: () => toast.info('Deleted'), variant: 'danger', confirm: true },
+          ]}
+        />
+      </div>
+      <div>
+        <span style="font-size: 0.72rem; color: var(--text-faint); display: block; margin-bottom: 6px;"
+          >Container actions</span
+        >
+        <ActionGroup
+          actions={[
+            { icon: 'play', label: 'Start', onclick: () => toast.info('Started') },
+            { icon: 'stop', label: 'Stop', onclick: () => toast.info('Stopped') },
+            { icon: 'refresh', label: 'Restart', onclick: () => toast.info('Restarted') },
+          ]}
+        />
+      </div>
+    </div>
+  </div>
+
+  <div class="demo-block">
+    <h4 class="demo-label">DropdownMenu (overflow/context menu)</h4>
+    <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 8px;">
+      Click the trigger to reveal a dropdown. Supports icons, danger variant, and separators.
+    </p>
+    <div class="demo-row" style="gap: 24px;">
+      <DropdownMenu
+        items={[
+          { icon: 'edit', label: 'Rename', onclick: () => toast.info('Rename clicked') },
+          { icon: 'copy', label: 'Duplicate', onclick: () => toast.info('Duplicate clicked') },
+          { icon: 'download', label: 'Download', onclick: () => toast.info('Download clicked') },
+          { separator: true },
+          { icon: 'delete', label: 'Delete', variant: 'danger', onclick: () => toast.info('Delete clicked') },
+        ]}
+      />
+      <DropdownMenu
+        triggerIcon="settings"
+        align="left"
+        items={[
+          { icon: 'sun', label: 'Light mode', onclick: () => toast.info('Light') },
+          { icon: 'moon', label: 'Dark mode', onclick: () => toast.info('Dark') },
+          { separator: true },
+          { icon: 'sliders', label: 'Settings', onclick: () => toast.info('Settings') },
+        ]}
+      />
+    </div>
+  </div>
+
+  <div class="demo-block">
+    <h4 class="demo-label">FilterBar (search + filter controls + actions)</h4>
+    <FilterBar search searchPlaceholder="Filter items..." bind:searchValue={demoSearch}>
+      <Badge variant="info">3 active</Badge>
+      <Badge variant="warning">1 pending</Badge>
+      {#snippet actions()}
+        <Button size="sm" icon="add">Add Item</Button>
+      {/snippet}
+    </FilterBar>
+  </div>
+
+  <div class="demo-block">
+    <h4 class="demo-label">AsyncState (loading / error / empty tristate)</h4>
+    <div class="demo-row" style="gap: 16px;">
+      <div style="flex: 1;">
+        <span style="font-size: 0.72rem; color: var(--text-faint); display: block; margin-bottom: 6px;">Loading</span>
+        <AsyncState loading>
+          <p>Content</p>
+        </AsyncState>
+      </div>
+      <div style="flex: 1;">
+        <span style="font-size: 0.72rem; color: var(--text-faint); display: block; margin-bottom: 6px;">Error</span>
+        <AsyncState error="Connection timed out">
+          <p>Content</p>
+        </AsyncState>
+      </div>
+      <div style="flex: 1;">
+        <span style="font-size: 0.72rem; color: var(--text-faint); display: block; margin-bottom: 6px;">Empty</span>
+        <AsyncState empty emptyTitle="No results" emptyIcon="search" emptyHint="Try a different search">
+          <p>Content</p>
+        </AsyncState>
+      </div>
+    </div>
+  </div>
+
+  <div class="demo-block">
+    <h4 class="demo-label">StatCard (metric display with bar/sparkline)</h4>
+    <div class="demo-row" style="gap: 12px;">
+      <StatCard label="Memory" value="72" unit="%" icon="memory" color="var(--warning)" bar={72} />
+      <StatCard
+        label="CPU Load"
+        value="1.24"
+        icon="cpu"
+        color="var(--accent)"
+        sparkline={[12, 28, 45, 32, 50, 67, 43, 55]}
+      />
+      <StatCard label="Uptime" value="14d 6h" icon="clock" detail="Since Mar 12" size="sm" />
+      <StatCard label="Containers" value="7" icon="docker" trend="up" color="var(--success)" />
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════ ICON GALLERY ══════════════════════════════ -->
+<section class="section">
+  <h3 class="section-heading">Icon Gallery</h3>
+  <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 12px;">
+    All {ICON_NAMES.length} mapped icon names. Click to copy the name.
+  </p>
+  <div style="max-width: 300px; margin-bottom: 16px;">
+    <SearchInput bind:value={iconSearch} placeholder="Filter icons..." clearable size="sm" />
+  </div>
+  <div class="icon-gallery">
+    {#each filteredIcons as name}
+      <button
+        class="icon-tile"
+        class:icon-tile-copied={copiedIcon === name}
+        onclick={() => {
+          navigator.clipboard.writeText(name);
+          copiedIcon = name;
+          setTimeout(() => {
+            if (copiedIcon === name) copiedIcon = '';
+          }, 1200);
+        }}
+        title={name}
+      >
+        <Icon {name} size={20} />
+        <span class="icon-tile-name">{name}</span>
+      </button>
+    {/each}
+    {#if filteredIcons.length === 0}
+      <p style="font-size: 0.82rem; color: var(--text-faint); grid-column: 1 / -1;">No icons match "{iconSearch}"</p>
+    {/if}
+  </div>
+</section>
+
+<!-- ════════════════════════════ DESIGN TOKENS ═════════════════════════════ -->
+<section class="section">
+  <h3 class="section-heading">Design Tokens</h3>
+
+  <h4 class="sub-heading">Background Tints (semantic)</h4>
+  <div class="swatch-grid">
+    {#each ['--accent-bg', '--success-bg', '--danger-bg', '--warning-bg', '--purple-bg'] as v}
+      <div class="swatch">
+        <div class="swatch-box" style="background: var({v}); border: 1px solid var(--border)"></div>
+        <code class="swatch-label">{v}</code>
+      </div>
+    {/each}
+  </div>
+
+  <h4 class="sub-heading">Box Shadow</h4>
+  <div class="demo-row" style="gap: 24px;">
+    <div class="token-shadow-box" style="box-shadow: var(--shadow);">
+      <code>--shadow</code>
+    </div>
+    <div class="token-shadow-box" style="box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
+      <code>elevated</code>
+    </div>
+    <div class="token-shadow-box" style="box-shadow: none; border: 1px solid var(--border);">
+      <code>flat</code>
+    </div>
+  </div>
+
+  <h4 class="sub-heading">Border Radius</h4>
+  <div class="demo-row" style="gap: 16px;">
+    {#each [{ r: '4px', label: '4px (chips, pills)' }, { r: '6px', label: '6px (buttons, inputs)' }, { r: '8px', label: '8px (cards, panels)' }, { r: '10px', label: '10px (modals)' }, { r: '50%', label: '50% (circles)' }] as item}
+      <div class="token-radius-box" style="border-radius: {item.r};">
+        <code style="font-size: 0.65rem;">{item.label}</code>
+      </div>
+    {/each}
+  </div>
+
+  <h4 class="sub-heading">Transition Timings</h4>
+  <div class="demo-row" style="gap: 12px;">
+    <div class="token-timing-box" style="transition: all 0.15s;">0.15s (default)</div>
+    <div class="token-timing-box" style="transition: all 0.2s;">0.2s (hover)</div>
+    <div class="token-timing-box" style="transition: all 0.3s;">0.3s (expand)</div>
+  </div>
+</section>
+
+<!-- ════════════════════════════ COMMAND PALETTE ═══════════════════════════ -->
+<section class="section">
+  <h3 class="section-heading">Command Palette</h3>
+
+  <div class="demo-block">
+    <h4 class="demo-label">CommandPalette (global navigation + actions)</h4>
+    <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 8px;">
+      Fuzzy search across all pages, actions, and keyboard shortcuts. Open with
+      <kbd>Cmd+K</kbd> / <kbd>Ctrl+K</kbd> or click the button below.
+    </p>
+    <Button icon="search" onclick={() => (cmdPaletteOpen = true)}>Open Command Palette</Button>
+    <CommandPalette bind:open={cmdPaletteOpen} />
+  </div>
+</section>
+
+<!-- ════════════════════════════ PROP VARIATIONS ═══════════════════════════ -->
+<section class="section">
+  <h3 class="section-heading">Prop Variations</h3>
+  <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 20px;">
+    Advanced component states and props not shown elsewhere.
+  </p>
+
+  <div class="demo-block">
+    <h4 class="demo-label">Toast with key (deduplication)</h4>
+    <div class="demo-row">
+      <Button size="sm" onclick={() => toast.warning('Disk usage above 80%', { key: 'disk-warn', duration: 5000 })}
+        >Fire keyed toast (click many times)</Button
+      >
+      <span style="font-size: 0.75rem; color: var(--text-faint);">Only 1 toast shown regardless of clicks</span>
+    </div>
+  </div>
+
+  <div class="demo-block">
+    <h4 class="demo-label">Modal without title (floating close)</h4>
+    <Button size="sm" onclick={() => (modalNoTitleOpen = true)}>Open Titleless Modal</Button>
+    <Modal bind:open={modalNoTitleOpen} width="400px">
+      <p style="color: var(--text-secondary); font-size: 0.85rem; padding: 8px 0;">
+        A modal without a <code>title</code> prop shows only a floating close button. Useful for image previews and confirmation
+        prompts.
+      </p>
+    </Modal>
+  </div>
+
+  <div class="demo-block">
+    <h4 class="demo-label">Badge pill={'{'}false{'}'}</h4>
+    <div class="demo-row">
+      <Badge variant="success" pill={false}>Non-pill</Badge>
+      <Badge variant="danger" pill={false}>Compact</Badge>
+      <Badge variant="info" pill={false} dot>With dot</Badge>
+      <span style="font-size: 0.75rem; color: var(--text-faint);">vs. pill (default):</span>
+      <Badge variant="success">Pill</Badge>
+    </div>
+  </div>
+
+  <div class="demo-block">
+    <h4 class="demo-label">Tabs with syncHash</h4>
+    <p style="font-size: 0.75rem; color: var(--text-faint); margin-bottom: 6px;">
+      Updates the URL hash as you click. Try clicking — check the address bar.
+    </p>
+    <Tabs
+      tabs={[
+        { id: 'first', label: 'First' },
+        { id: 'second', label: 'Second' },
+        { id: 'third', label: 'Third' },
+      ]}
+      bind:active={syncHashTab}
+      syncHash
+    />
+  </div>
+
+  <div class="demo-block">
+    <h4 class="demo-label">Card with onclick (clickable)</h4>
+    <div class="demo-row">
+      <Card onclick={() => cardClickCount++}>
+        Click me! ({cardClickCount} clicks)
+      </Card>
+      <Card variant="outlined" onclick={() => toast.info('Outlined card clicked!')}>Outlined clickable</Card>
+    </div>
+  </div>
+
+  <div class="demo-block">
+    <h4 class="demo-label">Collapsible with custom header snippet</h4>
+    <div style="max-width: 500px;">
+      <Collapsible>
+        {#snippet header()}
+          <div style="display: flex; align-items: center; gap: 8px; flex: 1;">
+            <Icon name="cpu" size={16} />
+            <span style="font-weight: 600;">CPU Details</span>
+            <Badge variant="success" size="sm">Online</Badge>
+          </div>
+        {/snippet}
+        <div style="font-size: 0.82rem; color: var(--text-secondary);">
+          Custom header with icon, text, and badge — all inside a snippet.
+        </div>
+      </Collapsible>
+    </div>
+  </div>
+
+  <div class="demo-block">
+    <h4 class="demo-label">SearchInput with debounce</h4>
+    <div style="max-width: 400px;">
+      <SearchInput bind:value={debounceSearch} placeholder="Type to see debounced value..." debounce={500} clearable />
+    </div>
+    <p style="font-size: 0.75rem; color: var(--text-faint); margin-top: 6px;">
+      Debounce: 500ms — value: <code>{debounceSearch || '(empty)'}</code>
+    </p>
+  </div>
+
+  <div class="demo-block">
+    <h4 class="demo-label">Loading with columns grid</h4>
+    <div style="max-width: 400px;">
+      <Loading variant="skeleton" count={6} columns={3} height="48px" />
+    </div>
+  </div>
+</section>
+
 <!-- ════════════════════════════ ANIMATIONS ════════════════════════════════ -->
 <section class="section">
   <h3 class="section-heading">Animations</h3>
@@ -694,12 +1116,6 @@
     font-size: 1.4rem;
     font-weight: 700;
     margin-bottom: 6px;
-  }
-
-  .page-subtitle {
-    font-size: 0.85rem;
-    color: var(--text-muted);
-    margin-bottom: 32px;
   }
 
   /* ── Section chrome ─────────────────────────────────────────────────────── */
@@ -1046,15 +1462,6 @@
     color: var(--text-muted);
   }
 
-  .term-success {
-    color: var(--success);
-  }
-
-  .term-cursor {
-    color: var(--accent);
-    animation: blink 1s step-end infinite;
-  }
-
   .term-input-line {
     display: flex;
     align-items: center;
@@ -1121,35 +1528,6 @@
     transition: transform 0.15s;
   }
 
-  .progress-demo {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 8px;
-  }
-
-  .progress-track {
-    flex: 1;
-    height: 8px;
-    background: var(--bg-hover);
-    border-radius: 4px;
-    overflow: hidden;
-  }
-
-  .progress-fill-demo {
-    height: 100%;
-    background: var(--accent);
-    border-radius: 4px;
-    transition: width 0.3s ease-out;
-  }
-
-  .progress-label {
-    font-size: 0.78rem;
-    font-family: 'JetBrains Mono', monospace;
-    color: var(--text-muted);
-    min-width: 36px;
-  }
-
   .range-input {
     width: 100%;
     accent-color: var(--accent);
@@ -1188,5 +1566,111 @@
 
   .hover-scale:hover {
     transform: scale(1.05);
+  }
+
+  /* ── Icon Gallery ──────────────────────────────────────────────────────── */
+  .icon-gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 6px;
+  }
+
+  .icon-tile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 4px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    cursor: pointer;
+    transition:
+      border-color 0.15s,
+      background 0.15s;
+    font-family: inherit;
+    color: var(--text-secondary);
+  }
+
+  .icon-tile:hover {
+    border-color: var(--accent);
+    background: var(--bg-hover);
+  }
+
+  .icon-tile-copied {
+    border-color: var(--success);
+    background: var(--success-bg);
+  }
+
+  .icon-tile-name {
+    font-size: 0.6rem;
+    color: var(--text-faint);
+    font-family: 'JetBrains Mono', monospace;
+    text-align: center;
+    word-break: break-all;
+    line-height: 1.3;
+  }
+
+  /* ── Design Tokens ─────────────────────────────────────────────────────── */
+  .token-shadow-box {
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 100px;
+  }
+
+  .token-shadow-box code {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+  }
+
+  .token-radius-box {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 90px;
+    min-height: 48px;
+  }
+
+  .token-timing-box {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 16px;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    min-width: 100px;
+    text-align: center;
+  }
+
+  .token-timing-box:hover {
+    background: var(--accent-bg);
+    border-color: var(--accent);
+    color: var(--accent);
+    transform: scale(1.03);
+  }
+
+  kbd {
+    display: inline-block;
+    padding: 2px 6px;
+    font-size: 0.72rem;
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--bg-inset);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-secondary);
+  }
+
+  @media (max-width: 768px) {
+    .icon-gallery {
+      grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    }
   }
 </style>

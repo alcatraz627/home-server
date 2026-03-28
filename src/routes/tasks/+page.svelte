@@ -2,19 +2,23 @@
   import type { PageData } from './$types';
   import type { TaskStatus } from '$lib/server/operator';
   import { toast } from '$lib/toast';
+  import { getErrorMessage } from '$lib/errors';
   import EmptyState from '$lib/components/EmptyState.svelte';
   import Button from '$lib/components/Button.svelte';
   import Badge from '$lib/components/Badge.svelte';
   import SearchInput from '$lib/components/SearchInput.svelte';
   import Collapsible from '$lib/components/Collapsible.svelte';
   import Icon from '$lib/components/Icon.svelte';
-  import { fetchApi } from '$lib/api';
+  import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
+  import { fetchApi, postJson } from '$lib/api';
   import {
     sendNotification,
     requestNotificationPermission,
     isNotificationSupported,
     isNotificationEnabled,
   } from '$lib/notify.svelte';
+  import PageHeader from '$lib/components/PageHeader.svelte';
+  import { SK_CUSTOM_TEMPLATES, SK_HIDDEN_TASKS } from '$lib/constants/storage-keys';
 
   let { data } = $props<{ data: PageData }>();
   // svelte-ignore state_referenced_locally
@@ -25,6 +29,7 @@
 
   // Cron delete confirmation dialog
   let cronDeleteTarget = $state<{ id: string; name: string; schedule: string } | null>(null);
+  let showCronDeleteDialog = $state(false);
 
   let showForm = $state(false);
   let showTemplates = $state(false);
@@ -42,7 +47,7 @@
   function loadCustomTemplates(): Template[] {
     if (typeof localStorage === 'undefined') return [];
     try {
-      return JSON.parse(localStorage.getItem('hs:custom-templates') || '[]');
+      return JSON.parse(localStorage.getItem(SK_CUSTOM_TEMPLATES) || '[]');
     } catch {
       return [];
     }
@@ -50,7 +55,7 @@
 
   function saveCustomTemplates() {
     if (typeof localStorage !== 'undefined') {
-      localStorage.setItem('hs:custom-templates', JSON.stringify(customTemplates));
+      localStorage.setItem(SK_CUSTOM_TEMPLATES, JSON.stringify(customTemplates));
     }
   }
 
@@ -162,16 +167,12 @@
 
   async function runTemplate(t: Template) {
     try {
-      const res = await fetchApi('/api/tasks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: t.name,
-          command: t.command,
-          timeout: t.timeout,
-          maxRetries: t.retries,
-          schedule: t.schedule,
-        }),
+      const res = await postJson('/api/tasks', {
+        name: t.name,
+        command: t.command,
+        timeout: t.timeout,
+        maxRetries: t.retries,
+        schedule: t.schedule,
       });
       if (!res.ok) throw new Error('Failed to create task');
       const created = await res.json();
@@ -187,11 +188,7 @@
         terminalTaskId = taskId;
         terminalRunning = true;
         terminalOutput = `$ ${t.command}\n\n`;
-        await fetchApi('/api/tasks', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ taskId }),
-        });
+        await postJson('/api/tasks', { taskId }, { method: 'PUT' });
         const poll = setInterval(async () => {
           await refresh();
           const s = statuses.find((s) => s.config.id === taskId);
@@ -210,8 +207,8 @@
           }
         }, 1000);
       }
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to run template');
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, 'Failed to run template'));
     }
   }
 
@@ -245,7 +242,7 @@
   let taskStatusFilter = $state<'' | 'running' | 'success' | 'failed' | 'never'>('');
   let showHiddenTasks = $state(false);
 
-  const HIDDEN_TASKS_KEY = 'hs:hidden-tasks';
+  const HIDDEN_TASKS_KEY = SK_HIDDEN_TASKS;
   let hiddenTaskIds = $state<Set<string>>(new Set());
 
   function loadHiddenTasks() {
@@ -395,23 +392,19 @@
           lastKnownRuns[key] = s.lastRun.completedAt;
         }
       }
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to refresh tasks', { key: 'task-refresh' });
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, 'Failed to refresh tasks'), { key: 'task-refresh' });
     }
   }
 
   async function createTask() {
     try {
-      const res = await fetchApi('/api/tasks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: formName,
-          command: formCommand,
-          timeout: formTimeout,
-          maxRetries: formRetries,
-          schedule: formSchedule || null,
-        }),
+      const res = await postJson('/api/tasks', {
+        name: formName,
+        command: formCommand,
+        timeout: formTimeout,
+        maxRetries: formRetries,
+        schedule: formSchedule || null,
       });
       if (!res.ok) throw new Error('Failed to create task');
       toast.success(`Task "${formName}" created`);
@@ -422,8 +415,8 @@
       formRetries = 3;
       formSchedule = '';
       await refresh();
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to create task');
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, 'Failed to create task'));
     }
   }
 
@@ -432,11 +425,7 @@
     const taskName = statuses.find((s) => s.config.id === taskId)?.config.name || taskId;
     toast.info(`Running "${taskName}"...`, { key: `task-run-${taskId}` });
     try {
-      const res = await fetchApi('/api/tasks', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ taskId }),
-      });
+      const res = await postJson('/api/tasks', { taskId }, { method: 'PUT' });
       if (!res.ok) throw new Error(`Failed to run "${taskName}"`);
       const poll = setInterval(async () => {
         await refresh();
@@ -452,8 +441,8 @@
           }
         }
       }, 1000);
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to run task', { key: 'task-run' });
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, 'Failed to run task'), { key: 'task-run' });
     }
   }
 
@@ -470,6 +459,7 @@
     const task = statuses.find((s) => s.config.id === id);
     if (task?.config.schedule && task.config.enabled) {
       cronDeleteTarget = { id, name: task.config.name, schedule: task.config.schedule };
+      showCronDeleteDialog = true;
     } else {
       confirmDeleteTask(id);
     }
@@ -478,11 +468,7 @@
   async function confirmDeleteTask(id: string) {
     cronDeleteTarget = null;
     try {
-      await fetchApi('/api/tasks', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id }),
-      });
+      await postJson('/api/tasks', { id }, { method: 'DELETE' });
       toast.success('Task deleted');
       await refresh();
     } catch {
@@ -507,12 +493,16 @@
   <title>Tasks | Home Server</title>
 </svelte:head>
 
-<div class="header">
-  <h2 class="page-title">
-    Operator Tasks{#if scheduledCount > 0}
-      <span class="scheduled-count">({scheduledCount} scheduled)</span>{/if}
-  </h2>
-  <div class="controls">
+<PageHeader
+  title="Operator Tasks"
+  description="Schedule, monitor, and manage shell tasks with cron support, templates, and live output streaming."
+>
+  {#snippet titleExtra()}
+    {#if scheduledCount > 0}
+      <span class="scheduled-count">({scheduledCount} scheduled)</span>
+    {/if}
+  {/snippet}
+  {#snippet children()}
     <Button onclick={refresh}><Icon name="refresh" size={14} /> Refresh</Button>
     {#if isNotificationSupported()}
       {#if isNotificationEnabled()}
@@ -542,11 +532,8 @@
     >
       {showForm ? 'Cancel' : '\uFF0B New Task'}
     </Button>
-  </div>
-</div>
-<p class="page-desc">
-  Schedule, monitor, and manage shell tasks with cron support, templates, and live output streaming.
-</p>
+  {/snippet}
+</PageHeader>
 
 <!-- Disk usage -->
 {#if disk.length > 0}
@@ -978,45 +965,19 @@
 {/if}
 
 <!-- Cron delete confirmation dialog -->
-{#if cronDeleteTarget}
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <div class="cron-dialog-overlay" onclick={() => (cronDeleteTarget = null)} role="dialog" aria-label="Confirm delete">
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <!-- svelte-ignore a11y_click_events_have_key_events -->
-    <div class="cron-dialog" onclick={(e) => e.stopPropagation()}>
-      <div class="cron-dialog-icon"><Icon name="warning" size={24} /></div>
-      <h3 class="cron-dialog-title">Delete Scheduled Task</h3>
-      <p class="cron-dialog-text">
-        <strong>{cronDeleteTarget.name}</strong> has an active cron schedule (<code>{cronDeleteTarget.schedule}</code>).
-        Deleting it will stop the scheduled runs.
-      </p>
-      <div class="cron-dialog-actions">
-        <Button onclick={() => (cronDeleteTarget = null)}>Cancel</Button>
-        <Button variant="danger" onclick={() => confirmDeleteTask(cronDeleteTarget!.id)}>
-          Delete &amp; Unschedule
-        </Button>
-      </div>
-    </div>
-  </div>
-{/if}
+<ConfirmDialog
+  bind:open={showCronDeleteDialog}
+  title="Delete Scheduled Task"
+  message={cronDeleteTarget
+    ? `"${cronDeleteTarget.name}" has an active cron schedule (${cronDeleteTarget.schedule}). Deleting it will stop the scheduled runs.`
+    : ''}
+  confirmLabel="Delete & Unschedule"
+  confirmVariant="danger"
+  confirmIcon="delete"
+  onconfirm={() => cronDeleteTarget && confirmDeleteTask(cronDeleteTarget.id)}
+/>
 
 <style>
-  .header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 16px;
-  }
-  h2 {
-    font-size: 1.3rem;
-  }
-  .controls {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-  }
-
   .notif-status {
     font-size: 0.68rem;
     color: var(--success);
@@ -1296,11 +1257,6 @@
     gap: 12px;
   }
 
-  .empty {
-    color: var(--text-muted);
-    text-align: center;
-    padding: 40px;
-  }
   .task-list {
     display: flex;
     flex-direction: column;
@@ -1779,54 +1735,5 @@
     font-size: 0.8rem;
     font-weight: 400;
     color: var(--accent);
-  }
-
-  /* Cron delete confirmation dialog */
-  .cron-dialog-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-    backdrop-filter: blur(2px);
-  }
-  .cron-dialog {
-    background: var(--bg-primary);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 24px;
-    max-width: 420px;
-    width: 90%;
-    text-align: center;
-    animation: slideDown 0.2s ease-out;
-  }
-  .cron-dialog-icon {
-    font-size: 2rem;
-    margin-bottom: 8px;
-  }
-  .cron-dialog-title {
-    font-size: 1.1rem;
-    margin-bottom: 10px;
-    color: var(--text-primary);
-  }
-  .cron-dialog-text {
-    font-size: 0.85rem;
-    color: var(--text-secondary);
-    margin-bottom: 18px;
-    line-height: 1.5;
-  }
-  .cron-dialog-text code {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.78rem;
-    background: var(--bg-secondary);
-    padding: 2px 6px;
-    border-radius: 3px;
-  }
-  .cron-dialog-actions {
-    display: flex;
-    gap: 10px;
-    justify-content: center;
   }
 </style>

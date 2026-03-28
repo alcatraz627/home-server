@@ -1,6 +1,7 @@
 <script lang="ts">
   import { fly } from 'svelte/transition';
   import Icon from '$lib/components/Icon.svelte';
+  import { getErrorMessage } from '$lib/errors';
 
   interface Props {
     value: string;
@@ -11,7 +12,10 @@
   let { value, onselect, label = '' }: Props = $props();
 
   let open = $state(false);
-  let currentPath = $state(value || '');
+  let currentPath = $state('');
+  $effect(() => {
+    currentPath = value || '';
+  });
   let entries = $state<{ name: string; path: string; isDir: boolean; size: number }[]>([]);
   let loading = $state(false);
   let error = $state('');
@@ -25,8 +29,8 @@
       currentPath = data.current;
       entries = data.entries;
       if (data.error) error = data.error;
-    } catch (e: any) {
-      error = e.message;
+    } catch (e: unknown) {
+      error = getErrorMessage(e);
     }
     loading = false;
   }

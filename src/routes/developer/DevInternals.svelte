@@ -1,9 +1,7 @@
 <script lang="ts">
   import { fetchApi } from '$lib/api';
   import { onMount } from 'svelte';
-  import Button from '$lib/components/Button.svelte';
   import Icon from '$lib/components/Icon.svelte';
-  import PageHeader from '$lib/components/PageHeader.svelte';
   import AsyncState from '$lib/components/AsyncState.svelte';
 
   let data = $state<any>(null);
@@ -37,20 +35,7 @@
   onMount(refresh);
 </script>
 
-<svelte:head>
-  <title>Internals | Home Server</title>
-</svelte:head>
-
-<PageHeader
-  title="Internal State"
-  description="Raw internal state dump — rate limits, configs, navigation, storage, environment."
->
-  {#snippet children()}
-    <Button size="sm" onclick={refresh} disabled={loading} {loading}>Refresh</Button>
-  {/snippet}
-</PageHeader>
-
-<div class="page">
+<div class="diag-internals">
   <AsyncState {loading} empty={!data} emptyTitle="No internal state" emptyIcon="settings">
     {#if data}
       {#each Object.entries(data) as [key, value]}
@@ -79,6 +64,12 @@
 </div>
 
 <style>
+  .diag-internals {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
   .section {
     border: 1px solid var(--border);
     border-radius: 8px;

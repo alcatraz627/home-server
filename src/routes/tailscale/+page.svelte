@@ -2,10 +2,12 @@
   import type { PageData } from './$types';
   import type { TailscaleDevice } from '$lib/server/tailscale';
   import { toast } from '$lib/toast';
+  import { getErrorMessage } from '$lib/errors';
   import Button from '$lib/components/Button.svelte';
   import Badge from '$lib/components/Badge.svelte';
-  import Loading from '$lib/components/Loading.svelte';
+  import AsyncState from '$lib/components/AsyncState.svelte';
   import Icon from '$lib/components/Icon.svelte';
+  import PageHeader from '$lib/components/PageHeader.svelte';
   import { fetchApi } from '$lib/api';
 
   let { data } = $props<{ data: PageData }>();
@@ -24,8 +26,8 @@
       const result = await res.json();
       devices = result.devices;
       error = result.error;
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to refresh Tailscale devices');
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, 'Failed to refresh Tailscale devices'));
     }
     refreshing = false;
   }
@@ -111,23 +113,26 @@
   <title>Tailscale | Home Server</title>
 </svelte:head>
 
-<div class="header">
-  <h2 class="page-title">Tailscale Devices</h2>
+<PageHeader
+  title="Tailscale Devices"
+  icon="network"
+  description="Monitor your Tailscale mesh network. See connected devices, IPs, and connection status."
+>
   <Button onclick={refresh} disabled={refreshing} loading={refreshing}>
     {refreshing ? 'Refreshing...' : 'Refresh'}
   </Button>
-</div>
-<p class="page-desc">Monitor your Tailscale mesh network. See connected devices, IPs, and connection status.</p>
+</PageHeader>
 
-{#if error}
-  <p class="error">{error}</p>
-{/if}
-
-{#if devices.length === 0 && !error}
-  <Loading count={3} height="44px" />
-{:else if devices.length === 0}
-  <p class="empty">No devices found on the tailnet.</p>
-{:else}
+<AsyncState
+  loading={devices.length === 0 && !error}
+  error={error || ''}
+  empty={devices.length === 0}
+  emptyTitle="No devices found"
+  emptyIcon="network"
+  emptyHint="No devices found on the tailnet."
+  loadingCount={3}
+  loadingHeight="44px"
+>
   <div class="device-list">
     <div class="device-header">
       <span class="col-status"></span>
@@ -337,32 +342,9 @@
       {/if}
     {/each}
   </div>
-{/if}
+</AsyncState>
 
 <style>
-  .header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 16px;
-  }
-
-  h2 {
-    font-size: 1.3rem;
-  }
-
-  .error {
-    color: var(--danger);
-    margin-bottom: 12px;
-    font-size: 0.85rem;
-  }
-
-  .empty {
-    color: var(--text-muted);
-    text-align: center;
-    padding: 40px;
-  }
-
   .device-list {
     border: 1px solid var(--border);
     border-radius: 8px;

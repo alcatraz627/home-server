@@ -2,22 +2,33 @@
   import '../app.css';
   import type { LayoutData } from './$types';
   import { APP } from '$lib/constants/app';
+  import {
+    SK_SIDEBAR_COLLAPSED,
+    SK_SIDEBAR_WIDTH,
+    SK_STATS_CONFIG,
+    SK_NAV_GROUPS,
+    SK_NAV_PINNED,
+    SK_INSTALL_DISMISSED,
+  } from '$lib/constants/storage-keys';
   import { navigating, page } from '$app/stores';
   import { onMount } from 'svelte';
   import { theme, THEMES, THEME_SWATCHES, setTheme, initTheme } from '$lib/theme';
   import type { Theme } from '$lib/theme';
   import { goto } from '$app/navigation';
   import Toast from '$lib/components/Toast.svelte';
+  import { toast } from '$lib/toast';
   import AiChat from '$lib/components/AiChat.svelte';
   import SettingsPanel from '$lib/components/SettingsPanel.svelte';
   import Tooltip from '$lib/components/Tooltip.svelte';
   import { browser } from '$app/environment';
+  import { fetchApi } from '$lib/api';
   import { targetDevice, remoteDevices, setTarget, addDevice, removeDevice, getApiBase } from '$lib/device-context';
   import { NAV_GROUPS } from '$lib/constants/nav';
   import type { NavItem } from '$lib/constants/nav';
   import Icon from '$lib/components/Icon.svelte';
   import SearchInput from '$lib/components/SearchInput.svelte';
   import CommandPalette from '$lib/components/CommandPalette.svelte';
+  import ErrorBoundary from '$lib/components/ErrorBoundary.svelte';
 
   let { data, children } = $props<{ data: LayoutData; children: any }>();
   let sidebarOpen = $state(false);
@@ -51,7 +62,7 @@
   }
 
   // Collapsible sidebar on desktop
-  const SIDEBAR_COLLAPSED_KEY = 'hs:sidebar-collapsed';
+  const SIDEBAR_COLLAPSED_KEY = SK_SIDEBAR_COLLAPSED;
   let sidebarCollapsed = $state(browser ? localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1' : false);
 
   function toggleSidebarCollapse() {
@@ -60,7 +71,7 @@
   }
 
   // Drag-resizable sidebar
-  const SIDEBAR_WIDTH_KEY = 'hs:sidebar-width';
+  const SIDEBAR_WIDTH_KEY = SK_SIDEBAR_WIDTH;
   const SIDEBAR_MIN = 160;
   const SIDEBAR_MAX = 400;
   const SIDEBAR_DEFAULT = 210;
@@ -115,7 +126,7 @@
   ];
   const DEFAULT_VISIBLE_STATS: StatKey[] = ['mem', 'cpu', 'uptime'];
 
-  const STATS_KEY = 'hs:stats-config';
+  const STATS_KEY = SK_STATS_CONFIG;
 
   function loadStatsConfig() {
     if (!browser)
@@ -179,7 +190,7 @@
   async function fetchTailscaleDevices() {
     if (tsDevicesLoaded) return;
     try {
-      const res = await fetch('/api/tailscale');
+      const res = await fetchApi('/api/tailscale');
       if (res.ok) {
         const data = await res.json();
         tailscaleDevices = (data.devices || []).filter((d: any) => !d.isSelf && d.ipv4);
@@ -271,7 +282,7 @@
       e.preventDefault();
       installPromptEvent = e;
       // Show banner if not dismissed before
-      if (!localStorage.getItem('hs:install-dismissed')) {
+      if (!localStorage.getItem(SK_INSTALL_DISMISSED)) {
         showInstallBanner = true;
       }
     };
@@ -290,8 +301,8 @@
   }
 
   // ── Nav Groups ──────────────────────────────────────────────────────────────
-  const NAV_GROUPS_KEY = 'hs:nav-groups';
-  const NAV_PINNED_KEY = 'hs:nav-pinned';
+  const NAV_GROUPS_KEY = SK_NAV_GROUPS;
+  const NAV_PINNED_KEY = SK_NAV_PINNED;
 
   function loadExpandedGroups(): Record<string, boolean> {
     if (!browser) return {};
@@ -299,9 +310,9 @@
       const raw = localStorage.getItem(NAV_GROUPS_KEY);
       if (raw) return JSON.parse(raw);
     } catch {}
-    // Default: all groups expanded
+    // Default: expanded unless group specifies collapsed: true
     const defaults: Record<string, boolean> = {};
-    for (const g of NAV_GROUPS) defaults[g.id] = true;
+    for (const g of NAV_GROUPS) defaults[g.id] = !g.collapsed;
     return defaults;
   }
 
@@ -395,10 +406,18 @@
 
   async function fetchUnreadCount() {
     try {
-      const res = await fetch('/api/notifications');
+      const res = await fetchApi('/api/notifications');
       if (res.ok) {
         const data = await res.json();
         unreadNotifications = data.unreadCount ?? 0;
+        // Update app badge (PWA)
+        if ('setAppBadge' in navigator) {
+          if (unreadNotifications > 0) {
+            (navigator as any).setAppBadge(unreadNotifications);
+          } else {
+            (navigator as any).clearAppBadge();
+          }
+        }
       }
     } catch {}
   }
@@ -411,6 +430,26 @@
     const speedInterval = setInterval(updateNetSpeed, 5000);
     const notifInterval = setInterval(fetchUnreadCount, 30000);
     const healthInterval = setInterval(fetchHealth, 15000);
+
+    // SW update notification
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistration().then((reg) => {
+        if (!reg) return;
+        reg.addEventListener('updatefound', () => {
+          const newSW = reg.installing;
+          if (!newSW) return;
+          newSW.addEventListener('statechange', () => {
+            if (newSW.state === 'activated') {
+              toast.info('Update available — reload for the latest version.', {
+                key: 'sw-update',
+                duration: 10000,
+              });
+            }
+          });
+        });
+      });
+    }
+
     return () => {
       clearInterval(speedInterval);
       clearInterval(notifInterval);
@@ -419,8 +458,8 @@
   });
 
   function handleGlobalKeydown(e: KeyboardEvent) {
-    // Cmd/Ctrl+K → command palette
-    if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
+    // Cmd/Ctrl+K or Cmd/Ctrl+/ → command palette
+    if ((e.key === 'k' || e.key === '/') && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
       commandPaletteOpen = !commandPaletteOpen;
       return;
@@ -600,6 +639,7 @@
           <button
             class="icon-btn stats-gear-btn"
             class:active={statsDropdownOpen}
+            title="Stats settings"
             aria-label="Stats settings"
             aria-expanded={statsDropdownOpen}
             onclick={() => (statsDropdownOpen = !statsDropdownOpen)}><Icon name="settings" size={14} /></button
@@ -609,7 +649,12 @@
             <div class="stats-dropdown" role="dialog" aria-label="Stats configuration">
               <div class="stats-dropdown-header">
                 <span class="stats-dropdown-title">Stats Display</span>
-                <button class="stats-dropdown-close" onclick={() => (statsDropdownOpen = false)} aria-label="Close">
+                <button
+                  class="stats-dropdown-close"
+                  onclick={() => (statsDropdownOpen = false)}
+                  title="Close"
+                  aria-label="Close"
+                >
                   <Icon name="close" size={12} />
                 </button>
               </div>
@@ -746,7 +791,7 @@
       class:resizing={isResizing}
       style={sidebarCollapsed ? '' : `width: ${sidebarWidth}px`}
     >
-      <div class="nav-search" bind:this={navSearchEl} onkeydown={handleNavSearchKeydown}>
+      <div class="nav-search" bind:this={navSearchEl} onkeydown={handleNavSearchKeydown} role="search">
         <SearchInput bind:value={navSearch} placeholder="Search..." size="sm" clearable />
         <span class="nav-search-hint"><kbd>/</kbd></span>
       </div>
@@ -788,7 +833,11 @@
       {#each filteredGroups as group (group.id)}
         {@const isExpanded = expandedGroups[group.id] !== false}
         <div class="nav-group">
-          <button class="nav-group-header" onclick={() => toggleGroup(group.id)}>
+          <button
+            class="nav-group-header"
+            onclick={() => toggleGroup(group.id)}
+            title="{isExpanded ? 'Collapse' : 'Expand'} {group.label}"
+          >
             <span class="nav-group-chevron" class:expanded={isExpanded}><Icon name="chevron-right" size={12} /></span>
             <span class="nav-group-label">{group.label}</span>
           </button>
@@ -842,7 +891,9 @@
       {#if $navigating}
         <div class="loading-bar"></div>
       {/if}
-      {@render children()}
+      <ErrorBoundary title="This page encountered an error">
+        {@render children()}
+      </ErrorBoundary>
     </main>
   </div>
 </div>
@@ -864,7 +915,7 @@
       class="dismiss-btn"
       onclick={() => {
         showInstallBanner = false;
-        localStorage.setItem('hs:install-dismissed', '1');
+        localStorage.setItem(SK_INSTALL_DISMISSED, '1');
       }}><Icon name="close" size={14} /></button
     >
   </div>
@@ -874,7 +925,13 @@
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="modal-overlay" onclick={() => (manageDevicesOpen = false)} role="presentation">
     <!-- svelte-ignore a11y_click_events_have_key_events -->
-    <div class="modal-panel" onclick={(e) => e.stopPropagation()} role="dialog" aria-label="Manage Devices">
+    <div
+      class="modal-panel"
+      onclick={(e) => e.stopPropagation()}
+      role="dialog"
+      tabindex="-1"
+      aria-label="Manage Devices"
+    >
       <div class="modal-header">
         <h3>Manage Devices</h3>
         <button class="icon-btn" aria-label="Close" onclick={() => (manageDevicesOpen = false)}
@@ -937,7 +994,43 @@
 <Toast />
 <AiChat currentPage={$page.url.pathname} />
 <SettingsPanel bind:open={settingsOpen} />
-<CommandPalette bind:open={commandPaletteOpen} />
+<CommandPalette
+  bind:open={commandPaletteOpen}
+  actions={[
+    {
+      id: 'toggle-theme',
+      label: 'Toggle Theme',
+      desc: 'Switch between dark and light mode',
+      icon: 'moon',
+      group: 'Settings',
+      handler: () => setTheme($theme === 'dark' ? 'light' : 'dark'),
+    },
+    {
+      id: 'toggle-sidebar',
+      label: 'Toggle Sidebar',
+      desc: 'Collapse or expand the sidebar',
+      icon: 'menu',
+      group: 'Settings',
+      handler: toggleSidebarCollapse,
+    },
+    {
+      id: 'open-settings',
+      label: 'Open Settings',
+      desc: 'Open the settings panel',
+      icon: 'settings',
+      group: 'Settings',
+      handler: () => (settingsOpen = true),
+    },
+    {
+      id: 'take-screenshot',
+      label: 'Take Screenshot',
+      desc: 'Capture a screenshot of the server display',
+      icon: 'camera',
+      group: 'Quick Actions',
+      handler: () => goto('/screenshots'),
+    },
+  ]}
+/>
 
 <style>
   .app {
@@ -1450,8 +1543,7 @@
     max-height: none !important;
   }
 
-  nav.collapsed .nav-link,
-  nav.collapsed nav a {
+  nav.collapsed .nav-link {
     padding: 8px 0;
     justify-content: center;
     border-left: none;
@@ -1999,7 +2091,7 @@
   /* Touch target minimum sizing for interactive elements */
   @media (pointer: coarse) {
     button,
-    .btn,
+    :global(.btn),
     .icon-btn,
     a {
       min-height: 44px;

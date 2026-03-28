@@ -2,13 +2,15 @@
   import type { PageData } from './$types';
   import type { BackupStatus, BackupConfig } from '$lib/server/backups';
   import { toast } from '$lib/toast';
-  import EmptyState from '$lib/components/EmptyState.svelte';
+  import { getErrorMessage } from '$lib/errors';
+  import AsyncState from '$lib/components/AsyncState.svelte';
   import CronBuilder from '$lib/components/CronBuilder.svelte';
   import FileBrowser from '$lib/components/FileBrowser.svelte';
   import Button from '$lib/components/Button.svelte';
   import Badge from '$lib/components/Badge.svelte';
   import Icon from '$lib/components/Icon.svelte';
   import { fetchApi } from '$lib/api';
+  import PageHeader from '$lib/components/PageHeader.svelte';
 
   let { data } = $props<{ data: PageData }>();
   // svelte-ignore state_referenced_locally
@@ -98,8 +100,8 @@
         previewFiles = data.files;
         previewSummary = data.summary;
       }
-    } catch (e: any) {
-      toast.error(e.message || 'Preview failed');
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, 'Preview failed'));
       previewId = null;
     } finally {
       previewLoading = false;
@@ -112,8 +114,8 @@
       if (!res.ok) throw new Error('Failed to fetch backups');
       const result = await res.json();
       statuses = result.statuses;
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to refresh backups', { key: 'backup-refresh' });
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, 'Failed to refresh backups'), { key: 'backup-refresh' });
     }
   }
 
@@ -180,8 +182,8 @@
       cancelForm();
       toast.success(`Backup "${config.name}" created`);
       await refresh();
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to create backup');
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, 'Failed to create backup'));
     }
   }
 
@@ -208,8 +210,8 @@
       cancelForm();
       toast.success(`Backup "${config.name}" updated`);
       await refresh();
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to update backup');
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, 'Failed to update backup'));
     }
   }
 
@@ -240,8 +242,8 @@
           }
         }
       }, 2000);
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to trigger backup', { key: 'backup-run' });
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, 'Failed to trigger backup'), { key: 'backup-run' });
       runningIds.delete(configId);
       runningIds = new Set(runningIds);
     }
@@ -260,8 +262,8 @@
       if (editingId === configId) cancelForm();
       toast.success(`Backup "${name}" deleted`);
       await refresh();
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to delete backup');
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, 'Failed to delete backup'));
     }
   }
 
@@ -287,18 +289,17 @@
   <title>Backups | Home Server</title>
 </svelte:head>
 
-<div class="header">
-  <h2 class="page-title">Backups</h2>
-  <div class="controls">
+<PageHeader
+  title="Backups"
+  description="Manage your rsync backup configurations. Create, edit, or trigger backups with live progress tracking."
+>
+  {#snippet children()}
     <Button onclick={refresh}>Refresh</Button>
     <Button variant={showForm ? 'default' : 'primary'} onclick={() => (showForm ? cancelForm() : openNewForm())}>
       {showForm ? 'Cancel' : 'New Backup'}
     </Button>
-  </div>
-</div>
-<p class="page-desc">
-  Manage your rsync backup configurations. Create, edit, or trigger backups with live progress tracking.
-</p>
+  {/snippet}
+</PageHeader>
 
 {#if !rsyncAvailable}
   <div class="warning">rsync is not installed. Backups require rsync to be available on this machine.</div>
@@ -432,15 +433,14 @@
   </div>
 {/if}
 
-{#if statuses.length === 0 && !showForm}
-  <EmptyState
-    icon="rotate"
-    title="No backup configurations"
-    hint="Set up automated rsync backups between directories or devices"
-    actionLabel="New Backup"
-    onaction={openNewForm}
-  />
-{:else}
+<AsyncState
+  empty={statuses.length === 0 && !showForm}
+  emptyTitle="No backup configurations"
+  emptyIcon="rotate"
+  emptyHint="Set up automated rsync backups between directories or devices"
+  emptyActionLabel="New Backup"
+  onemptyaction={openNewForm}
+>
   <div class="backup-list">
     {#each statuses as status}
       <div class="backup-card" class:editing={editingId === status.config.id}>
@@ -553,22 +553,9 @@
       </div>
     {/each}
   </div>
-{/if}
+</AsyncState>
 
 <style>
-  .header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 16px;
-  }
-  h2 {
-    font-size: 1.3rem;
-  }
-  .controls {
-    display: flex;
-    gap: 8px;
-  }
   .warning {
     background: var(--warning-bg);
     border: 1px solid var(--warning);
@@ -585,47 +572,6 @@
     border-radius: 8px;
     padding: 20px;
     margin-bottom: 16px;
-  }
-  .form-card h3 {
-    font-size: 1rem;
-    margin-bottom: 14px;
-  }
-  .form-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-  .form-grid label {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-  .form-grid label span {
-    font-size: 0.75rem;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-  }
-  .form-grid input,
-  .form-grid textarea {
-    padding: 8px 12px;
-    font-size: 0.85rem;
-    border-radius: 6px;
-    border: 1px solid var(--border);
-    background: var(--input-bg);
-    color: var(--text-primary);
-    font-family: inherit;
-  }
-  .form-grid input:focus,
-  .form-grid textarea:focus {
-    outline: none;
-    border-color: var(--accent);
-  }
-
-  .empty {
-    color: var(--text-muted);
-    text-align: center;
-    padding: 40px;
   }
 
   .backup-list {
@@ -697,10 +643,6 @@
     align-items: center;
     gap: 12px;
     flex-wrap: wrap;
-  }
-  .run-status {
-    font-size: 0.8rem;
-    font-weight: 500;
   }
   .run-time {
     font-size: 0.75rem;
@@ -1047,16 +989,6 @@
     border-top: 1px solid var(--border);
   }
 
-  .form-actions .btn {
-    padding: 10px 20px;
-    font-size: 0.85rem;
-  }
-
-  .form-actions .btn-primary {
-    flex: 1;
-    max-width: 200px;
-  }
-
   @media (max-width: 640px) {
     .path-diagram {
       flex-direction: column;
@@ -1155,14 +1087,5 @@
     padding: 8px;
     border-radius: 4px;
     overflow-x: auto;
-  }
-
-  .btn-preview {
-    border-color: var(--purple);
-    color: var(--purple);
-  }
-
-  .btn-preview:hover:not(:disabled) {
-    background: var(--purple-bg);
   }
 </style>

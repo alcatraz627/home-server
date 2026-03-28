@@ -1,14 +1,28 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
+  import { useShortcuts, SHORTCUT_DEFAULTS } from '$lib/shortcuts';
   import { toast } from '$lib/toast';
   import PageHeader from '$lib/components/PageHeader.svelte';
-  import { fetchApi } from '$lib/api';
+  import { fetchApi, postJson } from '$lib/api';
   import Button from '$lib/components/Button.svelte';
   import Tabs from '$lib/components/Tabs.svelte';
+  import ErrorBoundary from '$lib/components/ErrorBoundary.svelte';
   import Collapsible from '$lib/components/Collapsible.svelte';
+  import NetDns from './NetDns.svelte';
+  import NetDnsTrace from './NetDnsTrace.svelte';
+  import NetPorts from './NetPorts.svelte';
+  import type {
+    TracerouteHop,
+    ArpEntry,
+    PingResult,
+    SSLCertInfo,
+    InterfaceStats,
+    BandwidthSample,
+    HttpInspection,
+  } from '$lib/types/network';
 
   // ---- Suggestion chips per tab ----
-  const SUGGESTIONS: Record<TabId, string[]> = {
+  const SUGGESTIONS: Partial<Record<TabId, string[]>> = {
     traceroute: ['google.com', '1.1.1.1', 'cloudflare.com'],
     ping: ['192.168.1.0/24', '10.0.0.0/24', '172.16.0.0/24'],
     arp: [],
@@ -26,61 +40,8 @@
     else if (activeTab === 'http') httpUrl = value;
   }
 
-  // ---- Types ----
-  interface TracerouteHop {
-    hop: number;
-    host: string;
-    ip: string;
-    rtt: string[];
-  }
-
-  interface ArpEntry {
-    ip: string;
-    mac: string;
-    interface: string;
-    vendor: string;
-  }
-
-  interface PingResult {
-    ip: string;
-    alive: boolean;
-    time: number;
-  }
-
-  interface SSLCertInfo {
-    subject: string;
-    issuer: string;
-    validFrom: string;
-    validTo: string;
-    sans: string[];
-    serial: string;
-    signatureAlgo: string;
-    isExpired: boolean;
-    daysRemaining: number;
-  }
-
-  interface InterfaceStats {
-    name: string;
-    bytesIn: number;
-    bytesOut: number;
-    packetsIn: number;
-    packetsOut: number;
-  }
-
-  interface BandwidthSample {
-    timestamp: number;
-    interfaces: Record<string, { bytesInPerSec: number; bytesOutPerSec: number }>;
-  }
-
-  interface HttpInspection {
-    status: number;
-    statusText: string;
-    headers: Record<string, string>;
-    timing: { total: number };
-  }
-
   // ---- Tab state ----
-  type TabId = 'traceroute' | 'ping' | 'arp' | 'whois' | 'bandwidth' | 'ssl' | 'http';
+  type TabId = 'traceroute' | 'ping' | 'arp' | 'whois' | 'bandwidth' | 'ssl' | 'http' | 'dns' | 'dns-trace' | 'ports';
   const tabs: { id: TabId; label: string }[] = [
     { id: 'traceroute', label: 'Traceroute' },
     { id: 'ping', label: 'Ping Sweep' },
@@ -89,6 +50,9 @@
     { id: 'bandwidth', label: 'Bandwidth' },
     { id: 'ssl', label: 'SSL Inspector' },
     { id: 'http', label: 'HTTP Headers' },
+    { id: 'dns', label: 'DNS Lookup' },
+    { id: 'dns-trace', label: 'DNS Trace' },
+    { id: 'ports', label: 'Port Scanner' },
   ];
   let activeTab = $state<TabId>('traceroute');
 
@@ -104,11 +68,7 @@
     trHops = [];
     trRaw = '';
     try {
-      const res = await fetchApi('/api/network', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tool: 'traceroute', target: trTarget.trim() }),
-      });
+      const res = await postJson('/api/network', { tool: 'traceroute', target: trTarget.trim() });
       const data = await res.json();
       trHops = data.hops || [];
       trRaw = data.raw || '';
@@ -131,11 +91,7 @@
     pingLoading = true;
     pingResults = [];
     try {
-      const res = await fetchApi('/api/network', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tool: 'ping-sweep', subnet: pingSubnet.trim() }),
-      });
+      const res = await postJson('/api/network', { tool: 'ping-sweep', subnet: pingSubnet.trim() });
       const data = await res.json();
       if (data.error) {
         toast.error(data.error);
@@ -179,11 +135,7 @@
     whoisLoading = true;
     whoisResult = '';
     try {
-      const res = await fetchApi('/api/network', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tool: 'whois', target: whoisTarget.trim() }),
-      });
+      const res = await postJson('/api/network', { tool: 'whois', target: whoisTarget.trim() });
       const data = await res.json();
       whoisResult = data.result || 'No result';
       toast.success('Whois lookup complete');
@@ -298,11 +250,7 @@
     sslCert = null;
     sslError = '';
     try {
-      const res = await fetchApi('/api/network', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tool: 'ssl', domain: sslDomain.trim() }),
-      });
+      const res = await postJson('/api/network', { tool: 'ssl', domain: sslDomain.trim() });
       const data = await res.json();
       if (data.error) {
         sslError = data.error;
@@ -330,11 +278,7 @@
     httpResult = null;
     httpError = '';
     try {
-      const res = await fetchApi('/api/network', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tool: 'http-headers', url: httpUrl.trim() }),
-      });
+      const res = await postJson('/api/network', { tool: 'http-headers', url: httpUrl.trim() });
       const data = await res.json();
       if (data.error) {
         httpError = data.error;
@@ -358,6 +302,10 @@
   }
 
   // ---- Lifecycle ----
+  onMount(() => {
+    return useShortcuts([{ ...SHORTCUT_DEFAULTS.find((d) => d.id === 'network:refresh')!, handler: () => fetchArp() }]);
+  });
+
   onDestroy(() => {
     if (bwInterval) clearInterval(bwInterval);
   });
@@ -367,7 +315,7 @@
   <title>Network Toolkit | Home Server</title>
 </svelte:head>
 
-<div class="header">
+<div class="page-header-bar">
   <h2 class="page-title">Network Toolkit</h2>
 </div>
 <p class="page-desc">Run traceroute, ping, whois, and other network diagnostic tools from your server.</p>
@@ -375,418 +323,419 @@
 <Tabs {tabs} bind:active={activeTab} syncHash />
 
 <div class="tab-content">
-  <!-- Traceroute -->
-  {#if activeTab === 'traceroute'}
-    <div class="tool-section">
-      <div class="input-row">
-        <input
-          type="text"
-          bind:value={trTarget}
-          placeholder="e.g. google.com or 8.8.8.8"
-          onkeydown={(e) => e.key === 'Enter' && runTraceroute()}
-          class="input-field"
-        />
-        <Button variant="accent" onclick={runTraceroute} disabled={trLoading} loading={trLoading}>
-          {trLoading ? 'Tracing...' : 'Trace'}
-        </Button>
-      </div>
-      <p class="helper-text">Enter a hostname or IP address to trace the network path.</p>
-      <div class="suggestion-row">
-        <span class="suggestion-label">Try:</span>
-        {#each SUGGESTIONS.traceroute as s}
-          <button class="suggestion-chip" onclick={() => fillSuggestion(s)}>{s}</button>
-        {/each}
-      </div>
-      <Collapsible title="How it works">
-        <p class="doc-text">
-          Traceroute maps the network path from your server to a destination by sending packets with increasing TTL
-          values. Each hop in the output represents a router along the path, showing its hostname, IP, and round-trip
-          time. Useful for diagnosing latency issues, routing problems, or finding where packets are being dropped.
-        </p>
-      </Collapsible>
-
-      {#if trHops.length > 0}
-        <div class="trace-visual">
-          {#each trHops as hop, i (hop.hop)}
-            <div class="trace-hop">
-              <div class="hop-num">{hop.hop}</div>
-              <div class="hop-connector">
-                <div class="hop-dot" class:timeout={hop.host === '*'}></div>
-                {#if i < trHops.length - 1}
-                  <div class="hop-line"></div>
-                {/if}
-              </div>
-              <div class="hop-info">
-                <span class="hop-host" class:timeout={hop.host === '*'}>
-                  {hop.host === '*' ? '* * *' : hop.host}
-                </span>
-                {#if hop.ip && hop.ip !== '*'}
-                  <code class="hop-ip">{hop.ip}</code>
-                {/if}
-                <span class="hop-rtt">{hop.rtt.join(' / ')}</span>
-              </div>
-            </div>
+  <ErrorBoundary title="This tab encountered an error" compact>
+    <!-- Traceroute -->
+    {#if activeTab === 'traceroute'}
+      <div class="tool-section">
+        <div class="input-row">
+          <input
+            type="text"
+            bind:value={trTarget}
+            placeholder="e.g. google.com or 8.8.8.8"
+            onkeydown={(e) => e.key === 'Enter' && runTraceroute()}
+            class="input-field"
+          />
+          <Button variant="accent" onclick={runTraceroute} disabled={trLoading} loading={trLoading}>
+            {trLoading ? 'Tracing...' : 'Trace'}
+          </Button>
+        </div>
+        <p class="helper-text">Enter a hostname or IP address to trace the network path.</p>
+        <div class="suggestion-row">
+          <span class="suggestion-label">Try:</span>
+          {#each SUGGESTIONS.traceroute as s}
+            <button class="suggestion-chip" onclick={() => fillSuggestion(s)}>{s}</button>
           {/each}
         </div>
-      {/if}
-    </div>
+        <Collapsible title="How it works">
+          <p class="doc-text">
+            Traceroute maps the network path from your server to a destination by sending packets with increasing TTL
+            values. Each hop in the output represents a router along the path, showing its hostname, IP, and round-trip
+            time. Useful for diagnosing latency issues, routing problems, or finding where packets are being dropped.
+          </p>
+        </Collapsible>
 
-    <!-- Ping Sweep -->
-  {:else if activeTab === 'ping'}
-    <div class="tool-section">
-      <div class="input-row">
-        <input
-          type="text"
-          bind:value={pingSubnet}
-          placeholder="e.g. 192.168.1.0/24"
-          onkeydown={(e) => e.key === 'Enter' && runPingSweep()}
-          class="input-field"
-        />
-        <Button variant="accent" onclick={runPingSweep} disabled={pingLoading} loading={pingLoading}>
-          {pingLoading ? 'Scanning...' : 'Sweep'}
-        </Button>
+        {#if trHops.length > 0}
+          <div class="trace-visual">
+            {#each trHops as hop, i (hop.hop)}
+              <div class="trace-hop">
+                <div class="hop-num">{hop.hop}</div>
+                <div class="hop-connector">
+                  <div class="hop-dot" class:timeout={hop.host === '*'}></div>
+                  {#if i < trHops.length - 1}
+                    <div class="hop-line"></div>
+                  {/if}
+                </div>
+                <div class="hop-info">
+                  <span class="hop-host" class:timeout={hop.host === '*'}>
+                    {hop.host === '*' ? '* * *' : hop.host}
+                  </span>
+                  {#if hop.ip && hop.ip !== '*'}
+                    <code class="hop-ip">{hop.ip}</code>
+                  {/if}
+                  <span class="hop-rtt">{hop.rtt.join(' / ')}</span>
+                </div>
+              </div>
+            {/each}
+          </div>
+        {/if}
       </div>
-      <p class="helper-text">Enter a subnet in CIDR notation to discover active hosts.</p>
-      <div class="suggestion-row">
-        <span class="suggestion-label">Try:</span>
-        {#each SUGGESTIONS.ping as s}
-          <button class="suggestion-chip" onclick={() => fillSuggestion(s)}>{s}</button>
-        {/each}
-      </div>
-      <Collapsible title="How it works">
-        <p class="doc-text">
-          Ping sweep sends ICMP echo requests to every IP in the specified subnet to discover which hosts are alive.
-          Green cells indicate responsive hosts along with their response time. This is commonly used for network
-          inventory, finding available IPs, or verifying device connectivity.
-        </p>
-      </Collapsible>
-      <p class="hint">Only /24 subnets are supported. Scan may take 30-60 seconds.</p>
 
-      {#if pingLoading}
-        <div class="loading-bar">
-          <div class="loading-fill"></div>
+      <!-- Ping Sweep -->
+    {:else if activeTab === 'ping'}
+      <div class="tool-section">
+        <div class="input-row">
+          <input
+            type="text"
+            bind:value={pingSubnet}
+            placeholder="e.g. 192.168.1.0/24"
+            onkeydown={(e) => e.key === 'Enter' && runPingSweep()}
+            class="input-field"
+          />
+          <Button variant="accent" onclick={runPingSweep} disabled={pingLoading} loading={pingLoading}>
+            {pingLoading ? 'Scanning...' : 'Sweep'}
+          </Button>
         </div>
-      {/if}
-
-      {#if pingResults.length > 0}
-        {@const alive = pingResults.filter((r) => r.alive)}
-        <p class="result-summary">
-          {alive.length} alive / {pingResults.length} scanned
-        </p>
-        <div class="ping-grid">
-          {#each pingResults as r (r.ip)}
-            {@const lastOctet = r.ip.split('.')[3]}
-            <div
-              class="ping-cell"
-              class:alive={r.alive}
-              title="{r.ip}{r.alive ? ` (${r.time.toFixed(1)}ms)` : ' (unreachable)'}"
-            >
-              {lastOctet}
-            </div>
+        <p class="helper-text">Enter a subnet in CIDR notation to discover active hosts.</p>
+        <div class="suggestion-row">
+          <span class="suggestion-label">Try:</span>
+          {#each SUGGESTIONS.ping as s}
+            <button class="suggestion-chip" onclick={() => fillSuggestion(s)}>{s}</button>
           {/each}
         </div>
-      {/if}
-    </div>
+        <Collapsible title="How it works">
+          <p class="doc-text">
+            Ping sweep sends ICMP echo requests to every IP in the specified subnet to discover which hosts are alive.
+            Green cells indicate responsive hosts along with their response time. This is commonly used for network
+            inventory, finding available IPs, or verifying device connectivity.
+          </p>
+        </Collapsible>
+        <p class="hint">Only /24 subnets are supported. Scan may take 30-60 seconds.</p>
 
-    <!-- ARP Table -->
-  {:else if activeTab === 'arp'}
-    <div class="tool-section">
-      <div class="input-row">
-        <Button variant="accent" onclick={fetchArp} disabled={arpLoading} loading={arpLoading}>
-          {arpLoading ? 'Loading...' : 'Refresh ARP Table'}
-        </Button>
+        {#if pingLoading}
+          <div class="loading-bar">
+            <div class="loading-fill"></div>
+          </div>
+        {/if}
+
+        {#if pingResults.length > 0}
+          {@const alive = pingResults.filter((r) => r.alive)}
+          <p class="result-summary">
+            {alive.length} alive / {pingResults.length} scanned
+          </p>
+          <div class="ping-grid">
+            {#each pingResults as r (r.ip)}
+              {@const lastOctet = r.ip.split('.')[3]}
+              <div
+                class="ping-cell"
+                class:alive={r.alive}
+                title="{r.ip}{r.alive ? ` (${r.time.toFixed(1)}ms)` : ' (unreachable)'}"
+              >
+                {lastOctet}
+              </div>
+            {/each}
+          </div>
+        {/if}
       </div>
 
-      {#if arpEntries.length > 0}
-        <div class="table-wrapper">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>IP Address</th>
-                <th>MAC Address</th>
-                <th>Interface</th>
-                <th>Vendor</th>
-              </tr>
-            </thead>
-            <tbody>
-              {#each arpEntries as entry (entry.ip + entry.mac)}
+      <!-- ARP Table -->
+    {:else if activeTab === 'arp'}
+      <div class="tool-section">
+        <div class="input-row">
+          <Button variant="accent" onclick={fetchArp} disabled={arpLoading} loading={arpLoading}>
+            {arpLoading ? 'Loading...' : 'Refresh ARP Table'}
+          </Button>
+        </div>
+
+        {#if arpEntries.length > 0}
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead>
                 <tr>
-                  <td><code>{entry.ip}</code></td>
-                  <td><code>{entry.mac}</code></td>
-                  <td>{entry.interface}</td>
-                  <td class="vendor">{entry.vendor || '—'}</td>
+                  <th>IP Address</th>
+                  <th>MAC Address</th>
+                  <th>Interface</th>
+                  <th>Vendor</th>
                 </tr>
+              </thead>
+              <tbody>
+                {#each arpEntries as entry (entry.ip + entry.mac)}
+                  <tr>
+                    <td><code>{entry.ip}</code></td>
+                    <td><code>{entry.mac}</code></td>
+                    <td>{entry.interface}</td>
+                    <td class="vendor">{entry.vendor || '—'}</td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          </div>
+        {:else if !arpLoading}
+          <p class="empty">Click refresh to load the ARP table.</p>
+        {/if}
+      </div>
+
+      <!-- Whois -->
+    {:else if activeTab === 'whois'}
+      <div class="tool-section">
+        <div class="input-row">
+          <input
+            type="text"
+            bind:value={whoisTarget}
+            placeholder="e.g. example.com or 8.8.8.8"
+            onkeydown={(e) => e.key === 'Enter' && runWhois()}
+            class="input-field"
+          />
+          <Button variant="accent" onclick={runWhois} disabled={whoisLoading} loading={whoisLoading}>
+            {whoisLoading ? 'Looking up...' : 'Lookup'}
+          </Button>
+        </div>
+        <p class="helper-text">Enter a domain name or IP address to look up registration info.</p>
+        <div class="suggestion-row">
+          <span class="suggestion-label">Try:</span>
+          {#each SUGGESTIONS.whois as s}
+            <button class="suggestion-chip" onclick={() => fillSuggestion(s)}>{s}</button>
+          {/each}
+        </div>
+        <Collapsible title="How it works">
+          <p class="doc-text">
+            Whois queries public registration databases to retrieve ownership and contact information for a domain or IP
+            address. The output includes registrar details, creation/expiration dates, and nameservers. Commonly used
+            for investigating domain ownership or checking domain availability.
+          </p>
+        </Collapsible>
+
+        {#if whoisResult}
+          <div class="whois-output">
+            <pre><code>{whoisResult}</code></pre>
+          </div>
+        {/if}
+      </div>
+
+      <!-- Bandwidth Monitor -->
+    {:else if activeTab === 'bandwidth'}
+      <div class="tool-section">
+        <div class="input-row">
+          {#if !bwRunning}
+            <Button variant="accent" onclick={startBandwidth}>Start Monitoring</Button>
+          {:else}
+            <Button variant="danger" onclick={stopBandwidth}>Stop Monitoring</Button>
+          {/if}
+          {#if bwInterfaces.length > 0}
+            <select bind:value={bwSelectedIface} class="iface-select">
+              {#each bwInterfaces as iface}
+                <option value={iface}>{iface}</option>
               {/each}
-            </tbody>
-          </table>
+            </select>
+          {/if}
         </div>
-      {:else if !arpLoading}
-        <p class="empty">Click refresh to load the ARP table.</p>
-      {/if}
-    </div>
 
-    <!-- Whois -->
-  {:else if activeTab === 'whois'}
-    <div class="tool-section">
-      <div class="input-row">
-        <input
-          type="text"
-          bind:value={whoisTarget}
-          placeholder="e.g. example.com or 8.8.8.8"
-          onkeydown={(e) => e.key === 'Enter' && runWhois()}
-          class="input-field"
-        />
-        <Button variant="accent" onclick={runWhois} disabled={whoisLoading} loading={whoisLoading}>
-          {whoisLoading ? 'Looking up...' : 'Lookup'}
-        </Button>
-      </div>
-      <p class="helper-text">Enter a domain name or IP address to look up registration info.</p>
-      <div class="suggestion-row">
-        <span class="suggestion-label">Try:</span>
-        {#each SUGGESTIONS.whois as s}
-          <button class="suggestion-chip" onclick={() => fillSuggestion(s)}>{s}</button>
-        {/each}
-      </div>
-      <Collapsible title="How it works">
-        <p class="doc-text">
-          Whois queries public registration databases to retrieve ownership and contact information for a domain or IP
-          address. The output includes registrar details, creation/expiration dates, and nameservers. Commonly used for
-          investigating domain ownership or checking domain availability.
-        </p>
-      </Collapsible>
+        {#if bwSamples.length > 1}
+          {@const iface = bwSelectedIface || bwInterfaces[0] || ''}
+          {@const latest = bwSamples[bwSamples.length - 1]?.interfaces[iface]}
+          {#if latest}
+            <div class="bw-stats">
+              <div class="bw-stat">
+                <span class="bw-label">Download</span>
+                <span class="bw-value dl">{formatBytesPerSec(latest.bytesInPerSec)}</span>
+              </div>
+              <div class="bw-stat">
+                <span class="bw-label">Upload</span>
+                <span class="bw-value ul">{formatBytesPerSec(latest.bytesOutPerSec)}</span>
+              </div>
+            </div>
+          {/if}
 
-      {#if whoisResult}
-        <div class="whois-output">
-          <pre><code>{whoisResult}</code></pre>
-        </div>
-      {/if}
-    </div>
-
-    <!-- Bandwidth Monitor -->
-  {:else if activeTab === 'bandwidth'}
-    <div class="tool-section">
-      <div class="input-row">
-        {#if !bwRunning}
-          <Button variant="accent" onclick={startBandwidth}>Start Monitoring</Button>
+          <div class="bw-chart-wrap">
+            <svg viewBox="0 0 600 200" class="bw-chart">
+              <!-- Grid lines -->
+              {#each [0, 1, 2, 3, 4] as i}
+                <line x1="0" y1={i * 50} x2="600" y2={i * 50} stroke="#21262d" stroke-width="0.5" />
+              {/each}
+              <!-- Download area -->
+              <path d={bwArea(bwChartData.inData, 600, 200)} fill="rgba(56, 139, 253, 0.15)" />
+              <path d={bwPath(bwChartData.inData, 600, 200)} fill="none" stroke="#388bfd" stroke-width="1.5" />
+              <!-- Upload area -->
+              <path d={bwArea(bwChartData.outData, 600, 200)} fill="rgba(63, 185, 80, 0.15)" />
+              <path d={bwPath(bwChartData.outData, 600, 200)} fill="none" stroke="#3fb950" stroke-width="1.5" />
+            </svg>
+            <div class="bw-legend">
+              <span class="legend-item"><span class="legend-dot dl"></span> Download</span>
+              <span class="legend-item"><span class="legend-dot ul"></span> Upload</span>
+            </div>
+          </div>
+        {:else if bwRunning}
+          <p class="hint">Collecting data... chart will appear in a moment.</p>
         {:else}
-          <Button variant="danger" onclick={stopBandwidth}>Stop Monitoring</Button>
-        {/if}
-        {#if bwInterfaces.length > 0}
-          <select bind:value={bwSelectedIface} class="iface-select">
-            {#each bwInterfaces as iface}
-              <option value={iface}>{iface}</option>
-            {/each}
-          </select>
+          <p class="empty">Start monitoring to see real-time bandwidth usage.</p>
         {/if}
       </div>
 
-      {#if bwSamples.length > 1}
-        {@const iface = bwSelectedIface || bwInterfaces[0] || ''}
-        {@const latest = bwSamples[bwSamples.length - 1]?.interfaces[iface]}
-        {#if latest}
-          <div class="bw-stats">
-            <div class="bw-stat">
-              <span class="bw-label">Download</span>
-              <span class="bw-value dl">{formatBytesPerSec(latest.bytesInPerSec)}</span>
-            </div>
-            <div class="bw-stat">
-              <span class="bw-label">Upload</span>
-              <span class="bw-value ul">{formatBytesPerSec(latest.bytesOutPerSec)}</span>
-            </div>
-          </div>
-        {/if}
-
-        <div class="bw-chart-wrap">
-          <svg viewBox="0 0 600 200" class="bw-chart">
-            <!-- Grid lines -->
-            {#each [0, 1, 2, 3, 4] as i}
-              <line x1="0" y1={i * 50} x2="600" y2={i * 50} stroke="#21262d" stroke-width="0.5" />
-            {/each}
-            <!-- Download area -->
-            <path d={bwArea(bwChartData.inData, 600, 200)} fill="rgba(56, 139, 253, 0.15)" />
-            <path d={bwPath(bwChartData.inData, 600, 200)} fill="none" stroke="#388bfd" stroke-width="1.5" />
-            <!-- Upload area -->
-            <path d={bwArea(bwChartData.outData, 600, 200)} fill="rgba(63, 185, 80, 0.15)" />
-            <path d={bwPath(bwChartData.outData, 600, 200)} fill="none" stroke="#3fb950" stroke-width="1.5" />
-          </svg>
-          <div class="bw-legend">
-            <span class="legend-item"><span class="legend-dot dl"></span> Download</span>
-            <span class="legend-item"><span class="legend-dot ul"></span> Upload</span>
-          </div>
+      <!-- SSL Certificate Inspector -->
+    {:else if activeTab === 'ssl'}
+      <div class="tool-section">
+        <div class="input-row">
+          <input
+            type="text"
+            bind:value={sslDomain}
+            placeholder="e.g. github.com"
+            onkeydown={(e) => e.key === 'Enter' && inspectSSL()}
+            class="input-field"
+          />
+          <Button variant="accent" onclick={inspectSSL} disabled={sslLoading} loading={sslLoading}>
+            {sslLoading ? 'Inspecting...' : 'Inspect'}
+          </Button>
         </div>
-      {:else if bwRunning}
-        <p class="hint">Collecting data... chart will appear in a moment.</p>
-      {:else}
-        <p class="empty">Start monitoring to see real-time bandwidth usage.</p>
-      {/if}
-    </div>
+        <p class="helper-text">Enter a domain name (without https://) to inspect its SSL certificate.</p>
+        <div class="suggestion-row">
+          <span class="suggestion-label">Try:</span>
+          {#each SUGGESTIONS.ssl as s}
+            <button class="suggestion-chip" onclick={() => fillSuggestion(s)}>{s}</button>
+          {/each}
+        </div>
+        <Collapsible title="How it works">
+          <p class="doc-text">
+            SSL Inspector connects to a domain on port 443 and retrieves its TLS certificate details. The output shows
+            the certificate subject, issuer, validity dates, and Subject Alternative Names. Use it to verify certificate
+            expiration, check issuer chains, or audit the security of HTTPS endpoints.
+          </p>
+        </Collapsible>
 
-    <!-- SSL Certificate Inspector -->
-  {:else if activeTab === 'ssl'}
-    <div class="tool-section">
-      <div class="input-row">
-        <input
-          type="text"
-          bind:value={sslDomain}
-          placeholder="e.g. github.com"
-          onkeydown={(e) => e.key === 'Enter' && inspectSSL()}
-          class="input-field"
-        />
-        <Button variant="accent" onclick={inspectSSL} disabled={sslLoading} loading={sslLoading}>
-          {sslLoading ? 'Inspecting...' : 'Inspect'}
-        </Button>
-      </div>
-      <p class="helper-text">Enter a domain name (without https://) to inspect its SSL certificate.</p>
-      <div class="suggestion-row">
-        <span class="suggestion-label">Try:</span>
-        {#each SUGGESTIONS.ssl as s}
-          <button class="suggestion-chip" onclick={() => fillSuggestion(s)}>{s}</button>
-        {/each}
-      </div>
-      <Collapsible title="How it works">
-        <p class="doc-text">
-          SSL Inspector connects to a domain on port 443 and retrieves its TLS certificate details. The output shows the
-          certificate subject, issuer, validity dates, and Subject Alternative Names. Use it to verify certificate
-          expiration, check issuer chains, or audit the security of HTTPS endpoints.
-        </p>
-      </Collapsible>
+        {#if sslError}
+          <p class="error-msg">{sslError}</p>
+        {/if}
 
-      {#if sslError}
-        <p class="error-msg">{sslError}</p>
-      {/if}
-
-      {#if sslCert}
-        <div class="ssl-card card">
-          <div
-            class="ssl-header"
-            class:expired={sslCert.isExpired}
-            class:expiring={!sslCert.isExpired && sslCert.daysRemaining < 30}
-          >
-            <span
-              class="ssl-status-dot"
+        {#if sslCert}
+          <div class="ssl-card card">
+            <div
+              class="ssl-header"
               class:expired={sslCert.isExpired}
               class:expiring={!sslCert.isExpired && sslCert.daysRemaining < 30}
-            ></span>
-            {#if sslCert.isExpired}
-              EXPIRED
-            {:else if sslCert.daysRemaining < 30}
-              Expires in {sslCert.daysRemaining} days
-            {:else}
-              Valid ({sslCert.daysRemaining} days remaining)
-            {/if}
-          </div>
-          <div class="ssl-grid">
-            <div class="ssl-item">
-              <span class="ssl-label">Subject</span>
-              <span class="ssl-value">{sslCert.subject}</span>
+            >
+              <span
+                class="ssl-status-dot"
+                class:expired={sslCert.isExpired}
+                class:expiring={!sslCert.isExpired && sslCert.daysRemaining < 30}
+              ></span>
+              {#if sslCert.isExpired}
+                EXPIRED
+              {:else if sslCert.daysRemaining < 30}
+                Expires in {sslCert.daysRemaining} days
+              {:else}
+                Valid ({sslCert.daysRemaining} days remaining)
+              {/if}
             </div>
-            <div class="ssl-item">
-              <span class="ssl-label">Issuer</span>
-              <span class="ssl-value">{sslCert.issuer}</span>
-            </div>
-            <div class="ssl-item">
-              <span class="ssl-label">Valid From</span>
-              <span class="ssl-value">{sslCert.validFrom}</span>
-            </div>
-            <div class="ssl-item">
-              <span class="ssl-label">Valid To</span>
-              <span class="ssl-value">{sslCert.validTo}</span>
-            </div>
-            {#if sslCert.serial}
+            <div class="ssl-grid">
               <div class="ssl-item">
-                <span class="ssl-label">Serial</span>
-                <code class="ssl-value">{sslCert.serial}</code>
+                <span class="ssl-label">Subject</span>
+                <span class="ssl-value">{sslCert.subject}</span>
               </div>
-            {/if}
-            {#if sslCert.signatureAlgo}
               <div class="ssl-item">
-                <span class="ssl-label">Signature Algorithm</span>
-                <span class="ssl-value">{sslCert.signatureAlgo}</span>
+                <span class="ssl-label">Issuer</span>
+                <span class="ssl-value">{sslCert.issuer}</span>
               </div>
-            {/if}
-            {#if sslCert.sans.length > 0}
-              <div class="ssl-item ssl-sans">
-                <span class="ssl-label">Subject Alt Names</span>
-                <div class="san-list">
-                  {#each sslCert.sans as san}
-                    <code class="san-tag">{san}</code>
-                  {/each}
-                </div>
+              <div class="ssl-item">
+                <span class="ssl-label">Valid From</span>
+                <span class="ssl-value">{sslCert.validFrom}</span>
               </div>
-            {/if}
-          </div>
-        </div>
-      {/if}
-    </div>
-
-    <!-- HTTP Header Inspector -->
-  {:else if activeTab === 'http'}
-    <div class="tool-section">
-      <div class="input-row">
-        <input
-          type="text"
-          bind:value={httpUrl}
-          placeholder="e.g. https://httpbin.org/get"
-          onkeydown={(e) => e.key === 'Enter' && inspectHTTP()}
-          class="input-field"
-        />
-        <Button variant="accent" onclick={inspectHTTP} disabled={httpLoading} loading={httpLoading}>
-          {httpLoading ? 'Fetching...' : 'Inspect'}
-        </Button>
-      </div>
-      <p class="helper-text">Enter a full URL (including https://) to inspect response headers.</p>
-      <div class="suggestion-row">
-        <span class="suggestion-label">Try:</span>
-        {#each SUGGESTIONS.http as s}
-          <button class="suggestion-chip" onclick={() => fillSuggestion(s)}>{s}</button>
-        {/each}
-      </div>
-      <Collapsible title="How it works">
-        <p class="doc-text">
-          HTTP Header Inspector sends a GET request to the target URL and displays the response status code, headers,
-          and timing information. Response headers reveal server software, caching policies, security headers, and
-          content types. Great for debugging API responses or auditing security headers like CSP and HSTS.
-        </p>
-      </Collapsible>
-
-      {#if httpError}
-        <p class="error-msg">{httpError}</p>
-      {/if}
-
-      {#if httpResult}
-        <div class="http-result card">
-          <div class="http-status-row">
-            <span class="http-status" style="color: {statusColor(httpResult.status)}">
-              {httpResult.status}
-            </span>
-            <span class="http-status-text">{httpResult.statusText}</span>
-            <span class="http-timing">{httpResult.timing.total} ms</span>
-          </div>
-          <div class="http-headers">
-            <h4>Response Headers</h4>
-            <div class="headers-list">
-              {#each Object.entries(httpResult.headers) as [key, value]}
-                <div class="header-entry">
-                  <span class="header-key">{key}</span>
-                  <span class="header-value">{value}</span>
+              <div class="ssl-item">
+                <span class="ssl-label">Valid To</span>
+                <span class="ssl-value">{sslCert.validTo}</span>
+              </div>
+              {#if sslCert.serial}
+                <div class="ssl-item">
+                  <span class="ssl-label">Serial</span>
+                  <code class="ssl-value">{sslCert.serial}</code>
                 </div>
-              {/each}
+              {/if}
+              {#if sslCert.signatureAlgo}
+                <div class="ssl-item">
+                  <span class="ssl-label">Signature Algorithm</span>
+                  <span class="ssl-value">{sslCert.signatureAlgo}</span>
+                </div>
+              {/if}
+              {#if sslCert.sans.length > 0}
+                <div class="ssl-item ssl-sans">
+                  <span class="ssl-label">Subject Alt Names</span>
+                  <div class="san-list">
+                    {#each sslCert.sans as san}
+                      <code class="san-tag">{san}</code>
+                    {/each}
+                  </div>
+                </div>
+              {/if}
             </div>
           </div>
+        {/if}
+      </div>
+
+      <!-- HTTP Header Inspector -->
+    {:else if activeTab === 'http'}
+      <div class="tool-section">
+        <div class="input-row">
+          <input
+            type="text"
+            bind:value={httpUrl}
+            placeholder="e.g. https://httpbin.org/get"
+            onkeydown={(e) => e.key === 'Enter' && inspectHTTP()}
+            class="input-field"
+          />
+          <Button variant="accent" onclick={inspectHTTP} disabled={httpLoading} loading={httpLoading}>
+            {httpLoading ? 'Fetching...' : 'Inspect'}
+          </Button>
         </div>
-      {/if}
-    </div>
-  {/if}
+        <p class="helper-text">Enter a full URL (including https://) to inspect response headers.</p>
+        <div class="suggestion-row">
+          <span class="suggestion-label">Try:</span>
+          {#each SUGGESTIONS.http as s}
+            <button class="suggestion-chip" onclick={() => fillSuggestion(s)}>{s}</button>
+          {/each}
+        </div>
+        <Collapsible title="How it works">
+          <p class="doc-text">
+            HTTP Header Inspector sends a GET request to the target URL and displays the response status code, headers,
+            and timing information. Response headers reveal server software, caching policies, security headers, and
+            content types. Great for debugging API responses or auditing security headers like CSP and HSTS.
+          </p>
+        </Collapsible>
+
+        {#if httpError}
+          <p class="error-msg">{httpError}</p>
+        {/if}
+
+        {#if httpResult}
+          <div class="http-result card">
+            <div class="http-status-row">
+              <span class="http-status" style="color: {statusColor(httpResult.status)}">
+                {httpResult.status}
+              </span>
+              <span class="http-status-text">{httpResult.statusText}</span>
+              <span class="http-timing">{httpResult.timing.total} ms</span>
+            </div>
+            <div class="http-headers">
+              <h4>Response Headers</h4>
+              <div class="headers-list">
+                {#each Object.entries(httpResult.headers) as [key, value]}
+                  <div class="header-entry">
+                    <span class="header-key">{key}</span>
+                    <span class="header-value">{value}</span>
+                  </div>
+                {/each}
+              </div>
+            </div>
+          </div>
+        {/if}
+      </div>
+    {:else if activeTab === 'dns'}
+      <NetDns />
+    {:else if activeTab === 'dns-trace'}
+      <NetDnsTrace />
+    {:else if activeTab === 'ports'}
+      <NetPorts />
+    {/if}
+  </ErrorBoundary>
 </div>
 
 <style>
-  .header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 16px;
-  }
-
   h2 {
     font-size: 1.3rem;
   }
@@ -1315,10 +1264,6 @@
   }
 
   @media (max-width: 640px) {
-    .tab-btn {
-      padding: 6px 10px;
-      font-size: 0.72rem;
-    }
     .ssl-item {
       flex-direction: column;
       gap: 2px;

@@ -702,7 +702,6 @@
     background: var(--accent-bg);
   }
 
-  .loading,
   .empty {
     color: var(--text-muted);
     text-align: center;
@@ -1042,9 +1041,6 @@
   @media (max-width: 640px) {
     .network-row {
       flex-wrap: wrap;
-    }
-    .net-security {
-      margin-left: auto;
     }
     .device-row {
       flex-wrap: wrap;

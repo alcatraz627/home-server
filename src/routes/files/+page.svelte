@@ -9,6 +9,7 @@
   import SearchInput from '$lib/components/SearchInput.svelte';
   import Collapsible from '$lib/components/Collapsible.svelte';
   import Icon from '$lib/components/Icon.svelte';
+  import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
   import { toast } from '$lib/toast';
   import { stars } from '$lib/stars';
   import { browser } from '$app/environment';
@@ -16,6 +17,10 @@
   import { page } from '$app/stores';
   import { onMount, onDestroy } from 'svelte';
   import { fetchApi } from '$lib/api';
+  import { createTableSort } from '$lib/sort.svelte';
+  import { getErrorMessage } from '$lib/errors';
+  import { useShortcuts, SHORTCUT_DEFAULTS } from '$lib/shortcuts';
+  import { SK_FILE_VIEW, SK_FILE_TABS } from '$lib/constants/storage-keys';
 
   // --- Media file detection ---
   const MEDIA_VIDEO_EXTS = ['.mp4', '.webm', '.mkv', '.avi', '.mov'];
@@ -37,9 +42,9 @@
 
   function getMediaIcon(file: FileInfo): string {
     const ext = getFileExt(file.name);
-    if (MEDIA_VIDEO_EXTS.includes(ext)) return '\u{1F3AC}';
-    if (MEDIA_AUDIO_EXTS.includes(ext)) return '\u{1F3B5}';
-    return '';
+    if (MEDIA_VIDEO_EXTS.includes(ext)) return 'film';
+    if (MEDIA_AUDIO_EXTS.includes(ext)) return 'music';
+    return 'file';
   }
 
   function streamUrl(filename: string): string {
@@ -98,6 +103,85 @@
 
   type EnrichedFile = FileInfo & { meta: FileMetadata | null };
 
+  // --- Tab system ---
+  interface FileTab {
+    id: number;
+    path: string;
+    label: string;
+  }
+
+  let nextTabId = 1;
+  let tabs = $state<FileTab[]>([]);
+  let activeTabId = $state(0);
+
+  function tabLabel(path: string): string {
+    if (!path) return 'Root';
+    const segments = path.split('/').filter(Boolean);
+    return segments[segments.length - 1] || 'Root';
+  }
+
+  function initTabs(initialPath: string) {
+    if (browser) {
+      try {
+        const saved = localStorage.getItem(SK_FILE_TABS);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed.tabs) && parsed.tabs.length > 0) {
+            tabs = parsed.tabs;
+            activeTabId = parsed.activeTabId ?? parsed.tabs[0].id;
+            nextTabId = Math.max(...parsed.tabs.map((t: FileTab) => t.id)) + 1;
+            return;
+          }
+        }
+      } catch {}
+    }
+    const tab: FileTab = { id: nextTabId++, path: initialPath, label: tabLabel(initialPath) };
+    tabs = [tab];
+    activeTabId = tab.id;
+  }
+
+  function saveTabs() {
+    if (browser) {
+      localStorage.setItem(SK_FILE_TABS, JSON.stringify({ tabs, activeTabId }));
+    }
+  }
+
+  function addTab(path = '') {
+    const tab: FileTab = { id: nextTabId++, path, label: tabLabel(path) };
+    tabs = [...tabs, tab];
+    activeTabId = tab.id;
+    navigateTo(path);
+    saveTabs();
+  }
+
+  function closeTab(id: number) {
+    if (tabs.length <= 1) return; // Keep at least one tab
+    const idx = tabs.findIndex((t) => t.id === id);
+    tabs = tabs.filter((t) => t.id !== id);
+    if (activeTabId === id) {
+      // Switch to adjacent tab
+      const newIdx = Math.min(idx, tabs.length - 1);
+      activeTabId = tabs[newIdx].id;
+      navigateTo(tabs[newIdx].path);
+    }
+    saveTabs();
+  }
+
+  function switchTab(id: number) {
+    if (id === activeTabId) return;
+    // Save current path to the active tab before switching
+    const current = tabs.find((t) => t.id === activeTabId);
+    if (current) {
+      current.path = currentPath;
+      current.label = tabLabel(currentPath);
+      tabs = [...tabs]; // trigger reactivity
+    }
+    activeTabId = id;
+    const target = tabs.find((t) => t.id === id);
+    if (target) navigateTo(target.path);
+    saveTabs();
+  }
+
   let { data } = $props<{ data: PageData }>();
   // svelte-ignore state_referenced_locally
   const { files: initialFiles, currentPath: initialPath, uploadDir } = data;
@@ -109,7 +193,7 @@
     if (!browser) return;
     const params = currentPath ? `?path=${encodeURIComponent(currentPath)}` : '';
     const newUrl = `/files${params}`;
-    if (window.location.pathname + window.location.search !== newUrl) {
+    if ($page.url.pathname + $page.url.search !== newUrl) {
       history.replaceState(null, '', newUrl);
     }
   });
@@ -117,7 +201,7 @@
   // Read initial path from URL on mount (for deep links like /files?path=somefile.mp4)
   $effect(() => {
     if (!browser) return;
-    const urlPath = new URL(window.location.href).searchParams.get('path');
+    const urlPath = $page.url.searchParams.get('path');
     if (urlPath && urlPath !== currentPath && !urlPath.includes('.')) {
       // Only navigate if it looks like a directory path (no extension)
       navigateTo(urlPath);
@@ -131,11 +215,11 @@
 
   // --- View mode (list/grid) ---
   type ViewMode = 'list' | 'grid';
-  let viewMode = $state<ViewMode>(browser ? (localStorage.getItem('hs:file-view') as ViewMode) || 'list' : 'list');
+  let viewMode = $state<ViewMode>(browser ? (localStorage.getItem(SK_FILE_VIEW) as ViewMode) || 'list' : 'list');
 
   function setViewMode(mode: ViewMode) {
     viewMode = mode;
-    if (browser) localStorage.setItem('hs:file-view', mode);
+    if (browser) localStorage.setItem(SK_FILE_VIEW, mode);
   }
 
   // --- Starred files (via shared stars store) ---
@@ -153,11 +237,12 @@
     return starredFiles.includes(name);
   }
 
-  // --- Folder size on demand ---
+  // --- Folder size (eager async) ---
   let folderSizes = $state<Map<string, number | 'loading'>>(new Map());
 
   async function calculateFolderSize(file: FileInfo) {
     const key = currentPath ? `${currentPath}/${file.name}` : file.name;
+    if (folderSizes.has(key)) return; // already loading or loaded
     folderSizes = new Map(folderSizes).set(key, 'loading');
     try {
       const params = new URLSearchParams({ name: file.name });
@@ -174,6 +259,15 @@
   function getFolderSizeKey(file: FileInfo): string {
     return currentPath ? `${currentPath}/${file.name}` : file.name;
   }
+
+  // Auto-calculate folder sizes when directory listing changes
+  $effect(() => {
+    const dirs = files.filter((f) => f.isDirectory);
+    // Fire all in parallel — each manages its own loading state
+    for (const dir of dirs) {
+      calculateFolderSize(dir);
+    }
+  });
 
   function copyPath(file: FileInfo) {
     const full = currentPath ? `${currentPath}/${file.name}` : file.name;
@@ -220,8 +314,8 @@
       toast.success(`Deleted ${names.length} file${names.length > 1 ? 's' : ''}`);
       selectedFiles = new Set();
       await refreshFiles();
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to delete files', { key: 'delete-file' });
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, 'Failed to delete files'), { key: 'delete-file' });
     }
   }
 
@@ -251,6 +345,7 @@
 
   // Search, sort, filter
   let search = $state('');
+  let searchInputEl = $state<HTMLInputElement | undefined>();
   let searchScope = $state<'folder' | 'all'>('folder');
   let globalResults = $state<{ name: string; path: string; size: number; modified: string }[]>([]);
   let globalSearching = $state(false);
@@ -288,8 +383,7 @@
     navigateTo(dir);
   }
 
-  let sortField = $state<'name' | 'size' | 'modified' | 'mime'>('name');
-  let sortAsc = $state(true);
+  const sort = createTableSort<'name' | 'size' | 'modified' | 'mime'>('name', 'asc');
   let typeFilter = $state('');
 
   let uniqueTypes = $derived([...new Set(files.map((f) => f.mime.split('/')[0]))].sort());
@@ -303,35 +397,23 @@
     if (typeFilter) {
       result = result.filter((f) => f.mime.startsWith(typeFilter + '/'));
     }
-    const dir = sortAsc ? 1 : -1;
+    const sf = sort.key;
+    const dir = sort.dir === 'asc' ? 1 : -1;
     return [...result].sort((a, b) => {
       // Starred files always sort to the top
       const aStarred = isFileStarred(a.name) ? 0 : 1;
       const bStarred = isFileStarred(b.name) ? 0 : 1;
       if (aStarred !== bStarred) return aStarred - bStarred;
-      if (sortField === 'name') return a.name.localeCompare(b.name) * dir;
-      if (sortField === 'size') return (a.size - b.size) * dir;
-      if (sortField === 'modified') return (new Date(a.modified).getTime() - new Date(b.modified).getTime()) * dir;
-      if (sortField === 'mime') return a.mime.localeCompare(b.mime) * dir;
+      if (sf === 'name') return a.name.localeCompare(b.name) * dir;
+      if (sf === 'size') return (a.size - b.size) * dir;
+      if (sf === 'modified') return (new Date(a.modified).getTime() - new Date(b.modified).getTime()) * dir;
+      if (sf === 'mime') return a.mime.localeCompare(b.mime) * dir;
       return 0;
     });
   });
 
   // --- File size visualization ---
   let maxFileSize = $derived(Math.max(1, ...files.filter((f) => !f.isDirectory).map((f) => f.size)));
-
-  function toggleSort(field: typeof sortField) {
-    if (sortField === field) sortAsc = !sortAsc;
-    else {
-      sortField = field;
-      sortAsc = true;
-    }
-  }
-
-  function isSorted(field: typeof sortField): 'asc' | 'desc' | null {
-    if (sortField !== field) return null;
-    return sortAsc ? 'asc' : 'desc';
-  }
 
   // Preview state
   let previewFile = $state<FileInfo | null>(null);
@@ -411,8 +493,8 @@
       if (!res.ok) throw new Error('Failed to load file for preview');
       const data = await res.arrayBuffer();
       renderResult = await renderDocument(data, file.mime, file.name);
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to preview file');
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, 'Failed to preview file'));
     }
     renderLoading = false;
   }
@@ -443,8 +525,8 @@
       });
       if (!res.ok) throw new Error('Failed to rename file');
       await refreshFiles();
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to rename file', { key: 'delete-file' });
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, 'Failed to rename file'), { key: 'delete-file' });
     }
     renamingFile = null;
   }
@@ -536,6 +618,8 @@
   async function submitPathInput() {
     const raw = pathInputValue.trim();
     editingPath = false;
+    dropdownDirs = new Map();
+    openDropdownIdx = null;
 
     // If path starts with / or ~, switch to system browse mode
     if (raw.startsWith('/') || raw.startsWith('~')) {
@@ -556,8 +640,8 @@
           mime: e.isDir ? 'inode/directory' : '',
           meta: null,
         }));
-      } catch (e: any) {
-        toast.error(e.message || 'Invalid path', { key: 'path-nav' });
+      } catch (e: unknown) {
+        toast.error(getErrorMessage(e, 'Invalid path'), { key: 'path-nav' });
       }
       return;
     }
@@ -583,6 +667,9 @@
 
   // Navigate into directory (validates path first)
   async function navigateTo(navPath: string) {
+    dropdownDirs = new Map();
+    folderSizes = new Map();
+    openDropdownIdx = null;
     if (browseMode === 'system') {
       try {
         const res = await fetchApi(`/api/browse?path=${encodeURIComponent(navPath)}`);
@@ -613,6 +700,14 @@
       files = await res.json();
     } catch {
       toast.error('Invalid path — directory not found', { key: 'path-nav' });
+    }
+    // Sync active tab
+    const activeTab = tabs.find((t) => t.id === activeTabId);
+    if (activeTab) {
+      activeTab.path = currentPath;
+      activeTab.label = tabLabel(currentPath);
+      tabs = [...tabs];
+      saveTabs();
     }
   }
 
@@ -742,55 +837,93 @@
       newDirName = '';
       showNewDir = false;
       await refreshFiles();
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to create directory');
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, 'Failed to create directory'));
     }
   }
 
   async function refreshFiles() {
+    dropdownDirs = new Map();
+    folderSizes = new Map();
     try {
       const params = currentPath ? `?path=${encodeURIComponent(currentPath)}` : '';
       const res = await fetchApi(`/api/files${params}`);
       if (!res.ok) throw new Error('Failed to load files');
       files = await res.json();
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to refresh files');
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, 'Failed to refresh files'));
     }
   }
 
-  async function deleteFile(filename: string) {
+  // Delete confirmation
+  let confirmDeleteTarget = $state<{ name: string; isDir: boolean } | null>(null);
+  let showDeleteConfirm = $state(false);
+
+  function requestDelete(name: string, isDir: boolean) {
+    confirmDeleteTarget = { name, isDir };
+    showDeleteConfirm = true;
+  }
+
+  async function confirmDelete() {
+    if (!confirmDeleteTarget) return;
+    const { name, isDir } = confirmDeleteTarget;
+    confirmDeleteTarget = null;
+    if (isDir) {
+      await doDeleteDir(name);
+    } else {
+      await doDeleteFile(name);
+    }
+  }
+
+  async function doDeleteFile(filename: string) {
     try {
       const params = currentPath ? `?path=${encodeURIComponent(currentPath)}` : '';
       const res = await fetchApi(`/api/files/${encodeURIComponent(filename)}${params}`, { method: 'DELETE' });
       if (!res.ok) throw new Error(`Failed to delete ${filename}`);
+      toast.success(`Deleted ${filename}`);
       await refreshFiles();
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to delete file', { key: 'delete-file' });
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, 'Failed to delete file'), { key: 'delete-file' });
     }
   }
 
-  async function deleteDir(name: string) {
+  async function doDuplicate(filename: string) {
+    try {
+      const params = currentPath ? `?path=${encodeURIComponent(currentPath)}` : '';
+      const res = await fetchApi(`/api/files/${encodeURIComponent(filename)}${params}`, { method: 'POST' });
+      if (!res.ok) throw new Error('Duplicate failed');
+      const data = await res.json();
+      toast.success(`Created ${data.name}`);
+      await refreshFiles();
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, 'Failed to duplicate file'), { key: 'duplicate-file' });
+    }
+  }
+
+  async function doDeleteDir(name: string) {
     try {
       const params = currentPath ? `path=${encodeURIComponent(currentPath)}&dir=true` : 'dir=true';
       const res = await fetchApi(`/api/files/${encodeURIComponent(name)}?${params}`, { method: 'DELETE' });
       if (!res.ok) throw new Error(`Failed to delete directory ${name}`);
+      toast.success(`Deleted folder ${name}`);
       await refreshFiles();
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to delete directory', { key: 'delete-file' });
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, 'Failed to delete directory'), { key: 'delete-file' });
     }
   }
 
   function fileTypeIcon(file: FileInfo): string {
-    if (file.isDirectory) return '\u{1F4C1}';
+    if (file.isDirectory) return 'folder';
     const mime = file.mime;
-    if (mime.startsWith('image/')) return '\u{1F5BC}';
-    if (mime.startsWith('video/')) return '\u{1F3AC}';
-    if (mime.startsWith('audio/')) return '\u{1F3B5}';
-    if (mime === 'application/pdf') return '\u{1F4C4}';
-    if (mime.startsWith('text/')) return '\u{1F4DD}';
-    if (mime.includes('zip') || mime.includes('tar') || mime.includes('compress')) return '\u{1F4E6}';
-    if (mime.includes('json') || mime.includes('xml') || mime.includes('javascript')) return '\u{1F4CB}';
-    return '\u{1F4C4}';
+    if (mime.startsWith('image/')) return 'image';
+    if (mime.startsWith('video/')) return 'film';
+    if (mime.startsWith('audio/')) return 'music';
+    if (mime === 'application/pdf') return 'file-text';
+    if (mime === 'application/epub+zip') return 'book-open';
+    if (mime.startsWith('text/')) return 'file-text';
+    if (mime.includes('zip') || mime.includes('tar') || mime.includes('compress')) return 'archive';
+    if (mime.includes('json') || mime.includes('xml') || mime.includes('javascript')) return 'code';
+    return 'file';
   }
 
   // --- Inline terminal ---
@@ -963,6 +1096,27 @@
     terminalFitAddon?.fit();
   }
 
+  onMount(() => {
+    initTabs(initialPath || '');
+    return useShortcuts([
+      { ...SHORTCUT_DEFAULTS.find((d) => d.id === 'files:refresh')!, handler: () => refreshFiles() },
+      { ...SHORTCUT_DEFAULTS.find((d) => d.id === 'files:focus-search')!, handler: () => searchInputEl?.focus() },
+      { ...SHORTCUT_DEFAULTS.find((d) => d.id === 'files:new-folder')!, handler: () => (showNewDir = true) },
+      {
+        ...SHORTCUT_DEFAULTS.find((d) => d.id === 'files:go-up')!,
+        handler: () => {
+          if (breadcrumbs.length > 1) {
+            goto(`/files?path=${encodeURIComponent(breadcrumbs[breadcrumbs.length - 2].path)}`);
+          }
+        },
+      },
+      {
+        ...SHORTCUT_DEFAULTS.find((d) => d.id === 'files:toggle-view')!,
+        handler: () => setViewMode(viewMode === 'list' ? 'grid' : 'list'),
+      },
+    ]);
+  });
+
   onDestroy(() => {
     destroyTerminal();
   });
@@ -977,15 +1131,51 @@
 <div class="page-header">
   <h2 class="page-title">Files</h2>
   <div class="page-actions">
-    <Button size="sm" onclick={refreshFiles}>Refresh</Button>
+    <Button size="sm" icon="refresh" onclick={refreshFiles}>Refresh</Button>
     <label class="upload-btn-label">
-      <Button size="sm" variant="accent">Upload</Button>
+      <Button size="sm" variant="accent" icon="upload">Upload</Button>
       <input type="file" multiple onchange={handleFileInput} class="upload-hidden-input" />
     </label>
     <span class="file-count">{filtered.length} of {files.length} items</span>
   </div>
 </div>
 <p class="page-desc">Browse, upload, and manage files on your server. Star files for quick dashboard access.</p>
+
+<!-- Tab bar -->
+{#if tabs.length > 0}
+  <div class="file-tabs">
+    {#each tabs as tab (tab.id)}
+      <!-- svelte-ignore a11y_no_static_element_interactions -->
+      <div
+        class="file-tab"
+        class:active={tab.id === activeTabId}
+        role="button"
+        tabindex="0"
+        onclick={() => switchTab(tab.id)}
+        onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && switchTab(tab.id)}
+        title={tab.path || 'Root'}
+      >
+        <Icon name={tab.path ? 'folder' : 'home'} size={12} />
+        <span class="file-tab-label">{tab.label}</span>
+        {#if tabs.length > 1}
+          <button
+            class="file-tab-close"
+            onclick={(e) => {
+              e.stopPropagation();
+              closeTab(tab.id);
+            }}
+            title="Close tab"
+          >
+            <Icon name="close" size={10} />
+          </button>
+        {/if}
+      </div>
+    {/each}
+    <button class="file-tab file-tab-add" onclick={() => addTab()} title="New tab">
+      <Icon name="add" size={12} />
+    </button>
+  </div>
+{/if}
 
 <!-- Upload area -->
 <div class="upload-area">
@@ -1082,12 +1272,14 @@
           {:else}
             <button class="crumb-link" onclick={() => navigateTo(crumb.path)}>{crumb.name}</button>
           {/if}
-          <button
-            class="crumb-chevron"
-            class:open={openDropdownIdx === i}
-            onclick={(e) => toggleDropdown(i, e)}
-            title="Browse siblings">›</button
-          >
+          {#if !(i === 0 && browseMode === 'system')}
+            <button
+              class="crumb-chevron"
+              class:open={openDropdownIdx === i}
+              onclick={(e) => toggleDropdown(i, e)}
+              title="Browse siblings">›</button
+            >
+          {/if}
           {#if openDropdownIdx === i}
             {@const parentPath = i === 0 ? '' : breadcrumbs[i - 1].path}
             <div class="crumb-dropdown">
@@ -1122,6 +1314,7 @@
   <div class="search-wrap">
     <SearchInput
       bind:value={search}
+      bind:inputEl={searchInputEl}
       placeholder={searchScope === 'all' ? 'Search all files...' : 'Search this folder...'}
       oninput={() => handleSearchInput()}
     />
@@ -1271,7 +1464,7 @@
             }
           }}
         >
-          <span class="grid-icon">{fileTypeIcon(file)}</span>
+          <span class="grid-icon"><Icon name={fileTypeIcon(file)} size={24} /></span>
           <span class="grid-name" title={file.name}>{file.name}</span>
           {#if !file.isDirectory}
             <span class="grid-size">{formatSize(file.size)}</span>
@@ -1285,6 +1478,9 @@
             <Icon name="copy" size={13} />
           </button>
           {#if !file.isDirectory}
+            <button class="action-btn" title="Duplicate" onclick={() => doDuplicate(file.name)}>
+              <Icon name="duplicate" size={13} />
+            </button>
             <a href={downloadUrl(file.name)} class="action-btn" title="Download" download={file.name}>
               <Icon name="download" size={13} />
             </a>
@@ -1292,7 +1488,7 @@
           <button
             class="action-btn action-btn-danger"
             title={file.isDirectory ? 'Delete folder' : 'Delete file'}
-            onclick={() => (file.isDirectory ? deleteDir(file.name) : deleteFile(file.name))}
+            onclick={() => requestDelete(file.name, file.isDirectory)}
           >
             <Icon name="delete" size={13} />
           </button>
@@ -1314,25 +1510,25 @@
         />
       </span>
       <span class="col-star"></span>
-      <span class="col-name sortable" onclick={() => toggleSort('name')}
-        >Name{#if isSorted('name') === 'asc'}
-          <Icon name="sort-asc" size={12} />{:else if isSorted('name') === 'desc'}
-          <Icon name="sort-desc" size={12} />{/if}</span
+      <button class="col-name sortable" onclick={() => sort.toggle('name')}
+        >Name{#if sort.activeDir('name') === 'asc'}
+          <Icon name="sort-asc" size={12} />{:else if sort.activeDir('name') === 'desc'}
+          <Icon name="sort-desc" size={12} />{/if}</button
       >
-      <span class="col-type sortable" onclick={() => toggleSort('mime')}
-        >Type{#if isSorted('mime') === 'asc'}
-          <Icon name="sort-asc" size={12} />{:else if isSorted('mime') === 'desc'}
-          <Icon name="sort-desc" size={12} />{/if}</span
+      <button class="col-type sortable" onclick={() => sort.toggle('mime')}
+        >Type{#if sort.activeDir('mime') === 'asc'}
+          <Icon name="sort-asc" size={12} />{:else if sort.activeDir('mime') === 'desc'}
+          <Icon name="sort-desc" size={12} />{/if}</button
       >
-      <span class="col-size sortable" onclick={() => toggleSort('size')}
-        >Size{#if isSorted('size') === 'asc'}
-          <Icon name="sort-asc" size={12} />{:else if isSorted('size') === 'desc'}
-          <Icon name="sort-desc" size={12} />{/if}</span
+      <button class="col-size sortable" onclick={() => sort.toggle('size')}
+        >Size{#if sort.activeDir('size') === 'asc'}
+          <Icon name="sort-asc" size={12} />{:else if sort.activeDir('size') === 'desc'}
+          <Icon name="sort-desc" size={12} />{/if}</button
       >
-      <span class="col-date sortable" onclick={() => toggleSort('modified')}
-        >Modified{#if isSorted('modified') === 'asc'}
-          <Icon name="sort-asc" size={12} />{:else if isSorted('modified') === 'desc'}
-          <Icon name="sort-desc" size={12} />{/if}</span
+      <button class="col-date sortable" onclick={() => sort.toggle('modified')}
+        >Modified{#if sort.activeDir('modified') === 'asc'}
+          <Icon name="sort-asc" size={12} />{:else if sort.activeDir('modified') === 'desc'}
+          <Icon name="sort-desc" size={12} />{/if}</button
       >
       <span class="col-actions"></span>
     </div>
@@ -1365,7 +1561,7 @@
               class="name-btn dir-btn"
               onclick={() => navigateTo(currentPath ? `${currentPath}/${file.name}` : file.name)}
             >
-              {fileTypeIcon(file)}
+              <Icon name={fileTypeIcon(file)} size={14} />
               {file.name}
             </button>
           {:else}
@@ -1379,7 +1575,7 @@
                     openMediaPlayer(file);
                   }}><Icon name="play" size={12} /></button
                 >
-                <span class="media-icon">{getMediaIcon(file)}</span>
+                <span class="media-icon"><Icon name={getMediaIcon(file)} size={14} /></span>
               {/if}
               <button class="name-btn" class:previewable={isPreviewable(file)} onclick={() => openPreview(file)}>
                 {file.name}
@@ -1393,13 +1589,11 @@
             {@const sizeKey = getFolderSizeKey(file)}
             {@const sizeVal = folderSizes.get(sizeKey)}
             {#if sizeVal === 'loading'}
-              <span class="size-text size-computing">…</span>
+              <span class="size-text size-computing"><Icon name="loader" size={11} class="spin" /></span>
             {:else if typeof sizeVal === 'number'}
               <span class="size-text">{formatSize(sizeVal)}</span>
             {:else}
-              <button class="calc-size-btn" onclick={() => calculateFolderSize(file)} title="Calculate folder size">
-                <Icon name="info" size={11} /> size
-              </button>
+              <span class="size-text size-computing">—</span>
             {/if}
           {:else}
             <span class="size-text">{formatSize(file.size)}</span>
@@ -1424,6 +1618,9 @@
             <Icon name="copy" size={13} />
           </button>
           {#if !file.isDirectory}
+            <button class="action-btn" title="Duplicate" onclick={() => doDuplicate(file.name)}>
+              <Icon name="duplicate" size={13} />
+            </button>
             <a href={downloadUrl(file.name)} class="action-btn" title="Download" download={file.name}>
               <Icon name="download" size={13} />
             </a>
@@ -1431,7 +1628,7 @@
           <button
             class="action-btn action-btn-danger"
             title={file.isDirectory ? 'Delete folder' : 'Delete file'}
-            onclick={() => (file.isDirectory ? deleteDir(file.name) : deleteFile(file.name))}
+            onclick={() => requestDelete(file.name, file.isDirectory)}
           >
             <Icon name="delete" size={13} />
           </button>
@@ -1557,6 +1754,19 @@
   </div>
 {/if}
 
+<!-- Delete Confirmation Dialog -->
+<ConfirmDialog
+  bind:open={showDeleteConfirm}
+  title="Delete {confirmDeleteTarget?.isDir ? 'folder' : 'file'}?"
+  message={confirmDeleteTarget
+    ? `Are you sure you want to delete "${confirmDeleteTarget.name}"?${confirmDeleteTarget.isDir ? ' This will delete all contents inside the folder.' : ''} This action cannot be undone.`
+    : ''}
+  confirmLabel="Delete"
+  confirmVariant="danger"
+  confirmIcon="delete"
+  onconfirm={confirmDelete}
+/>
+
 <style>
   .page-header {
     display: flex;
@@ -1600,6 +1810,84 @@
     margin-bottom: 16px;
   }
 
+  /* File tabs */
+  .file-tabs {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    margin-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .file-tabs::-webkit-scrollbar {
+    display: none;
+  }
+  .file-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 12px;
+    font-size: 0.78rem;
+    font-family: inherit;
+    background: none;
+    border: 1px solid transparent;
+    border-bottom: none;
+    border-radius: 6px 6px 0 0;
+    color: var(--text-muted);
+    cursor: pointer;
+    white-space: nowrap;
+    position: relative;
+    bottom: -1px;
+    transition: all 0.15s;
+  }
+  .file-tab:hover {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+  }
+  .file-tab.active {
+    color: var(--text-primary);
+    background: var(--bg-secondary);
+    border-color: var(--border);
+    border-bottom-color: var(--bg-secondary);
+    font-weight: 500;
+  }
+  .file-tab-label {
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .file-tab-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--text-muted);
+    border-radius: 3px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+  .file-tab:hover .file-tab-close {
+    opacity: 1;
+  }
+  .file-tab-close:hover {
+    background: var(--bg-hover);
+    color: var(--danger);
+  }
+  .file-tab-add {
+    padding: 6px 8px;
+    color: var(--text-muted);
+  }
+  .file-tab-add:hover {
+    color: var(--accent);
+  }
+
   /* Secondary bar (New Folder + Terminal) */
   .secondary-bar {
     display: flex;
@@ -1615,11 +1903,10 @@
     gap: 6px;
     margin-bottom: 14px;
     font-size: 0.8rem;
-    padding: 6px 12px;
-    background: var(--bg-secondary);
-    border-radius: 6px;
-    border-bottom: 2px solid var(--border);
-    overflow-x: auto;
+    padding: 4px 8px;
+    background: transparent;
+    border-radius: 0;
+    overflow: visible;
     font-family: 'JetBrains Mono', monospace;
   }
 
@@ -1798,44 +2085,6 @@
     text-decoration: underline;
   }
 
-  /* Upload queue */
-  .upload-progress-section {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    width: 100%;
-  }
-
-  .progress-text {
-    font-size: 0.8rem;
-    color: var(--text-muted);
-    text-align: center;
-  }
-
-  .upload-item {
-    display: flex;
-    justify-content: space-between;
-    font-size: 0.7rem;
-    color: var(--text-muted);
-    padding: 2px 0;
-  }
-
-  .upload-item.done {
-    color: var(--success);
-  }
-
-  .upload-item-name {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    max-width: 80%;
-  }
-
-  .upload-main {
-    color: var(--text-muted);
-    font-size: 0.85rem;
-  }
-
   .file-controls {
     display: flex;
     gap: 8px;
@@ -1848,22 +2097,6 @@
     display: flex;
     gap: 6px;
     align-items: center;
-  }
-
-  .search-input {
-    flex: 1;
-    padding: 7px 12px;
-    font-size: 0.8rem;
-    border-radius: 6px;
-    border: 1px solid var(--border);
-    background: var(--bg-inset);
-    color: var(--text-primary);
-    font-family: inherit;
-  }
-
-  .search-input:focus {
-    outline: none;
-    border-color: var(--accent);
   }
 
   .search-scope-toggle {
@@ -1968,26 +2201,15 @@
     font-family: inherit;
   }
 
-  .upload-content {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .upload-icon {
-    font-size: 1.5rem;
-    color: var(--text-faint);
-  }
-
-  .upload-hint {
-    font-size: 0.75rem;
-    color: var(--text-faint);
-  }
-
   .sortable {
     cursor: pointer;
     user-select: none;
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+    color: inherit;
+    text-align: left;
   }
 
   .sortable:hover {
@@ -2273,29 +2495,19 @@
     color: var(--danger, #ef4444);
   }
 
-  /* Folder size calculate button */
-  .calc-size-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    font-size: 0.7rem;
-    color: var(--text-faint);
-    background: transparent;
-    border: 1px dashed var(--border);
-    border-radius: 4px;
-    padding: 1px 5px;
-    cursor: pointer;
-    transition: all 0.1s;
-  }
-
-  .calc-size-btn:hover {
-    color: var(--accent);
-    border-color: var(--accent);
-  }
-
   .size-computing {
     color: var(--text-faint);
     font-style: italic;
+  }
+
+  .size-computing :global(.spin svg) {
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
   }
 
   .btn {
@@ -2312,18 +2524,6 @@
 
   .btn:hover {
     border-color: var(--accent);
-  }
-
-  .btn-danger:hover {
-    border-color: var(--danger);
-    color: var(--danger);
-  }
-
-  .btn-confirm {
-    border-color: var(--danger);
-    background: var(--danger-bg);
-    color: var(--danger);
-    animation: pulse 0.6s ease-in-out infinite alternate;
   }
 
   /* Info panel */
@@ -2648,6 +2848,47 @@
     max-width: 100%;
   }
 
+  /* EPUB reader */
+  .rendered-doc :global(.epub-reader) {
+    max-width: 720px;
+    margin: 0 auto;
+    line-height: 1.7;
+    font-size: 0.95rem;
+  }
+  .rendered-doc :global(.epub-title) {
+    font-size: 1.5rem;
+    margin-bottom: 0.25rem;
+    color: var(--text-primary);
+  }
+  .rendered-doc :global(.epub-author) {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    margin-bottom: 1.5rem;
+  }
+  .rendered-doc :global(.epub-chapter) {
+    margin-bottom: 1.5rem;
+  }
+  .rendered-doc :global(.epub-chapter p) {
+    margin: 0.5rem 0;
+    line-height: 1.7;
+  }
+  .rendered-doc :global(.epub-chapter h1),
+  .rendered-doc :global(.epub-chapter h2),
+  .rendered-doc :global(.epub-chapter h3) {
+    margin-top: 1.5rem;
+    margin-bottom: 0.5rem;
+    color: var(--text-primary);
+  }
+  .rendered-doc :global(.epub-chapter img) {
+    max-width: 100%;
+    border-radius: 4px;
+  }
+  .rendered-doc :global(.epub-separator) {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 2rem 0;
+  }
+
   /* View toggle */
   .view-toggle {
     display: flex;
@@ -2743,6 +2984,7 @@
     text-overflow: ellipsis;
     display: -webkit-box;
     -webkit-line-clamp: 2;
+    line-clamp: 2;
     -webkit-box-orient: vertical;
     word-break: break-word;
     max-width: 100%;
@@ -2897,15 +3139,6 @@
   .media-icon {
     font-size: 0.75rem;
     flex-shrink: 0;
-  }
-
-  .btn-media {
-    border-color: var(--accent);
-    color: var(--accent);
-  }
-
-  .btn-media:hover {
-    background: var(--accent-bg);
   }
 
   @media (max-width: 640px) {

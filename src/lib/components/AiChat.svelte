@@ -2,6 +2,8 @@
   import { fly } from 'svelte/transition';
   import { browser } from '$app/environment';
   import Icon from '$lib/components/Icon.svelte';
+  import { getErrorMessage } from '$lib/errors';
+  import { SK_AI_CONVOS } from '$lib/constants/storage-keys';
 
   let { currentPage = '' } = $props<{ currentPage?: string }>();
 
@@ -34,14 +36,14 @@
   function loadConversations(): Conversation[] {
     if (!browser) return [];
     try {
-      return JSON.parse(localStorage.getItem('hs:ai-convos') || '[]');
+      return JSON.parse(localStorage.getItem(SK_AI_CONVOS) || '[]');
     } catch {
       return [];
     }
   }
 
   function saveConversations() {
-    if (browser) localStorage.setItem('hs:ai-convos', JSON.stringify(conversations));
+    if (browser) localStorage.setItem(SK_AI_CONVOS, JSON.stringify(conversations));
   }
 
   function newConversation() {
@@ -135,11 +137,13 @@
   }
 
   // Ensure we have at least one conversation
-  if (conversations.length === 0) {
-    newConversation();
-  } else {
-    activeConvoId = conversations[0].id;
-  }
+  $effect(() => {
+    if (conversations.length === 0) {
+      newConversation();
+    } else if (activeConvoId === null) {
+      activeConvoId = conversations[0].id;
+    }
+  });
 
   async function send() {
     const text = input.trim();
@@ -176,8 +180,11 @@
       });
       const data = await res.json();
       activeConvo!.messages = [...activeConvo!.messages, { role: 'assistant', content: data.reply }];
-    } catch (e: any) {
-      activeConvo!.messages = [...activeConvo!.messages, { role: 'assistant', content: `Error: ${e.message}` }];
+    } catch (e: unknown) {
+      activeConvo!.messages = [
+        ...activeConvo!.messages,
+        { role: 'assistant', content: `Error: ${getErrorMessage(e)}` },
+      ];
     }
 
     conversations = [...conversations];

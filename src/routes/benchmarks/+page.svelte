@@ -1,7 +1,9 @@
 <script lang="ts">
   import type { PageData } from './$types';
   import { toast } from '$lib/toast';
-  import { fetchApi } from '$lib/api';
+  import { fetchApi, postJson } from '$lib/api';
+  import Button from '$lib/components/Button.svelte';
+  import PageHeader from '$lib/components/PageHeader.svelte';
 
   interface BenchmarkResult {
     id: string;
@@ -12,7 +14,10 @@
   }
 
   let { data } = $props<{ data: PageData }>();
-  let history = $state<BenchmarkResult[]>(data.history ?? []);
+  let history = $state<BenchmarkResult[]>([]);
+  $effect(() => {
+    history = data.history ?? [];
+  });
 
   let running = $state(false);
   let phase = $state<'idle' | 'cpu' | 'memory' | 'disk' | 'done'>('idle');
@@ -28,40 +33,24 @@
     try {
       // CPU
       phase = 'cpu';
-      const cpuRes = await fetchApi('/api/benchmarks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ _action: 'run', benchmark: 'cpu' }),
-      });
+      const cpuRes = await postJson('/api/benchmarks', { _action: 'run', benchmark: 'cpu' });
       const cpuData = await cpuRes.json();
       current = { ...current, cpu: cpuData.cpu };
 
       // Memory
       phase = 'memory';
-      const memRes = await fetchApi('/api/benchmarks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ _action: 'run', benchmark: 'memory' }),
-      });
+      const memRes = await postJson('/api/benchmarks', { _action: 'run', benchmark: 'memory' });
       const memData = await memRes.json();
       current = { ...current, memory: memData.memory };
 
       // Disk
       phase = 'disk';
-      const diskRes = await fetchApi('/api/benchmarks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ _action: 'run', benchmark: 'disk' }),
-      });
+      const diskRes = await postJson('/api/benchmarks', { _action: 'run', benchmark: 'disk' });
       const diskData = await diskRes.json();
       current = { ...current, disk: diskData.disk };
 
       // Save full run
-      const saveRes = await fetchApi('/api/benchmarks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ _action: 'run', benchmark: 'all' }),
-      });
+      const saveRes = await postJson('/api/benchmarks', { _action: 'run', benchmark: 'all' });
       const saved = await saveRes.json();
       history = [saved, ...history];
 
@@ -122,13 +111,14 @@
 </script>
 
 <div class="page">
-  <div class="header">
-    <h2 class="page-title">System Benchmarks</h2>
-    <button class="btn-primary" onclick={runAll} disabled={running}>
+  <PageHeader
+    title="System Benchmarks"
+    description="Run CPU, memory, and disk benchmarks. Compare results over time to track server performance."
+  >
+    <Button variant="primary" icon="activity" onclick={runAll} disabled={running} loading={running}>
       {running ? 'Running...' : 'Run Benchmarks'}
-    </button>
-  </div>
-  <p class="page-desc">Run CPU, memory, and disk benchmarks. Compare results over time to track server performance.</p>
+    </Button>
+  </PageHeader>
 
   {#if running}
     <div class="card progress-card">
@@ -257,35 +247,6 @@
 </div>
 
 <style>
-  .page {
-    padding: 1.5rem;
-    max-width: 900px;
-    margin: 0 auto;
-  }
-  .header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1.5rem;
-  }
-  h1 {
-    margin: 0;
-    color: var(--text-primary);
-  }
-  .btn-primary {
-    padding: 0.55rem 1.25rem;
-    background: var(--accent);
-    color: #fff;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    font-weight: 600;
-    font-size: 0.9rem;
-  }
-  .btn-primary:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
   .progress-card {
     padding: 1.5rem;
     margin-bottom: 1.5rem;

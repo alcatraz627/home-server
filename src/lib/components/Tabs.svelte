@@ -19,12 +19,14 @@
   }>();
 
   // URL hash sync — read hash on mount, write on change
-  if (browser && syncHash) {
-    const hash = location.hash.slice(1);
-    if (hash && tabs.some((t: { id: string }) => t.id === hash)) {
-      active = hash;
+  $effect(() => {
+    if (browser && syncHash) {
+      const hash = location.hash.slice(1);
+      if (hash && tabs.some((t: { id: string }) => t.id === hash)) {
+        active = hash;
+      }
     }
-  }
+  });
 
   let tabsEl = $state<HTMLElement | null>(null);
   let indicatorStyle = $state('');
@@ -80,6 +82,7 @@
   class="hs-tabs hs-tabs-{size} {className}"
   class:compact
   role="tablist"
+  tabindex="0"
   onkeydown={handleKeydown}
   bind:this={tabsEl}
 >

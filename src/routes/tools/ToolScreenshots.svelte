@@ -384,11 +384,6 @@
     color: var(--danger);
     border-color: var(--danger);
   }
-  .empty {
-    padding: 3rem;
-    text-align: center;
-    color: var(--text-muted);
-  }
   .modal-overlay {
     position: fixed;
     inset: 0;

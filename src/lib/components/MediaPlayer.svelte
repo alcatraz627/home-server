@@ -35,7 +35,10 @@
   let muted = $state(false);
   let playbackRate = $state(1);
   let showVlcInfo = $state(false);
-  let showPlaylist = $state(playlist.length > 1);
+  let showPlaylist = $state(false);
+  $effect(() => {
+    showPlaylist = playlist.length > 1;
+  });
   let seeking = $state(false);
 
   const speeds = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 3];

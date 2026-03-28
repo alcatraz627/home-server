@@ -30,7 +30,10 @@
 
   let { value, onchange }: Props = $props();
 
-  let enabled = $state(value !== null);
+  let enabled = $state(false);
+  $effect(() => {
+    enabled = value !== null;
+  });
   let frequency = $state<Frequency>('daily');
   let minuteInterval = $state(5);
   let hourlyMinute = $state(0);
@@ -109,7 +112,9 @@
     customExpr = expr;
   }
 
-  parseInitialValue(value);
+  $effect(() => {
+    parseInitialValue(value);
+  });
 
   // ─── Derived expression ───────────────────────────────────────────────────────
 
@@ -289,7 +294,7 @@
   {#if enabled}
     <!-- Frequency picker -->
     <div class="cb-section">
-      <label class="cb-label">Frequency</label>
+      <span class="cb-label">Frequency</span>
       <div class="cb-freq-buttons">
         {#each ['minutes', 'hourly', 'daily', 'weekly', 'monthly', 'custom'] as Frequency[] as freq}
           <button class="cb-freq-btn" class:active={frequency === freq} onclick={() => (frequency = freq)}>
@@ -302,7 +307,7 @@
     <!-- Per-frequency controls -->
     {#if frequency === 'minutes'}
       <div class="cb-section">
-        <label class="cb-label">Every</label>
+        <span class="cb-label">Every</span>
         <div class="cb-chip-group">
           {#each MINUTE_INTERVALS as interval}
             <button
@@ -352,7 +357,7 @@
     {:else if frequency === 'weekly'}
       <div class="cb-section">
         <div class="cb-field">
-          <label class="cb-label">Day of week</label>
+          <span class="cb-label">Day of week</span>
           <div class="cb-chip-group">
             {#each DAYS_OF_WEEK as day}
               <button class="cb-chip" class:active={weeklyDay === day.value} onclick={() => (weeklyDay = day.value)}>
