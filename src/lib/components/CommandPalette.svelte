@@ -2,7 +2,7 @@
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
   import { NAV_GROUPS } from '$lib/constants/nav';
-  import type { NavItem } from '$lib/constants/nav';
+  import { fetchApi } from '$lib/api';
   import Icon from './Icon.svelte';
 
   export interface CommandAction {
@@ -26,13 +26,29 @@
     desc: string;
     icon: string;
     group: string;
-    kind: 'page' | 'action';
+    kind: 'page' | 'action' | 'content';
     href?: string;
     handler?: () => void;
   };
 
+  const MODULE_ICONS: Record<string, string> = {
+    note: 'file-text',
+    kanban: 'trello',
+    bookmark: 'bookmark',
+    reminder: 'bell',
+    keeper: 'star',
+  };
+
+  const MODULE_LABELS: Record<string, string> = {
+    note: 'Notes',
+    kanban: 'Kanban',
+    bookmark: 'Bookmarks',
+    reminder: 'Reminders',
+    keeper: 'Keeper',
+  };
+
   // Flatten nav items + actions into one list
-  let allItems = $derived.by(() => {
+  let navItems = $derived.by(() => {
     const pages: PaletteItem[] = NAV_GROUPS.flatMap((g) =>
       g.items.map((item) => ({
         id: `page:${item.href}`,
@@ -56,10 +72,10 @@
     return [...acts, ...pages];
   });
 
-  let results = $derived.by(() => {
+  let filteredNav = $derived.by(() => {
     const q = query.toLowerCase().trim();
-    if (!q) return allItems;
-    return allItems.filter(
+    if (!q) return navItems;
+    return navItems.filter(
       (item) =>
         item.label.toLowerCase().includes(q) ||
         item.desc.toLowerCase().includes(q) ||
@@ -67,6 +83,45 @@
         (item.href?.toLowerCase().includes(q) ?? false),
     );
   });
+
+  // ── Async content search ─────────────────────────────────────────
+  let searchResults = $state<PaletteItem[]>([]);
+  let searching = $state(false);
+  let searchTimer: ReturnType<typeof setTimeout> | null = null;
+
+  $effect(() => {
+    const q = query.trim();
+    if (searchTimer) clearTimeout(searchTimer);
+    if (q.length < 2) {
+      searchResults = [];
+      searching = false;
+      return;
+    }
+    searching = true;
+    searchTimer = setTimeout(async () => {
+      try {
+        const res = await fetchApi(`/api/search?q=${encodeURIComponent(q)}`);
+        if (!res.ok) return;
+        const data: { results: { id: string; module: string; title: string; snippet: string; href: string }[] } =
+          await res.json();
+        searchResults = data.results.map((r) => ({
+          id: `content:${r.id}`,
+          label: r.title,
+          desc: r.snippet,
+          icon: MODULE_ICONS[r.module] ?? 'file',
+          group: MODULE_LABELS[r.module] ?? r.module,
+          kind: 'content' as const,
+          href: r.href,
+        }));
+      } catch {
+        searchResults = [];
+      } finally {
+        searching = false;
+      }
+    }, 300);
+  });
+
+  let results = $derived([...filteredNav, ...searchResults]);
 
   // Reset selection when results change
   $effect(() => {
@@ -148,14 +203,18 @@
           bind:this={inputEl}
           type="text"
           class="cp-input"
-          placeholder="Search pages and actions..."
+          placeholder="Search pages, actions, and content..."
           bind:value={query}
         />
-        <kbd class="cp-kbd">Esc</kbd>
+        {#if searching}
+          <span class="cp-searching">searching…</span>
+        {:else}
+          <kbd class="cp-kbd">Esc</kbd>
+        {/if}
       </div>
 
       <div class="cp-results">
-        {#if results.length === 0}
+        {#if results.length === 0 && !searching}
           <div class="cp-empty">No matching results</div>
         {:else}
           {#each results as item, i (item.id)}
@@ -164,6 +223,7 @@
               class="cp-item"
               class:selected={i === selectedIndex}
               class:active={isActive(item)}
+              class:content={item.kind === 'content'}
               onclick={() => execute(item)}
               onmouseenter={() => (selectedIndex = i)}
             >
@@ -175,6 +235,8 @@
               <span class="cp-item-group">
                 {#if item.kind === 'action'}
                   <span class="cp-action-badge">Action</span>
+                {:else if item.kind === 'content'}
+                  <span class="cp-content-badge">Content</span>
                 {/if}
                 {item.group}
               </span>
@@ -351,6 +413,36 @@
     border: 1px solid var(--accent);
     border-radius: 3px;
     padding: 0 3px;
+  }
+
+  .cp-content-badge {
+    font-size: 0.55rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--success);
+    border: 1px solid var(--success);
+    border-radius: 3px;
+    padding: 0 3px;
+  }
+
+  .cp-item.content .cp-item-icon {
+    color: var(--success);
+  }
+
+  .cp-searching {
+    font-size: 0.65rem;
+    color: var(--text-faint);
+    font-style: italic;
+    animation: cp-pulse 1s ease-in-out infinite alternate;
+  }
+
+  @keyframes cp-pulse {
+    from {
+      opacity: 0.4;
+    }
+    to {
+      opacity: 1;
+    }
   }
 
   .cp-footer {
