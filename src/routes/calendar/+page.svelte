@@ -158,20 +158,6 @@
     return days;
   });
 
-  function itemsForDate(date: string): CalendarItem[] {
-    return items.filter((i) => i.date === date);
-  }
-
-  // List view: group items by date
-  let groupedItems = $derived.by(() => {
-    const groups = new Map<string, CalendarItem[]>();
-    for (const item of items) {
-      if (!groups.has(item.date)) groups.set(item.date, []);
-      groups.get(item.date)!.push(item);
-    }
-    return [...groups.entries()].sort(([a], [b]) => a.localeCompare(b));
-  });
-
   function formatListDate(dateStr: string): string {
     const d = new Date(dateStr + 'T12:00:00');
     const todayStr = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
@@ -183,7 +169,24 @@
     return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
   }
 
-  let totalItems = $derived(items.length);
+  let hideDone = $state(false);
+
+  let visibleItems = $derived(hideDone ? items.filter((i) => !i.done) : items);
+
+  function itemsForDate(date: string): CalendarItem[] {
+    return visibleItems.filter((i) => i.date === date);
+  }
+
+  let groupedItems = $derived.by(() => {
+    const groups = new Map<string, CalendarItem[]>();
+    for (const item of visibleItems) {
+      if (!groups.has(item.date)) groups.set(item.date, []);
+      groups.get(item.date)!.push(item);
+    }
+    return [...groups.entries()].sort(([a], [b]) => a.localeCompare(b));
+  });
+
+  let totalItems = $derived(visibleItems.length);
 </script>
 
 <svelte:head>
@@ -206,6 +209,11 @@
         <Icon name="list" size={13} />
       </button>
     </div>
+    <label class="hide-done-toggle" title="Hide completed items">
+      <input type="checkbox" bind:checked={hideDone} />
+      <Icon name="check-circle" size={13} />
+      Hide done
+    </label>
     <button class="today-btn" onclick={goToday}>Today</button>
   {/snippet}
 </PageHeader>
@@ -386,6 +394,21 @@
   .today-btn:hover {
     border-color: var(--accent);
     color: var(--accent);
+  }
+
+  .hide-done-toggle {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .hide-done-toggle input[type='checkbox'] {
+    cursor: pointer;
+    accent-color: var(--accent);
   }
 
   /* ── Nav bar ── */

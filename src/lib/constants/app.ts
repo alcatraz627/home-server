@@ -10,5 +10,5 @@
  */
 export const APP = {
   title: 'Home Server',
-  version: '4.42.0-calendar-view-9',
+  version: '4.43.0-hide-done-10',
 } as const;

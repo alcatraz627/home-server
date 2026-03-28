@@ -2,8 +2,6 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import fs from 'node:fs';
 import { PATHS } from '$lib/server/paths';
-import { getRequests } from '$lib/server/keeper';
-
 export interface CalendarItem {
   id: string;
   module: 'kanban' | 'reminder';
@@ -13,6 +11,7 @@ export interface CalendarItem {
   color?: string;
   href: string;
   meta?: string; // priority, status, etc.
+  done?: boolean; // kanban done column, or fired reminder
 }
 
 function readJson<T>(file: string): T[] {
@@ -51,6 +50,7 @@ export const GET: RequestHandler = async ({ url }) => {
       color: card.color || undefined,
       href: '/kanban',
       meta: card.priority || undefined,
+      done: card.column === 'done',
     });
   }
 
@@ -69,6 +69,7 @@ export const GET: RequestHandler = async ({ url }) => {
       date: dateStr,
       time: timeStr,
       href: '/reminders',
+      done: !!r.fired,
     });
   }
 
