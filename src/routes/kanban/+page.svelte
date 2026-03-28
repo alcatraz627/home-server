@@ -11,6 +11,7 @@
   import TagInput from '$lib/components/TagInput.svelte';
   import type { KanbanCard, KanbanColumn, ChecklistItem } from '$lib/types/productivity';
   import type { KanbanTemplate } from '../api/kanban/templates/+server';
+  import { parseFilterQuery, matchItem, type FilterNode } from '$lib/utils/filter-query';
 
   type Column = KanbanColumn;
 
@@ -62,6 +63,42 @@
   let dragCardId = $state<string | null>(null);
   let dragOverCol = $state<Column | null>(null);
 
+  // Filter Query Language
+  let filterQuery = $state('');
+  let showSaveFilter = $state(false);
+  let saveFilterName = $state('');
+  let savedFilters = $state<{ name: string; query: string }[]>([]);
+  let parsedFilter = $derived<FilterNode | null>(parseFilterQuery(filterQuery));
+  let filteredCards = $derived(parsedFilter ? cards.filter((c) => matchItem(parsedFilter, c)) : cards);
+  let filterMatchCount = $derived(parsedFilter ? filteredCards.length : null);
+
+  function loadSavedFilters() {
+    try {
+      const raw = localStorage.getItem('kanban-saved-filters');
+      if (raw) savedFilters = JSON.parse(raw);
+    } catch {
+      // ignore
+    }
+  }
+
+  function saveFilter() {
+    if (!saveFilterName.trim() || !filterQuery.trim()) return;
+    const next = [
+      ...savedFilters.filter((f) => f.name !== saveFilterName.trim()),
+      { name: saveFilterName.trim(), query: filterQuery.trim() },
+    ];
+    savedFilters = next;
+    localStorage.setItem('kanban-saved-filters', JSON.stringify(next));
+    showSaveFilter = false;
+    saveFilterName = '';
+  }
+
+  function deleteSavedFilter(name: string) {
+    const next = savedFilters.filter((f) => f.name !== name);
+    savedFilters = next;
+    localStorage.setItem('kanban-saved-filters', JSON.stringify(next));
+  }
+
   // Templates
   let showTemplates = $state(false);
   let templates = $state<KanbanTemplate[]>([]);
@@ -111,6 +148,7 @@
   let totalCards = $derived(cards.filter((c) => c.column !== 'archive').length);
 
   onMount(() => {
+    loadSavedFilters();
     return useShortcuts([
       {
         ...SHORTCUT_DEFAULTS.find((d) => d.id === 'kanban:new-task')!,
@@ -131,7 +169,7 @@
   });
 
   function columnCards(col: Column): KanbanCard[] {
-    return cards.filter((c) => c.column === col).sort((a, b) => a.order - b.order);
+    return filteredCards.filter((c) => c.column === col).sort((a, b) => a.order - b.order);
   }
 
   async function addCard(col: Column) {
@@ -275,7 +313,7 @@
     const pOrder: Record<string, number> = { P1: 0, P2: 1, P3: 2, '': 3 };
     const colKeys = visibleColumns.map((c) => c.key);
     const colOrder: Record<string, number> = Object.fromEntries(colKeys.map((k, i) => [k, i]));
-    return cards
+    return filteredCards
       .filter((c) => showArchive || c.column !== 'archive')
       .sort((a, b) => {
         if (tableSort.col === 'column') {
@@ -549,6 +587,58 @@
           {/each}
         {/if}
       </div>
+    </div>
+  {/if}
+
+  <!-- Filter bar -->
+  <div class="fq-bar">
+    <div class="fq-input-wrap" class:active={!!filterQuery}>
+      <Icon name="search" size={13} />
+      <input
+        class="fq-input"
+        type="text"
+        bind:value={filterQuery}
+        placeholder="Filter: p1, #tag, overdue, today, doing, or combine with & |"
+      />
+      {#if filterMatchCount !== null}
+        <span class="fq-count">{filterMatchCount} match{filterMatchCount !== 1 ? 'es' : ''}</span>
+      {/if}
+      {#if filterQuery}
+        <button
+          class="fq-clear"
+          onclick={() => {
+            filterQuery = '';
+            showSaveFilter = false;
+          }}
+          title="Clear filter"
+        >
+          <Icon name="close" size={12} />
+        </button>
+      {/if}
+    </div>
+    {#if filterQuery}
+      <button class="fq-save-btn" onclick={() => (showSaveFilter = !showSaveFilter)} title="Save filter">
+        <Icon name="bookmark" size={13} />
+      </button>
+    {/if}
+    {#if savedFilters.length > 0}
+      <div class="fq-saved">
+        {#each savedFilters as sf}
+          <button class="fq-chip" onclick={() => (filterQuery = sf.query)} title={sf.query}>
+            {sf.name}
+          </button>
+          <button class="fq-chip-del" onclick={() => deleteSavedFilter(sf.name)} title="Delete saved filter">
+            <Icon name="close" size={10} />
+          </button>
+        {/each}
+      </div>
+    {/if}
+  </div>
+  {#if showSaveFilter}
+    <div class="fq-save-panel">
+      <input class="fq-save-input" type="text" bind:value={saveFilterName} placeholder="Filter name..." />
+      <button class="fq-save-confirm" onclick={saveFilter} disabled={!saveFilterName.trim()}>Save</button>
+      <button class="fq-save-cancel" onclick={() => (showSaveFilter = false)}>Cancel</button>
     </div>
   {/if}
 
@@ -2082,6 +2172,168 @@
     border: 1px solid var(--border);
     border-radius: 5px;
     font-size: 0.7rem;
+    cursor: pointer;
+    font-family: inherit;
+  }
+
+  /* ── Filter Query Bar ── */
+  .fq-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+  .fq-input-wrap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    min-width: 240px;
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: var(--bg-secondary);
+    color: var(--text-muted);
+    transition: border-color 0.15s;
+  }
+  .fq-input-wrap.active {
+    border-color: var(--accent);
+  }
+  .fq-input {
+    flex: 1;
+    border: none;
+    background: none;
+    font-size: 0.8rem;
+    color: var(--text-primary);
+    font-family: inherit;
+    outline: none;
+  }
+  .fq-input::placeholder {
+    color: var(--text-faint);
+  }
+  .fq-count {
+    font-size: 0.68rem;
+    color: var(--accent);
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+  .fq-clear {
+    background: none;
+    border: none;
+    padding: 1px 2px;
+    cursor: pointer;
+    color: var(--text-faint);
+    display: flex;
+    align-items: center;
+    border-radius: 3px;
+    transition: color 0.1s;
+  }
+  .fq-clear:hover {
+    color: var(--text-primary);
+  }
+  .fq-save-btn {
+    display: flex;
+    align-items: center;
+    padding: 6px 9px;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition:
+      border-color 0.15s,
+      color 0.15s;
+  }
+  .fq-save-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .fq-saved {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+  .fq-chip {
+    display: flex;
+    align-items: center;
+    padding: 3px 8px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: none;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-family: inherit;
+    transition:
+      border-color 0.1s,
+      color 0.1s;
+  }
+  .fq-chip:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .fq-chip-del {
+    display: flex;
+    align-items: center;
+    margin-left: -2px;
+    padding: 3px 4px;
+    background: none;
+    border: none;
+    color: var(--text-faint);
+    cursor: pointer;
+    border-radius: 4px;
+    transition: color 0.1s;
+  }
+  .fq-chip-del:hover {
+    color: var(--danger);
+  }
+  .fq-save-panel {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    padding: 8px 12px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+  }
+  .fq-save-input {
+    flex: 1;
+    padding: 4px 8px;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 0.8rem;
+    font-family: inherit;
+    outline: none;
+  }
+  .fq-save-input:focus {
+    border-color: var(--accent);
+  }
+  .fq-save-confirm {
+    padding: 4px 10px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 5px;
+    font-size: 0.78rem;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .fq-save-confirm:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  .fq-save-cancel {
+    padding: 4px 10px;
+    background: none;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    font-size: 0.78rem;
     cursor: pointer;
     font-family: inherit;
   }

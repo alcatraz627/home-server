@@ -10,5 +10,5 @@
  */
 export const APP = {
   title: 'Home Server',
-  version: '4.49.0-unified-inbox-16',
+  version: '4.50.0-filter-query-17',
 } as const;
