@@ -364,6 +364,9 @@
 | v4.45      | Pomodoro Timer (P3.4): SVG ring progress, work/break phases, config, browser notifications, added to /tools           |
 | v4.46      | Smart Suggestions (P3.2): /api/suggestions cross-module analyzer, collapsible yellow panel in /activity               |
 | v4.47      | NL Quick-Add (P3.1): command palette + prefix, parses date/time/priority/hashtags, creates reminder or kanban card    |
+| v4.48      | Kanban Templates (P3.3): 5 pre-built templates (Sprint/GTD/Personal/BugTracker/Content), append/replace modes         |
+| v4.49      | Unified Inbox (P3.7): activity feed + read/unread state, archive/restore, All/Unread/Archived tabs, localStorage     |
+| v4.50      | Filter Query Language (P3.6): mini DSL parser for kanban (p1, #tag, overdue, today, & |), saved filter bookmarks    |
 
 ## Architecture Notes
 
@@ -372,7 +375,7 @@
 - **Persistence:** JSON files in `~/.home-server/` — no database
 - **Themes:** 27 CSS custom property themes with 17 customizable colors + 6 body/heading fonts
 - **Components:** 34 reusable Svelte components (shared primitives + feature components including AsyncState, StatCard, FilterBar, ActionGroup, DropdownMenu, ConfirmDialog, ProgressBar, AgentLogViewer, DashboardWidget)
-- **Icons:** lucide-svelte with 115 icon mappings (Table2 + Flame added)
+- **Icons:** lucide-svelte with 117 icon mappings (Table2, Flame, CheckCheck, RotateCcw added)
 - **Logging:** JSON Lines to `~/.home-server/logs/` with rotation + /logs viewer + structured request logging
 - **Security:** 11/11 security items resolved — spawnSync, rate limiting, PIN gate, env filtering, browse allowlist
 - **Testing:** 38 test files (100% passing), tiered runner (basic/comprehensive/integration/platform), UI SSR smoke tests
@@ -383,6 +386,8 @@
 - **Global Search:** `/api/search?q=` endpoint searching notes, kanban, bookmarks, reminders, keeper — results surface in command palette with 300ms debounce
 - **NL Quick-Add:** command palette `+` prefix parser — date/time/weekday/priority/hashtag tokens, routes to reminder or kanban
 - **Smart Suggestions:** `/api/suggestions` cross-module analyzer (overdue reminders, stuck kanban, stale notes)
+- **Unified Inbox:** activity feed with read/unread state + archive (localStorage), All/Unread/Archived tabs, mark-all-read
+- **Filter Query Language:** kanban DSL with recursive descent parser — `p1`, `#tag`, `overdue`, `today`, `doing`, `&`/`|` operators, saved named bookmarks
 - **Styling:** Prettier with svelte plugin, 2-space indent
 - **VPN:** Tailscale for multi-device access with health indicator
 - **Notifications:** ntfy.sh + in-app notification center with navbar badge
