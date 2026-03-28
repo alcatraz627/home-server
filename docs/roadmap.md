@@ -359,23 +359,30 @@
 | v4.40      | Activity feed (P2.2): /activity page with ring buffer (500 events), module filter, date grouping, 30s auto-refresh    |
 | v4.41      | Kanban multiple views (P2.4): board/list/table toggle, table sortable by 4 columns, localStorage persistence          |
 | v4.42      | Calendar view (P2.1): /calendar with month grid, week columns, list timeline; kanban due dates + reminder datetimes   |
+| v4.43      | Calendar hide-done toggle: CalendarItem.done field, client-side visibleItems derived filter                           |
+| v4.44      | Habit Tracker (P3.5): /habits page, GitHub heatmap, streak counter, daily checklist, color picker, habits.json        |
+| v4.45      | Pomodoro Timer (P3.4): SVG ring progress, work/break phases, config, browser notifications, added to /tools           |
+| v4.46      | Smart Suggestions (P3.2): /api/suggestions cross-module analyzer, collapsible yellow panel in /activity               |
+| v4.47      | NL Quick-Add (P3.1): command palette + prefix, parses date/time/priority/hashtags, creates reminder or kanban card    |
 
 ## Architecture Notes
 
 - **Stack:** SvelteKit 2 + Svelte 5 (runes), adapter-node, Node v20
-- **Pages:** 39 pages across 5 nav groups (added /calendar, /activity)
+- **Pages:** 40 pages across 5 nav groups (added /calendar, /activity, /habits)
 - **Persistence:** JSON files in `~/.home-server/` — no database
 - **Themes:** 27 CSS custom property themes with 17 customizable colors + 6 body/heading fonts
 - **Components:** 34 reusable Svelte components (shared primitives + feature components including AsyncState, StatCard, FilterBar, ActionGroup, DropdownMenu, ConfirmDialog, ProgressBar, AgentLogViewer, DashboardWidget)
-- **Icons:** lucide-svelte with 113 icon mappings
+- **Icons:** lucide-svelte with 115 icon mappings (Table2 + Flame added)
 - **Logging:** JSON Lines to `~/.home-server/logs/` with rotation + /logs viewer + structured request logging
 - **Security:** 11/11 security items resolved — spawnSync, rate limiting, PIN gate, env filtering, browse allowlist
 - **Testing:** 38 test files (100% passing), tiered runner (basic/comprehensive/integration/platform), UI SSR smoke tests
 - **Linux:** 17/17 features fully cross-platform (macOS + Linux/Raspberry Pi)
 - **Dashboard:** Configurable widget grid with widget registry, DashboardWidget renderer, settings modal (layout/presets/add tabs), drag-and-drop, S/M/L sizing, preset templates
 - **PWA:** PNG icons (192/512 regular + maskable), SvelteKit service worker with precaching, offline fallback page, SW update toast, Wake Lock API, Badging API
-- **Utilities:** Shared `createAutoRefresh()`, `createTableSort()`, `postJson()`/`putJson()`/`patchJson()`/`deleteJson()`, `getErrorMessage()`, shared OUI vendor lookup, typed domain interfaces (`$lib/types/`)
+- **Utilities:** Shared `createAutoRefresh()`, `createTableSort()`, `postJson()`/`putJson()`/`patchJson()`/`deleteJson()`, `getErrorMessage()`, shared OUI vendor lookup, typed domain interfaces (`$lib/types/`), `CalendarItem` exported API type, `activity.ts` ring buffer (500 events)
 - **Global Search:** `/api/search?q=` endpoint searching notes, kanban, bookmarks, reminders, keeper — results surface in command palette with 300ms debounce
+- **NL Quick-Add:** command palette `+` prefix parser — date/time/weekday/priority/hashtag tokens, routes to reminder or kanban
+- **Smart Suggestions:** `/api/suggestions` cross-module analyzer (overdue reminders, stuck kanban, stale notes)
 - **Styling:** Prettier with svelte plugin, 2-space indent
 - **VPN:** Tailscale for multi-device access with health indicator
 - **Notifications:** ntfy.sh + in-app notification center with navbar badge
