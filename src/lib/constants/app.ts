@@ -10,5 +10,5 @@
  */
 export const APP = {
   title: 'Home Server',
-  version: '4.44.0-habit-tracker-11',
+  version: '4.45.0-pomodoro-timer-12',
 } as const;

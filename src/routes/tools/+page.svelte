@@ -9,8 +9,9 @@
   import ToolSpeedtest from './ToolSpeedtest.svelte';
   import ToolScreenshots from './ToolScreenshots.svelte';
   import ToolWol from './ToolWol.svelte';
+  import ToolPomodoro from './ToolPomodoro.svelte';
 
-  type TabId = 'clipboard' | 'qr' | 'speedtest' | 'screenshots' | 'wol';
+  type TabId = 'clipboard' | 'qr' | 'speedtest' | 'screenshots' | 'wol' | 'pomodoro';
 
   const tabs = [
     { id: 'clipboard', label: 'Clipboard' },
@@ -18,13 +19,17 @@
     { id: 'speedtest', label: 'Speed Test' },
     { id: 'screenshots', label: 'Screenshots' },
     { id: 'wol', label: 'Wake-on-LAN' },
+    { id: 'pomodoro', label: 'Pomodoro' },
   ];
 
   let activeTab = $state<TabId>('clipboard');
 </script>
 
 <div class="page">
-  <PageHeader title="Tools" description="Clipboard sync, QR code, speed test, screenshots, and Wake-on-LAN." />
+  <PageHeader
+    title="Tools"
+    description="Clipboard sync, QR code, speed test, screenshots, Wake-on-LAN, and Pomodoro timer."
+  />
 
   <Tabs {tabs} bind:active={activeTab} syncHash />
 
@@ -39,6 +44,8 @@
       <ToolScreenshots />
     {:else if activeTab === 'wol'}
       <ToolWol />
+    {:else if activeTab === 'pomodoro'}
+      <ToolPomodoro />
     {/if}
   </ErrorBoundary>
 </div>
