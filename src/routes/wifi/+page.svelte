@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { useShortcuts, SHORTCUT_DEFAULTS } from '$lib/shortcuts';
   import { toast } from '$lib/toast';
-  import { fetchApi } from '$lib/api';
+  import { fetchApi, postJson } from '$lib/api';
   import { getErrorMessage } from '$lib/errors';
   import Button from '$lib/components/Button.svelte';
   import Badge from '$lib/components/Badge.svelte';
@@ -113,11 +113,7 @@
     diagRunning = true;
     diagResults = [];
     try {
-      const res = await fetchApi('/api/wifi/diagnostics', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ test: 'all' }),
-      });
+      const res = await postJson('/api/wifi/diagnostics', { test: 'all' });
       const data = await res.json();
       diagResults = data.results;
       diagGateway = data.gateway || '';

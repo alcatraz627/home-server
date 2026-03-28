@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { browser } from '$app/environment';
   import { toast } from '$lib/toast';
-  import { fetchApi } from '$lib/api';
+  import { fetchApi, postJson } from '$lib/api';
   import { getErrorMessage } from '$lib/errors';
   import Button from '$lib/components/Button.svelte';
   import Badge from '$lib/components/Badge.svelte';
@@ -211,11 +211,7 @@
     btToggling = dev.address;
     const action = dev.connected ? 'bt-disconnect' : 'bt-connect';
     try {
-      const res = await fetchApi('/api/peripherals', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, address: dev.address }),
-      });
+      const res = await postJson('/api/peripherals', { action, address: dev.address });
       const result = await res.json();
       if (!result.ok) {
         toast.error(result.error || `Failed to ${dev.connected ? 'disconnect' : 'connect'}`);

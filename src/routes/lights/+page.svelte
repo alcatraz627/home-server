@@ -539,11 +539,7 @@
     reconciling = true;
     try {
       const activeMacs = bulbs.map((b) => b.mac);
-      const res = await fetchApi('/api/lights/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'reconcile', activeMacs, names: bulbNames }),
-      });
+      const res = await postJson('/api/lights/config', { action: 'reconcile', activeMacs, names: bulbNames });
       if (!res.ok) throw new Error('Reconcile failed');
       const result = await res.json();
       bulbNames = result.names;

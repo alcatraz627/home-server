@@ -9,7 +9,7 @@
   import Button from '$lib/components/Button.svelte';
   import Badge from '$lib/components/Badge.svelte';
   import Icon from '$lib/components/Icon.svelte';
-  import { fetchApi } from '$lib/api';
+  import { fetchApi, postJson } from '$lib/api';
   import PageHeader from '$lib/components/PageHeader.svelte';
 
   let { data } = $props<{ data: PageData }>();
@@ -87,11 +87,7 @@
     previewFiles = [];
     previewSummary = '';
     try {
-      const res = await fetchApi('/api/backups/preview', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ configId }),
-      });
+      const res = await postJson('/api/backups/preview', { configId });
       const data = await res.json();
       if (data.error) {
         toast.error(data.error);
@@ -173,11 +169,7 @@
           .filter(Boolean),
         schedule: formSchedule || null,
       };
-      const res = await fetchApi('/api/backups', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(config),
-      });
+      const res = await postJson('/api/backups', config);
       if (!res.ok) throw new Error('Failed to create backup');
       cancelForm();
       toast.success(`Backup "${config.name}" created`);
