@@ -33,4 +33,6 @@ export const PATHS = {
   reminders: path.join(CONFIG_DIR, 'reminders.json'),
   links: path.join(CONFIG_DIR, 'links.json'),
   tags: path.join(CONFIG_DIR, 'tags.json'),
+  habits: path.join(CONFIG_DIR, 'habits.json'),
+  habitLogs: path.join(CONFIG_DIR, 'habit-logs.json'),
 } as const;

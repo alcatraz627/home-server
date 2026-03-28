@@ -110,6 +110,7 @@
     Server,
     MessageSquare,
     Table2,
+    Flame,
   } from 'lucide-svelte';
 
   const ICON_MAP: Record<string, any> = {
@@ -234,6 +235,7 @@
     server: Server,
     message: MessageSquare,
     table: Table2,
+    flame: Flame,
   };
 
   export const ICON_NAMES = Object.keys(ICON_MAP);

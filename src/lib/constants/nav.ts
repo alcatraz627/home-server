@@ -61,6 +61,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/messages', label: 'Messages', desc: 'iMessage reader', icon: 'message' },
       { href: '/reminders', label: 'Reminders', desc: 'Timed alerts', icon: 'bell' },
       { href: '/calendar', label: 'Calendar', desc: 'Dated items timeline', icon: 'calendar' },
+      { href: '/habits', label: 'Habits', desc: 'Daily habit tracker', icon: 'flame' },
       { href: '/activity', label: 'Activity', desc: 'Cross-module event feed', icon: 'activity' },
     ],
   },
