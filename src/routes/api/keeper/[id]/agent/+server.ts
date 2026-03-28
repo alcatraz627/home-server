@@ -4,7 +4,7 @@ import type { RequestHandler } from '@sveltejs/kit';
 
 export const POST: RequestHandler = async ({ params, request }) => {
   const id = (params as Record<string, string>).id;
-  const { action } = await request.json();
+  const { action, followUp } = await request.json();
 
   if (action === 'start') {
     const result = await startAgent(id);
@@ -23,7 +23,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
   }
 
   if (action === 'resume') {
-    const result = await resumeAgent(id);
+    const result = await resumeAgent(id, followUp);
     if (!result.ok) {
       return json({ error: result.error }, { status: 400 });
     }
