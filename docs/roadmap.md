@@ -348,11 +348,22 @@
 | v4.27      | PWA: PNG icons, SvelteKit service worker, offline page, SW update toast, Wake Lock, Badging API                        |
 | v4.28      | ActionGroup + DropdownMenu components, FilterBar adopted on logs/keeper/apps/bookmarks                                 |
 | v4.29      | Dashboard builder: widget registry, DashboardWidget renderer, settings modal, drag-and-drop, presets, S/M/L sizing     |
+| v4.30–4.31 | Productivity suite Phase 1: universal linking system (links.json + LinkedItems component), shared tag taxonomy (tags.json + TagInput), reminders page, kanban checklists, reminder recurrence |
+| v4.32      | CSS deduplication: global `.page`, `.page-header-bar`, auto-refresh utility, table sort utility; page merge audit     |
+| v4.33–4.34 | iMessage reader improvements, CoreWLAN macOS 26 compat (.wep → .dynamicWEP), WiFi SSID privacy toggle                |
+| v4.35      | Page grouping review: /status+/internals → tabbed /status, /dns+/dns-trace → tabbed /dns; nav groups updated          |
+| v4.36      | svelte-check zero-warning sweep: 168→0 warnings (a11y, runes, unused CSS, svelte5 migration fixes)                    |
+| v4.37      | postJson migration: all 71 POST boilerplate calls → postJson helper across 26 files                                    |
+| v4.38      | putJson/patchJson/deleteJson helpers: all HTTP mutation helpers unified; zero verbose REST patterns remain             |
+| v4.39      | Global search (P2.3): /api/search endpoint across notes/kanban/bookmarks/reminders/keeper, wired into command palette |
+| v4.40      | Activity feed (P2.2): /activity page with ring buffer (500 events), module filter, date grouping, 30s auto-refresh    |
+| v4.41      | Kanban multiple views (P2.4): board/list/table toggle, table sortable by 4 columns, localStorage persistence          |
+| v4.42      | Calendar view (P2.1): /calendar with month grid, week columns, list timeline; kanban due dates + reminder datetimes   |
 
 ## Architecture Notes
 
 - **Stack:** SvelteKit 2 + Svelte 5 (runes), adapter-node, Node v20
-- **Pages:** 37 pages across 5 nav groups
+- **Pages:** 39 pages across 5 nav groups (added /calendar, /activity)
 - **Persistence:** JSON files in `~/.home-server/` — no database
 - **Themes:** 27 CSS custom property themes with 17 customizable colors + 6 body/heading fonts
 - **Components:** 34 reusable Svelte components (shared primitives + feature components including AsyncState, StatCard, FilterBar, ActionGroup, DropdownMenu, ConfirmDialog, ProgressBar, AgentLogViewer, DashboardWidget)
@@ -363,7 +374,8 @@
 - **Linux:** 17/17 features fully cross-platform (macOS + Linux/Raspberry Pi)
 - **Dashboard:** Configurable widget grid with widget registry, DashboardWidget renderer, settings modal (layout/presets/add tabs), drag-and-drop, S/M/L sizing, preset templates
 - **PWA:** PNG icons (192/512 regular + maskable), SvelteKit service worker with precaching, offline fallback page, SW update toast, Wake Lock API, Badging API
-- **Utilities:** Shared `createAutoRefresh()`, `createTableSort()`, `postJson()`, `getErrorMessage()`, shared OUI vendor lookup, typed domain interfaces (`$lib/types/`)
+- **Utilities:** Shared `createAutoRefresh()`, `createTableSort()`, `postJson()`/`putJson()`/`patchJson()`/`deleteJson()`, `getErrorMessage()`, shared OUI vendor lookup, typed domain interfaces (`$lib/types/`)
+- **Global Search:** `/api/search?q=` endpoint searching notes, kanban, bookmarks, reminders, keeper — results surface in command palette with 300ms debounce
 - **Styling:** Prettier with svelte plugin, 2-space indent
 - **VPN:** Tailscale for multi-device access with health indicator
 - **Notifications:** ntfy.sh + in-app notification center with navbar badge
