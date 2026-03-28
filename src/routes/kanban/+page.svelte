@@ -208,6 +208,56 @@
 
   let dragInsertIndex = $state(-1);
 
+  const SK_KANBAN_VIEW = 'kanban_view_mode';
+  let viewMode = $state<'board' | 'list' | 'table'>(
+    (typeof localStorage !== 'undefined'
+      ? (localStorage.getItem(SK_KANBAN_VIEW) as 'board' | 'list' | 'table')
+      : null) ?? 'board',
+  );
+  $effect(() => localStorage.setItem(SK_KANBAN_VIEW, viewMode));
+
+  let tableSort = $state<{ col: string; dir: 'asc' | 'desc' }>({ col: 'column', dir: 'asc' });
+  function sortTable(col: string) {
+    if (tableSort.col === col) tableSort.dir = tableSort.dir === 'asc' ? 'desc' : 'asc';
+    else tableSort = { col, dir: 'asc' };
+  }
+  function sortIndicator(col: string) {
+    if (tableSort.col !== col) return '';
+    return tableSort.dir === 'asc' ? ' ↑' : ' ↓';
+  }
+
+  let flatCards = $derived.by(() => {
+    const pOrder: Record<string, number> = { P1: 0, P2: 1, P3: 2, '': 3 };
+    const colKeys = visibleColumns.map((c) => c.key);
+    const colOrder: Record<string, number> = Object.fromEntries(colKeys.map((k, i) => [k, i]));
+    return cards
+      .filter((c) => showArchive || c.column !== 'archive')
+      .sort((a, b) => {
+        if (tableSort.col === 'column') {
+          const d = (colOrder[a.column] ?? 0) - (colOrder[b.column] ?? 0);
+          return tableSort.dir === 'asc' ? d || a.order - b.order : -d || a.order - b.order;
+        }
+        if (tableSort.col === 'priority') {
+          const d = (pOrder[a.priority] ?? 3) - (pOrder[b.priority] ?? 3);
+          return tableSort.dir === 'asc' ? d : -d;
+        }
+        if (tableSort.col === 'dueDate') {
+          const da = a.dueDate ?? '9999';
+          const db = b.dueDate ?? '9999';
+          return tableSort.dir === 'asc' ? da.localeCompare(db) : db.localeCompare(da);
+        }
+        if (tableSort.col === 'title') {
+          return tableSort.dir === 'asc' ? a.title.localeCompare(b.title) : b.title.localeCompare(a.title);
+        }
+        return 0;
+      });
+  });
+
+  function switchToBoard(card: KanbanCard) {
+    viewMode = 'board';
+    setTimeout(() => startEdit(card), 50);
+  }
+
   function handleDragStart(e: DragEvent, cardId: string) {
     dragCardId = cardId;
     if (e.dataTransfer) {
@@ -346,6 +396,32 @@
       <span class="total-badge">{totalCards}</span>
     {/snippet}
     {#snippet children()}
+      <div class="view-toggle">
+        <button
+          class="view-btn"
+          class:active={viewMode === 'board'}
+          onclick={() => (viewMode = 'board')}
+          title="Board view"
+        >
+          <Icon name="kanban" size={13} />
+        </button>
+        <button
+          class="view-btn"
+          class:active={viewMode === 'list'}
+          onclick={() => (viewMode = 'list')}
+          title="List view"
+        >
+          <Icon name="list" size={13} />
+        </button>
+        <button
+          class="view-btn"
+          class:active={viewMode === 'table'}
+          onclick={() => (viewMode = 'table')}
+          title="Table view"
+        >
+          <Icon name="table" size={13} />
+        </button>
+      </div>
       <label class="archive-toggle">
         <input type="checkbox" bind:checked={showArchive} />
         <Icon name="archive" size={13} />
@@ -354,402 +430,542 @@
     {/snippet}
   </PageHeader>
 
-  <div class="board" style="grid-template-columns: repeat({visibleColumns.length}, 1fr);">
-    {#each visibleColumns as col}
-      <div
-        class="column"
-        class:drag-over={dragOverCol === col.key}
-        style="--col-accent: {col.accent}"
-        ondragover={(e) => handleDragOver(e, col.key)}
-        ondragleave={handleDragLeave}
-        ondrop={(e) => handleDrop(e, col.key)}
-        role="list"
-      >
-        <div class="column-header">
-          <div class="column-title">
-            <Icon name={col.icon} size={14} />
-            <h2>{col.label}</h2>
+  {#if viewMode === 'board'}
+    <div class="board" style="grid-template-columns: repeat({visibleColumns.length}, 1fr);">
+      {#each visibleColumns as col}
+        <div
+          class="column"
+          class:drag-over={dragOverCol === col.key}
+          style="--col-accent: {col.accent}"
+          ondragover={(e) => handleDragOver(e, col.key)}
+          ondragleave={handleDragLeave}
+          ondrop={(e) => handleDrop(e, col.key)}
+          role="list"
+        >
+          <div class="column-header">
+            <div class="column-title">
+              <Icon name={col.icon} size={14} />
+              <h2>{col.label}</h2>
+            </div>
+            <span class="count">{columnCards(col.key).length}</span>
           </div>
-          <span class="count">{columnCards(col.key).length}</span>
-        </div>
 
-        <div class="column-cards">
-          {#each columnCards(col.key) as card, i (card.id)}
-            {#if dragOverCol === col.key && dragInsertIndex === i}
-              <div class="drop-indicator"></div>
-            {/if}
-            {#if editingId === card.id}
-              <!-- svelte-ignore a11y_no_static_element_interactions -->
-              <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-              <div
-                class="card kanban-card edit-form"
-                data-card-id={card.id}
-                role="listitem"
-                onkeydown={(e) => {
-                  if (e.key === 'Escape') cancelEdit();
-                }}
-              >
-                {#if editColor}
-                  <div class="card-color" style="background:{editColor}"></div>
-                {/if}
-                <div class="edit-body">
-                  <input
-                    type="text"
-                    bind:value={editTitle}
-                    placeholder="Title"
-                    class="edit-input edit-title"
-                    use:autofocus
-                    onkeydown={(e) => {
-                      if (e.key === 'Enter') updateCard();
-                      if (e.key === 'Escape') cancelEdit();
-                    }}
-                  />
-                  <textarea bind:value={editDescription} placeholder="Description" rows="2" class="edit-input"
-                  ></textarea>
-                  <div class="edit-row">
-                    <input type="text" bind:value={editAssignee} placeholder="Assignee" class="edit-input" />
-                    <select bind:value={editPriority} class="edit-select">
-                      {#each PRIORITIES as p}
-                        <option value={p.value}>{p.label}</option>
+          <div class="column-cards">
+            {#each columnCards(col.key) as card, i (card.id)}
+              {#if dragOverCol === col.key && dragInsertIndex === i}
+                <div class="drop-indicator"></div>
+              {/if}
+              {#if editingId === card.id}
+                <!-- svelte-ignore a11y_no_static_element_interactions -->
+                <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+                <div
+                  class="card kanban-card edit-form"
+                  data-card-id={card.id}
+                  role="listitem"
+                  onkeydown={(e) => {
+                    if (e.key === 'Escape') cancelEdit();
+                  }}
+                >
+                  {#if editColor}
+                    <div class="card-color" style="background:{editColor}"></div>
+                  {/if}
+                  <div class="edit-body">
+                    <input
+                      type="text"
+                      bind:value={editTitle}
+                      placeholder="Title"
+                      class="edit-input edit-title"
+                      use:autofocus
+                      onkeydown={(e) => {
+                        if (e.key === 'Enter') updateCard();
+                        if (e.key === 'Escape') cancelEdit();
+                      }}
+                    />
+                    <textarea bind:value={editDescription} placeholder="Description" rows="2" class="edit-input"
+                    ></textarea>
+                    <div class="edit-row">
+                      <input type="text" bind:value={editAssignee} placeholder="Assignee" class="edit-input" />
+                      <select bind:value={editPriority} class="edit-select">
+                        {#each PRIORITIES as p}
+                          <option value={p.value}>{p.label}</option>
+                        {/each}
+                      </select>
+                    </div>
+                    <TagInput bind:tags={editTags} placeholder="Add tag..." />
+                    <div class="color-row">
+                      <span class="color-label">Color</span>
+                      {#each COLORS as c}
+                        <button
+                          class="color-dot"
+                          class:selected={editColor === c}
+                          style="background:{c}"
+                          aria-label="Color {c}"
+                          onclick={() => (editColor = editColor === c ? '' : c)}
+                        ></button>
                       {/each}
-                    </select>
-                  </div>
-                  <TagInput bind:tags={editTags} placeholder="Add tag..." />
-                  <div class="color-row">
-                    <span class="color-label">Color</span>
-                    {#each COLORS as c}
-                      <button
-                        class="color-dot"
-                        class:selected={editColor === c}
-                        style="background:{c}"
-                        aria-label="Color {c}"
-                        onclick={() => (editColor = editColor === c ? '' : c)}
-                      ></button>
-                    {/each}
-                  </div>
-                  <div class="edit-row">
-                    <input type="date" bind:value={editDueDate} class="edit-input" />
-                  </div>
-                  <!-- Checklist -->
-                  <div class="checklist-section">
-                    <span class="checklist-label"><Icon name="check" size={11} /> Checklist</span>
-                    {#if editChecklist.length > 0}
-                      <div class="checklist-progress-row">
-                        <div class="checklist-progress-bar">
-                          <div
-                            class="checklist-progress-fill"
-                            style="width: {(editChecklist.filter((i) => i.done).length / editChecklist.length) * 100}%"
-                          ></div>
-                        </div>
-                        <span class="checklist-progress-text"
-                          >{editChecklist.filter((i) => i.done).length}/{editChecklist.length}</span
-                        >
-                      </div>
-                      {#each editChecklist as item, i}
-                        <div class="checklist-item">
-                          <label class="checklist-check">
-                            <input
-                              type="checkbox"
-                              checked={item.done}
-                              onchange={() => (editChecklist[i].done = !editChecklist[i].done)}
-                            />
-                            <span class:done={item.done}>{item.text}</span>
-                          </label>
-                          <button
-                            class="checklist-remove"
-                            title="Remove"
-                            onclick={() => (editChecklist = removeChecklistItem(editChecklist, i))}
+                    </div>
+                    <div class="edit-row">
+                      <input type="date" bind:value={editDueDate} class="edit-input" />
+                    </div>
+                    <!-- Checklist -->
+                    <div class="checklist-section">
+                      <span class="checklist-label"><Icon name="check" size={11} /> Checklist</span>
+                      {#if editChecklist.length > 0}
+                        <div class="checklist-progress-row">
+                          <div class="checklist-progress-bar">
+                            <div
+                              class="checklist-progress-fill"
+                              style="width: {(editChecklist.filter((i) => i.done).length / editChecklist.length) *
+                                100}%"
+                            ></div>
+                          </div>
+                          <span class="checklist-progress-text"
+                            >{editChecklist.filter((i) => i.done).length}/{editChecklist.length}</span
                           >
-                            <Icon name="close" size={10} />
-                          </button>
                         </div>
-                      {/each}
-                    {/if}
-                    <div class="checklist-add-row">
-                      <input
-                        type="text"
-                        bind:value={editChecklistText}
-                        placeholder="Add item..."
-                        class="edit-input checklist-add-input"
-                        onkeydown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
+                        {#each editChecklist as item, i}
+                          <div class="checklist-item">
+                            <label class="checklist-check">
+                              <input
+                                type="checkbox"
+                                checked={item.done}
+                                onchange={() => (editChecklist[i].done = !editChecklist[i].done)}
+                              />
+                              <span class:done={item.done}>{item.text}</span>
+                            </label>
+                            <button
+                              class="checklist-remove"
+                              title="Remove"
+                              onclick={() => (editChecklist = removeChecklistItem(editChecklist, i))}
+                            >
+                              <Icon name="close" size={10} />
+                            </button>
+                          </div>
+                        {/each}
+                      {/if}
+                      <div class="checklist-add-row">
+                        <input
+                          type="text"
+                          bind:value={editChecklistText}
+                          placeholder="Add item..."
+                          class="edit-input checklist-add-input"
+                          onkeydown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              const result = addChecklistItem(editChecklist, editChecklistText);
+                              if (result) {
+                                editChecklist = result;
+                                editChecklistText = '';
+                              }
+                            }
+                          }}
+                        />
+                        <button
+                          class="btn-xs"
+                          onclick={() => {
                             const result = addChecklistItem(editChecklist, editChecklistText);
                             if (result) {
                               editChecklist = result;
                               editChecklistText = '';
                             }
-                          }
-                        }}
-                      />
+                          }}
+                        >
+                          <Icon name="plus" size={11} />
+                        </button>
+                      </div>
+                    </div>
+                    <div class="edit-actions">
+                      <button class="btn-primary btn-sm" onclick={updateCard}>
+                        <Icon name="save" size={13} /> Save
+                      </button>
+                      <button class="btn-sm" onclick={cancelEdit}>Cancel</button>
+                      {#if editDueDate}
+                        <button
+                          class="btn-sm btn-remind"
+                          onclick={() =>
+                            createReminderFromCard({
+                              ...card,
+                              dueDate: editDueDate,
+                              title: editTitle,
+                              description: editDescription,
+                            })}
+                          title="Create a reminder for the due date"
+                        >
+                          <Icon name="bell" size={12} /> Remind
+                        </button>
+                      {/if}
+                      <button class="btn-sm btn-danger-outline" onclick={() => deleteCard(card.id)} title="Delete card">
+                        <Icon name="delete" size={12} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              {:else}
+                <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+                <!-- svelte-ignore a11y_click_events_have_key_events -->
+                <div
+                  class="card kanban-card"
+                  data-card-id={card.id}
+                  draggable="true"
+                  ondragstart={(e) => handleDragStart(e, card.id)}
+                  ondragend={handleDragEnd}
+                  onclick={() => startEdit(card)}
+                  role="listitem"
+                >
+                  {#if card.color}
+                    <div class="card-color" style="background:{card.color}"></div>
+                  {/if}
+                  <div class="card-body">
+                    <div class="card-title-row">
+                      {#if card.priority}
+                        <span class="card-priority" style="color: {priorityColor(card.priority)}">
+                          {card.priority}
+                        </span>
+                      {/if}
+                      <span class="card-title">{card.title}</span>
+                    </div>
+                    {#if card.description}
+                      <p class="card-desc">{card.description}</p>
+                    {/if}
+                    {#if (card.tags ?? []).length > 0}
+                      <div class="card-tags">
+                        {#each card.tags as tag}
+                          <span class="card-tag">{tag}</span>
+                        {/each}
+                      </div>
+                    {/if}
+                    {#if (card.checklist ?? []).length > 0}
+                      <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+                      <div
+                        class="card-checklist"
+                        onclick={(e) => e.stopPropagation()}
+                        onkeydown={(e) => e.stopPropagation()}
+                        role="group"
+                      >
+                        <div class="checklist-progress-row">
+                          <div class="checklist-progress-bar">
+                            <div
+                              class="checklist-progress-fill"
+                              style="width: {(card.checklist.filter((i) => i.done).length / card.checklist.length) *
+                                100}%"
+                            ></div>
+                          </div>
+                          <span class="checklist-progress-text"
+                            >{card.checklist.filter((i) => i.done).length}/{card.checklist.length}</span
+                          >
+                        </div>
+                        {#each card.checklist as item, i}
+                          <label class="checklist-check compact">
+                            <input type="checkbox" checked={item.done} onchange={() => toggleChecklistItem(card, i)} />
+                            <span class:done={item.done}>{item.text}</span>
+                          </label>
+                        {/each}
+                      </div>
+                    {/if}
+                    <div class="card-meta">
+                      {#if card.assignee}
+                        <span class="card-assignee">
+                          <Icon name="user" size={10} />
+                          {card.assignee}
+                        </span>
+                      {/if}
+                      {#if card.dueDate}
+                        <span class="card-due" class:overdue={isOverdue(card.dueDate)}>
+                          <Icon name="calendar" size={10} />
+                          {formatDate(card.dueDate)}
+                        </span>
+                      {/if}
+                    </div>
+                    <LinkedItems itemType="kanban" itemId={card.id} />
+                  </div>
+                  <div class="card-actions">
+                    {#if confirmDeleteId === card.id}
+                      <button
+                        class="btn-xs btn-danger"
+                        onclick={(e) => {
+                          e.stopPropagation();
+                          deleteCard(card.id);
+                        }}>Yes</button
+                      >
                       <button
                         class="btn-xs"
-                        onclick={() => {
-                          const result = addChecklistItem(editChecklist, editChecklistText);
-                          if (result) {
-                            editChecklist = result;
-                            editChecklistText = '';
-                          }
-                        }}
+                        onclick={(e) => {
+                          e.stopPropagation();
+                          confirmDeleteId = null;
+                        }}>No</button
                       >
-                        <Icon name="plus" size={11} />
-                      </button>
-                    </div>
-                  </div>
-                  <div class="edit-actions">
-                    <button class="btn-primary btn-sm" onclick={updateCard}>
-                      <Icon name="save" size={13} /> Save
-                    </button>
-                    <button class="btn-sm" onclick={cancelEdit}>Cancel</button>
-                    {#if editDueDate}
+                    {:else}
                       <button
-                        class="btn-sm btn-remind"
-                        onclick={() =>
-                          createReminderFromCard({
-                            ...card,
-                            dueDate: editDueDate,
-                            title: editTitle,
-                            description: editDescription,
-                          })}
-                        title="Create a reminder for the due date"
+                        class="btn-xs btn-danger"
+                        onclick={(e) => {
+                          e.stopPropagation();
+                          confirmDeleteId = card.id;
+                        }}><Icon name="close" size={11} /></button
                       >
-                        <Icon name="bell" size={12} /> Remind
-                      </button>
                     {/if}
-                    <button class="btn-sm btn-danger-outline" onclick={() => deleteCard(card.id)} title="Delete card">
-                      <Icon name="delete" size={12} />
+                  </div>
+                </div>
+              {/if}
+            {/each}
+            {#if dragOverCol === col.key && dragInsertIndex >= columnCards(col.key).length}
+              <div class="drop-indicator"></div>
+            {/if}
+          </div>
+
+          {#if addingTo === col.key}
+            <div class="card add-form">
+              <input
+                type="text"
+                bind:value={newTitle}
+                placeholder="Card title..."
+                class="edit-input edit-title"
+                use:autofocus
+                onkeydown={(e) => e.key === 'Enter' && addCard(col.key)}
+              />
+              <textarea bind:value={newDescription} placeholder="Description (optional)" rows="2" class="edit-input"
+              ></textarea>
+              <div class="edit-row">
+                <input type="text" bind:value={newAssignee} placeholder="Assignee" class="edit-input" />
+                <select bind:value={newPriority} class="edit-select">
+                  {#each PRIORITIES as p}
+                    <option value={p.value}>{p.label}</option>
+                  {/each}
+                </select>
+              </div>
+              <TagInput bind:tags={newTags} placeholder="Add tag..." />
+              <div class="color-row">
+                <span class="color-label">Color</span>
+                {#each COLORS as c}
+                  <button
+                    class="color-dot"
+                    class:selected={newColor === c}
+                    style="background:{c}"
+                    aria-label="Color {c}"
+                    onclick={() => (newColor = newColor === c ? '' : c)}
+                  ></button>
+                {/each}
+              </div>
+              <input type="date" bind:value={newDueDate} class="edit-input" />
+              <!-- Checklist -->
+              <div class="checklist-section">
+                <span class="checklist-label"><Icon name="check" size={11} /> Checklist</span>
+                {#each newChecklist as item, i}
+                  <div class="checklist-item">
+                    <label class="checklist-check">
+                      <input
+                        type="checkbox"
+                        checked={item.done}
+                        onchange={() => (newChecklist[i].done = !newChecklist[i].done)}
+                      />
+                      <span class:done={item.done}>{item.text}</span>
+                    </label>
+                    <button
+                      class="checklist-remove"
+                      title="Remove"
+                      onclick={() => (newChecklist = removeChecklistItem(newChecklist, i))}
+                    >
+                      <Icon name="close" size={10} />
                     </button>
                   </div>
-                </div>
-              </div>
-            {:else}
-              <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-              <!-- svelte-ignore a11y_click_events_have_key_events -->
-              <div
-                class="card kanban-card"
-                data-card-id={card.id}
-                draggable="true"
-                ondragstart={(e) => handleDragStart(e, card.id)}
-                ondragend={handleDragEnd}
-                onclick={() => startEdit(card)}
-                role="listitem"
-              >
-                {#if card.color}
-                  <div class="card-color" style="background:{card.color}"></div>
-                {/if}
-                <div class="card-body">
-                  <div class="card-title-row">
-                    {#if card.priority}
-                      <span class="card-priority" style="color: {priorityColor(card.priority)}">
-                        {card.priority}
-                      </span>
-                    {/if}
-                    <span class="card-title">{card.title}</span>
-                  </div>
-                  {#if card.description}
-                    <p class="card-desc">{card.description}</p>
-                  {/if}
-                  {#if (card.tags ?? []).length > 0}
-                    <div class="card-tags">
-                      {#each card.tags as tag}
-                        <span class="card-tag">{tag}</span>
-                      {/each}
-                    </div>
-                  {/if}
-                  {#if (card.checklist ?? []).length > 0}
-                    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-                    <div
-                      class="card-checklist"
-                      onclick={(e) => e.stopPropagation()}
-                      onkeydown={(e) => e.stopPropagation()}
-                      role="group"
-                    >
-                      <div class="checklist-progress-row">
-                        <div class="checklist-progress-bar">
-                          <div
-                            class="checklist-progress-fill"
-                            style="width: {(card.checklist.filter((i) => i.done).length / card.checklist.length) *
-                              100}%"
-                          ></div>
-                        </div>
-                        <span class="checklist-progress-text"
-                          >{card.checklist.filter((i) => i.done).length}/{card.checklist.length}</span
-                        >
-                      </div>
-                      {#each card.checklist as item, i}
-                        <label class="checklist-check compact">
-                          <input type="checkbox" checked={item.done} onchange={() => toggleChecklistItem(card, i)} />
-                          <span class:done={item.done}>{item.text}</span>
-                        </label>
-                      {/each}
-                    </div>
-                  {/if}
-                  <div class="card-meta">
-                    {#if card.assignee}
-                      <span class="card-assignee">
-                        <Icon name="user" size={10} />
-                        {card.assignee}
-                      </span>
-                    {/if}
-                    {#if card.dueDate}
-                      <span class="card-due" class:overdue={isOverdue(card.dueDate)}>
-                        <Icon name="calendar" size={10} />
-                        {formatDate(card.dueDate)}
-                      </span>
-                    {/if}
-                  </div>
-                  <LinkedItems itemType="kanban" itemId={card.id} />
-                </div>
-                <div class="card-actions">
-                  {#if confirmDeleteId === card.id}
-                    <button
-                      class="btn-xs btn-danger"
-                      onclick={(e) => {
-                        e.stopPropagation();
-                        deleteCard(card.id);
-                      }}>Yes</button
-                    >
-                    <button
-                      class="btn-xs"
-                      onclick={(e) => {
-                        e.stopPropagation();
-                        confirmDeleteId = null;
-                      }}>No</button
-                    >
-                  {:else}
-                    <button
-                      class="btn-xs btn-danger"
-                      onclick={(e) => {
-                        e.stopPropagation();
-                        confirmDeleteId = card.id;
-                      }}><Icon name="close" size={11} /></button
-                    >
-                  {/if}
-                </div>
-              </div>
-            {/if}
-          {/each}
-          {#if dragOverCol === col.key && dragInsertIndex >= columnCards(col.key).length}
-            <div class="drop-indicator"></div>
-          {/if}
-        </div>
-
-        {#if addingTo === col.key}
-          <div class="card add-form">
-            <input
-              type="text"
-              bind:value={newTitle}
-              placeholder="Card title..."
-              class="edit-input edit-title"
-              use:autofocus
-              onkeydown={(e) => e.key === 'Enter' && addCard(col.key)}
-            />
-            <textarea bind:value={newDescription} placeholder="Description (optional)" rows="2" class="edit-input"
-            ></textarea>
-            <div class="edit-row">
-              <input type="text" bind:value={newAssignee} placeholder="Assignee" class="edit-input" />
-              <select bind:value={newPriority} class="edit-select">
-                {#each PRIORITIES as p}
-                  <option value={p.value}>{p.label}</option>
                 {/each}
-              </select>
-            </div>
-            <TagInput bind:tags={newTags} placeholder="Add tag..." />
-            <div class="color-row">
-              <span class="color-label">Color</span>
-              {#each COLORS as c}
-                <button
-                  class="color-dot"
-                  class:selected={newColor === c}
-                  style="background:{c}"
-                  aria-label="Color {c}"
-                  onclick={() => (newColor = newColor === c ? '' : c)}
-                ></button>
-              {/each}
-            </div>
-            <input type="date" bind:value={newDueDate} class="edit-input" />
-            <!-- Checklist -->
-            <div class="checklist-section">
-              <span class="checklist-label"><Icon name="check" size={11} /> Checklist</span>
-              {#each newChecklist as item, i}
-                <div class="checklist-item">
-                  <label class="checklist-check">
-                    <input
-                      type="checkbox"
-                      checked={item.done}
-                      onchange={() => (newChecklist[i].done = !newChecklist[i].done)}
-                    />
-                    <span class:done={item.done}>{item.text}</span>
-                  </label>
+                <div class="checklist-add-row">
+                  <input
+                    type="text"
+                    bind:value={newChecklistText}
+                    placeholder="Add item..."
+                    class="edit-input checklist-add-input"
+                    onkeydown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const result = addChecklistItem(newChecklist, newChecklistText);
+                        if (result) {
+                          newChecklist = result;
+                          newChecklistText = '';
+                        }
+                      }
+                    }}
+                  />
                   <button
-                    class="checklist-remove"
-                    title="Remove"
-                    onclick={() => (newChecklist = removeChecklistItem(newChecklist, i))}
-                  >
-                    <Icon name="close" size={10} />
-                  </button>
-                </div>
-              {/each}
-              <div class="checklist-add-row">
-                <input
-                  type="text"
-                  bind:value={newChecklistText}
-                  placeholder="Add item..."
-                  class="edit-input checklist-add-input"
-                  onkeydown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
+                    class="btn-xs"
+                    onclick={() => {
                       const result = addChecklistItem(newChecklist, newChecklistText);
                       if (result) {
                         newChecklist = result;
                         newChecklistText = '';
                       }
-                    }
-                  }}
-                />
-                <button
-                  class="btn-xs"
-                  onclick={() => {
-                    const result = addChecklistItem(newChecklist, newChecklistText);
-                    if (result) {
-                      newChecklist = result;
-                      newChecklistText = '';
-                    }
-                  }}
-                >
-                  <Icon name="plus" size={11} />
+                    }}
+                  >
+                    <Icon name="plus" size={11} />
+                  </button>
+                </div>
+              </div>
+              <div class="edit-actions">
+                <button class="btn-primary btn-sm" onclick={() => addCard(col.key)}>
+                  <Icon name="plus" size={13} /> Add
                 </button>
+                <button class="btn-sm" onclick={() => (addingTo = null)}>Cancel</button>
               </div>
             </div>
-            <div class="edit-actions">
-              <button class="btn-primary btn-sm" onclick={() => addCard(col.key)}>
-                <Icon name="plus" size={13} /> Add
-              </button>
-              <button class="btn-sm" onclick={() => (addingTo = null)}>Cancel</button>
-            </div>
+          {:else}
+            <button
+              class="add-btn"
+              onclick={() => {
+                addingTo = col.key;
+                newTitle = '';
+                newDescription = '';
+                newColor = '';
+                newDueDate = '';
+                newPriority = '';
+                newAssignee = '';
+                newTags = [];
+                newChecklist = [];
+                newChecklistText = '';
+              }}
+            >
+              <Icon name="plus" size={14} /> Add Card
+            </button>
+          {/if}
+        </div>
+      {/each}
+    </div>
+  {:else if viewMode === 'list'}
+    <div class="list-view">
+      {#each visibleColumns as col}
+        {@const colCards = columnCards(col.key)}
+        <div class="list-section">
+          <div class="list-section-header">
+            <Icon name={col.icon} size={13} />
+            <span class="list-col-label">{col.label}</span>
+            <span class="count">{colCards.length}</span>
           </div>
-        {:else}
-          <button
-            class="add-btn"
-            onclick={() => {
-              addingTo = col.key;
-              newTitle = '';
-              newDescription = '';
-              newColor = '';
-              newDueDate = '';
-              newPriority = '';
-              newAssignee = '';
-              newTags = [];
-              newChecklist = [];
-              newChecklistText = '';
-            }}
-          >
-            <Icon name="plus" size={14} /> Add Card
-          </button>
-        {/if}
-      </div>
-    {/each}
-  </div>
+          {#if colCards.length === 0}
+            <div class="list-empty">No cards</div>
+          {:else}
+            {#each colCards as card (card.id)}
+              <div class="list-row" style="border-left: 3px solid {card.color || col.accent}">
+                {#if card.priority}
+                  <span class="list-priority" style="color:{priorityColor(card.priority)}">{card.priority}</span>
+                {/if}
+                <span class="list-title">{card.title}</span>
+                <div class="list-meta">
+                  {#if card.dueDate}
+                    <span class="list-due" class:overdue={isOverdue(card.dueDate)}>{formatDate(card.dueDate)}</span>
+                  {/if}
+                  {#if card.assignee}
+                    <span class="list-assignee">{card.assignee}</span>
+                  {/if}
+                  {#each (card.tags ?? []).slice(0, 2) as tag}
+                    <span class="tag-chip-sm">{tag}</span>
+                  {/each}
+                </div>
+                <div class="list-actions">
+                  <select
+                    class="list-move-select"
+                    value={card.column}
+                    onchange={(e) => moveCard(card.id, (e.target as HTMLSelectElement).value as Column)}
+                  >
+                    {#each COLUMNS as c}
+                      <option value={c.key}>{c.label}</option>
+                    {/each}
+                  </select>
+                  <button class="icon-btn" onclick={() => switchToBoard(card)} title="Edit">
+                    <Icon name="pencil" size={12} />
+                  </button>
+                  <button class="icon-btn danger" onclick={() => (confirmDeleteId = card.id)} title="Delete">
+                    <Icon name="trash-2" size={12} />
+                  </button>
+                </div>
+              </div>
+              {#if confirmDeleteId === card.id}
+                <div class="list-confirm-delete">
+                  Delete "{card.title}"?
+                  <button class="btn-xs btn-danger" onclick={() => deleteCard(card.id)}>Delete</button>
+                  <button class="btn-xs" onclick={() => (confirmDeleteId = null)}>Cancel</button>
+                </div>
+              {/if}
+            {/each}
+          {/if}
+        </div>
+      {/each}
+    </div>
+  {:else if viewMode === 'table'}
+    <div class="table-view-wrap">
+      <table class="kanban-table">
+        <thead>
+          <tr>
+            <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_noninteractive_element_interactions -->
+            <th class="sortable" onclick={() => sortTable('title')}>Title{sortIndicator('title')}</th>
+            <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_noninteractive_element_interactions -->
+            <th class="sortable" onclick={() => sortTable('column')}>Column{sortIndicator('column')}</th>
+            <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_noninteractive_element_interactions -->
+            <th class="sortable" onclick={() => sortTable('priority')}>Pri{sortIndicator('priority')}</th>
+            <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_noninteractive_element_interactions -->
+            <th class="sortable" onclick={() => sortTable('dueDate')}>Due{sortIndicator('dueDate')}</th>
+            <th>Assignee</th>
+            <th>Tags</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each flatCards as card (card.id)}
+            {@const col = COLUMNS.find((c) => c.key === card.column)!}
+            <tr>
+              <td class="col-title">
+                {#if card.color}
+                  <span class="color-dot" style="background:{card.color}"></span>
+                {/if}
+                {card.title}
+                {#if (card.checklist ?? []).length > 0}
+                  {@const done = card.checklist!.filter((i) => i.done).length}
+                  <span class="checklist-badge">{done}/{card.checklist!.length}</span>
+                {/if}
+              </td>
+              <td>
+                <select
+                  class="list-move-select"
+                  value={card.column}
+                  onchange={(e) => moveCard(card.id, (e.target as HTMLSelectElement).value as Column)}
+                >
+                  {#each COLUMNS as c}
+                    <option value={c.key}>{c.label}</option>
+                  {/each}
+                </select>
+              </td>
+              <td>
+                {#if card.priority}
+                  <span class="priority-badge" style="color:{priorityColor(card.priority)}">{card.priority}</span>
+                {:else}
+                  <span class="text-faint">—</span>
+                {/if}
+              </td>
+              <td class:overdue-cell={isOverdue(card.dueDate ?? null)}>
+                {card.dueDate ? formatDate(card.dueDate) : '—'}
+              </td>
+              <td>{card.assignee || '—'}</td>
+              <td class="col-tags">
+                {#each (card.tags ?? []).slice(0, 3) as tag}
+                  <span class="tag-chip-sm">{tag}</span>
+                {/each}
+              </td>
+              <td class="col-actions">
+                {#if confirmDeleteId === card.id}
+                  <button class="btn-xs btn-danger" onclick={() => deleteCard(card.id)}>Del</button>
+                  <button class="btn-xs" onclick={() => (confirmDeleteId = null)}>No</button>
+                {:else}
+                  <button class="icon-btn" onclick={() => switchToBoard(card)} title="Edit"
+                    ><Icon name="pencil" size={12} /></button
+                  >
+                  <button class="icon-btn danger" onclick={() => (confirmDeleteId = card.id)} title="Delete"
+                    ><Icon name="trash-2" size={12} /></button
+                  >
+                {/if}
+              </td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -1292,5 +1508,288 @@
     flex: 1;
     font-size: 0.75rem !important;
     padding: 0.25rem 0.4rem !important;
+  }
+
+  /* ── View Toggle ── */
+  .view-toggle {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .view-btn {
+    background: none;
+    border: none;
+    padding: 5px 9px;
+    cursor: pointer;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    font-family: inherit;
+    transition:
+      background 0.1s,
+      color 0.1s;
+  }
+
+  .view-btn:not(:last-child) {
+    border-right: 1px solid var(--border);
+  }
+
+  .view-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  .view-btn.active {
+    background: var(--accent);
+    color: white;
+  }
+
+  /* ── List View ── */
+  .list-view {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .list-section-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-muted);
+    padding-bottom: 6px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .list-col-label {
+    flex: 1;
+  }
+
+  .list-empty {
+    font-size: 0.78rem;
+    color: var(--text-faint);
+    padding: 6px 10px;
+  }
+
+  .list-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-left-width: 3px;
+    transition: background 0.1s;
+    margin-bottom: 3px;
+  }
+
+  .list-row:hover {
+    background: var(--bg-hover);
+  }
+
+  .list-priority {
+    font-size: 0.68rem;
+    font-weight: 700;
+    min-width: 22px;
+    flex-shrink: 0;
+  }
+
+  .list-title {
+    flex: 1;
+    font-weight: 500;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .list-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .list-due {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+  }
+
+  .list-due.overdue {
+    color: var(--danger);
+  }
+
+  .list-assignee {
+    font-size: 0.72rem;
+    color: var(--text-faint);
+  }
+
+  .list-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  .list-confirm-delete {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    font-size: 0.78rem;
+    color: var(--danger);
+    background: var(--bg-secondary);
+    border: 1px solid var(--danger);
+    border-radius: 6px;
+    margin-bottom: 3px;
+  }
+
+  .list-move-select {
+    font-size: 0.72rem;
+    padding: 3px 6px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: inherit;
+    cursor: pointer;
+  }
+
+  /* ── Table View ── */
+  .table-view-wrap {
+    overflow-x: auto;
+  }
+
+  .kanban-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8rem;
+  }
+
+  .kanban-table thead tr {
+    background: var(--bg-secondary);
+    border-bottom: 2px solid var(--border);
+  }
+
+  .kanban-table th {
+    text-align: left;
+    padding: 8px 12px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  .kanban-table th.sortable {
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .kanban-table th.sortable:hover {
+    color: var(--text-primary);
+  }
+
+  .kanban-table td {
+    padding: 7px 12px;
+    border-bottom: 1px solid var(--border-subtle);
+    color: var(--text-primary);
+    vertical-align: middle;
+  }
+
+  .kanban-table tr:hover td {
+    background: var(--bg-hover);
+  }
+
+  .col-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 280px;
+    font-weight: 500;
+  }
+
+  .color-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .checklist-badge {
+    font-size: 0.68rem;
+    color: var(--text-faint);
+    background: var(--bg-hover);
+    padding: 1px 5px;
+    border-radius: 8px;
+    flex-shrink: 0;
+  }
+
+  .priority-badge {
+    font-size: 0.72rem;
+    font-weight: 700;
+  }
+
+  .overdue-cell {
+    color: var(--danger) !important;
+  }
+
+  .text-faint {
+    color: var(--text-faint);
+  }
+
+  .col-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    max-width: 180px;
+  }
+
+  .col-actions {
+    display: flex;
+    gap: 4px;
+    white-space: nowrap;
+  }
+
+  .tag-chip-sm {
+    font-size: 0.65rem;
+    padding: 1px 5px;
+    background: var(--bg-hover);
+    border-radius: 8px;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  .icon-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-faint);
+    padding: 3px 5px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    font-family: inherit;
+    transition:
+      color 0.1s,
+      background 0.1s;
+  }
+
+  .icon-btn:hover {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+  }
+
+  .icon-btn.danger:hover {
+    color: var(--danger);
   }
 </style>

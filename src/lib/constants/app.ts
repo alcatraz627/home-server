@@ -10,5 +10,5 @@
  */
 export const APP = {
   title: 'Home Server',
-  version: '4.40.0-activity-feed-7',
+  version: '4.41.0-kanban-views-8',
 } as const;
