@@ -3,13 +3,14 @@
   import { onMount } from 'svelte';
   import { useShortcuts, SHORTCUT_DEFAULTS } from '$lib/shortcuts';
   import { toast } from '$lib/toast';
-  import { postJson } from '$lib/api';
+  import { fetchApi, postJson } from '$lib/api';
 
   import Icon from '$lib/components/Icon.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
   import LinkedItems from '$lib/components/LinkedItems.svelte';
   import TagInput from '$lib/components/TagInput.svelte';
   import type { KanbanCard, KanbanColumn, ChecklistItem } from '$lib/types/productivity';
+  import type { KanbanTemplate } from '../api/kanban/templates/+server';
 
   type Column = KanbanColumn;
 
@@ -60,6 +61,50 @@
   let editChecklistText = $state('');
   let dragCardId = $state<string | null>(null);
   let dragOverCol = $state<Column | null>(null);
+
+  // Templates
+  let showTemplates = $state(false);
+  let templates = $state<KanbanTemplate[]>([]);
+  let templatesLoading = $state(false);
+  let applyingTemplate = $state<string | null>(null);
+  let templateMode = $state<'append' | 'replace'>('append');
+  let templateConfirm = $state<string | null>(null);
+
+  async function loadTemplates() {
+    if (templates.length > 0) return;
+    templatesLoading = true;
+    try {
+      const res = await fetchApi('/api/kanban/templates');
+      if (res.ok) templates = await res.json();
+    } catch {
+      toast.error('Failed to load templates');
+    } finally {
+      templatesLoading = false;
+    }
+  }
+
+  async function applyTemplate(templateId: string, mode: 'append' | 'replace') {
+    applyingTemplate = templateId;
+    try {
+      const res = await fetchApi('/api/kanban/templates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ templateId, mode }),
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      toast.success(`Template applied — ${data.count} cards added`);
+      showTemplates = false;
+      templateConfirm = null;
+      // Reload cards
+      const cardsRes = await fetchApi('/api/kanban');
+      if (cardsRes.ok) cards = await cardsRes.json();
+    } catch {
+      toast.error('Failed to apply template');
+    } finally {
+      applyingTemplate = null;
+    }
+  }
 
   let visibleColumns = $derived(showArchive ? COLUMNS : COLUMNS.filter((c) => c.key !== 'archive'));
 
@@ -422,6 +467,17 @@
           <Icon name="table" size={13} />
         </button>
       </div>
+      <button
+        class="tpl-btn"
+        onclick={() => {
+          showTemplates = !showTemplates;
+          if (showTemplates) loadTemplates();
+        }}
+        title="Board templates"
+      >
+        <Icon name="copy" size={13} />
+        Templates
+      </button>
       <label class="archive-toggle">
         <input type="checkbox" bind:checked={showArchive} />
         <Icon name="archive" size={13} />
@@ -429,6 +485,72 @@
       </label>
     {/snippet}
   </PageHeader>
+
+  <!-- Template picker panel -->
+  {#if showTemplates}
+    <div class="tpl-panel">
+      <div class="tpl-panel-header">
+        <span class="tpl-panel-title">
+          <Icon name="copy" size={14} />
+          Board Templates
+        </span>
+        <div class="tpl-mode-row">
+          <span class="tpl-mode-label">Mode:</span>
+          <label class="tpl-mode-opt">
+            <input type="radio" bind:group={templateMode} value="append" />
+            Append to board
+          </label>
+          <label class="tpl-mode-opt">
+            <input type="radio" bind:group={templateMode} value="replace" />
+            Replace all cards
+          </label>
+        </div>
+        <button class="tpl-close" onclick={() => (showTemplates = false)}>
+          <Icon name="close" size={13} />
+        </button>
+      </div>
+      <div class="tpl-grid">
+        {#if templatesLoading}
+          <div class="tpl-loading">Loading templates…</div>
+        {:else}
+          {#each templates as tpl}
+            <div class="tpl-card">
+              <div class="tpl-card-name">{tpl.name}</div>
+              <div class="tpl-card-desc">{tpl.description}</div>
+              <div class="tpl-card-preview">{tpl.preview}</div>
+              {#if templateConfirm === tpl.id && templateMode === 'replace'}
+                <div class="tpl-confirm">
+                  Replace all cards?
+                  <button
+                    class="tpl-confirm-yes"
+                    disabled={applyingTemplate === tpl.id}
+                    onclick={() => applyTemplate(tpl.id, 'replace')}
+                  >
+                    {applyingTemplate === tpl.id ? 'Applying…' : 'Yes, replace'}
+                  </button>
+                  <button class="tpl-confirm-no" onclick={() => (templateConfirm = null)}>Cancel</button>
+                </div>
+              {:else}
+                <button
+                  class="tpl-apply-btn"
+                  disabled={applyingTemplate === tpl.id}
+                  onclick={() => {
+                    if (templateMode === 'replace') {
+                      templateConfirm = tpl.id;
+                    } else {
+                      applyTemplate(tpl.id, 'append');
+                    }
+                  }}
+                >
+                  {applyingTemplate === tpl.id ? 'Applying…' : 'Apply template'}
+                </button>
+              {/if}
+            </div>
+          {/each}
+        {/if}
+      </div>
+    </div>
+  {/if}
 
   {#if viewMode === 'board'}
     <div class="board" style="grid-template-columns: repeat({visibleColumns.length}, 1fr);">
@@ -1791,5 +1913,176 @@
 
   .icon-btn.danger:hover {
     color: var(--danger);
+  }
+
+  /* ── Templates ── */
+  .tpl-btn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.78rem;
+    padding: 5px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-family: inherit;
+    transition:
+      border-color 0.1s,
+      color 0.1s;
+  }
+  .tpl-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .tpl-panel {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 16px;
+    overflow: hidden;
+  }
+  .tpl-panel-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    background: var(--bg-primary);
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .tpl-panel-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .tpl-mode-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+  .tpl-mode-label {
+    font-weight: 600;
+  }
+  .tpl-mode-opt {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    color: var(--text-muted);
+  }
+  .tpl-mode-opt input {
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+  .tpl-close {
+    margin-left: auto;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    padding: 3px;
+    border-radius: 4px;
+    transition: color 0.1s;
+  }
+  .tpl-close:hover {
+    color: var(--text-primary);
+  }
+
+  .tpl-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 10px;
+    padding: 12px;
+  }
+  .tpl-loading {
+    padding: 16px;
+    color: var(--text-faint);
+    font-size: 0.82rem;
+  }
+  .tpl-card {
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    transition: border-color 0.1s;
+  }
+  .tpl-card:hover {
+    border-color: var(--accent);
+  }
+  .tpl-card-name {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .tpl-card-desc {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+    flex: 1;
+  }
+  .tpl-card-preview {
+    font-size: 0.65rem;
+    color: var(--text-faint);
+    font-family: 'JetBrains Mono', monospace;
+    margin-bottom: 4px;
+  }
+  .tpl-apply-btn {
+    padding: 6px 10px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    font-family: inherit;
+    transition: opacity 0.1s;
+  }
+  .tpl-apply-btn:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+  .tpl-confirm {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.7rem;
+    color: var(--danger);
+    flex-wrap: wrap;
+  }
+  .tpl-confirm-yes {
+    padding: 4px 8px;
+    background: var(--danger);
+    color: white;
+    border: none;
+    border-radius: 5px;
+    font-size: 0.7rem;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .tpl-confirm-yes:disabled {
+    opacity: 0.5;
+  }
+  .tpl-confirm-no {
+    padding: 4px 8px;
+    background: none;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    font-size: 0.7rem;
+    cursor: pointer;
+    font-family: inherit;
   }
 </style>

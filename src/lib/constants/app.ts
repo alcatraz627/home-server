@@ -10,5 +10,5 @@
  */
 export const APP = {
   title: 'Home Server',
-  version: '4.47.0-nl-quickadd-14',
+  version: '4.48.0-kanban-templates-15',
 } as const;
