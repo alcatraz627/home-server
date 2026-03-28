@@ -10,5 +10,5 @@
  */
 export const APP = {
   title: 'Home Server',
-  version: '4.45.0-pomodoro-timer-12',
+  version: '4.46.0-smart-suggestions-13',
 } as const;

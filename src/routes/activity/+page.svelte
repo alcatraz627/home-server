@@ -61,6 +61,40 @@
     archive: 'Archived',
   };
 
+  interface Suggestion {
+    id: string;
+    type: 'overdue' | 'stale' | 'stuck' | 'dead-link';
+    module: 'kanban' | 'reminder' | 'note' | 'bookmark';
+    title: string;
+    detail: string;
+    href: string;
+  }
+
+  const SUGGESTION_TYPE_ICONS: Record<Suggestion['type'], string> = {
+    overdue: 'alert-triangle',
+    stuck: 'clock',
+    stale: 'archive',
+    'dead-link': 'link',
+  };
+  const SUGGESTION_TYPE_COLORS: Record<Suggestion['type'], string> = {
+    overdue: 'var(--danger)',
+    stuck: 'var(--warning, #f59e0b)',
+    stale: 'var(--text-muted)',
+    'dead-link': 'var(--text-muted)',
+  };
+
+  let suggestions = $state<Suggestion[]>([]);
+  let suggestionsOpen = $state(false);
+
+  async function loadSuggestions() {
+    try {
+      const res = await fetchApi('/api/suggestions');
+      if (res.ok) suggestions = await res.json();
+    } catch {
+      // non-fatal — suggestions are optional
+    }
+  }
+
   let events = $state<ActivityEvent[]>([]);
   let loading = $state(true);
   let error = $state('');
@@ -93,6 +127,7 @@
 
   onMount(() => {
     load();
+    loadSuggestions();
     autoRefresh.restart();
   });
 
@@ -143,12 +178,44 @@
 </svelte:head>
 
 <PageHeader title="Activity" icon="activity" description="Recent changes across your productivity modules.">
+  {#snippet titleExtra()}
+    {#if suggestions.length > 0}
+      <button class="suggestions-badge" onclick={() => (suggestionsOpen = !suggestionsOpen)} title="Smart suggestions">
+        <Icon name="alert-triangle" size={11} />
+        {suggestions.length}
+      </button>
+    {/if}
+  {/snippet}
   {#snippet children()}
     <button class="refresh-btn" onclick={load} title="Refresh">
       <Icon name="refresh-cw" size={14} />
     </button>
   {/snippet}
 </PageHeader>
+
+<!-- Smart Suggestions panel -->
+{#if suggestions.length > 0 && suggestionsOpen}
+  <div class="suggestions-panel">
+    <div class="suggestions-header">
+      <Icon name="alert-triangle" size={13} />
+      Smart Suggestions
+      <span class="suggestions-count">{suggestions.length}</span>
+      <button class="suggestions-close" onclick={() => (suggestionsOpen = false)}>
+        <Icon name="close" size={12} />
+      </button>
+    </div>
+    <div class="suggestions-list">
+      {#each suggestions as s (s.id)}
+        <a class="suggestion-row" href={s.href} style="--sc:{SUGGESTION_TYPE_COLORS[s.type]}">
+          <Icon name={SUGGESTION_TYPE_ICONS[s.type]} size={12} />
+          <span class="suggestion-title">{s.title}</span>
+          <span class="suggestion-detail">{s.detail}</span>
+          <span class="suggestion-module">{s.module}</span>
+        </a>
+      {/each}
+    </div>
+  </div>
+{/if}
 
 <FilterBar search bind:searchValue={search} searchPlaceholder="Search activity...">
   <select class="module-select" bind:value={moduleFilter}>
@@ -359,5 +426,108 @@
     .event-title {
       max-width: 180px;
     }
+  }
+
+  /* ── Smart Suggestions ── */
+  .suggestions-badge {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+    border: none;
+    background: color-mix(in srgb, var(--warning, #f59e0b) 15%, transparent);
+    color: var(--warning, #f59e0b);
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.1s;
+  }
+  .suggestions-badge:hover {
+    background: color-mix(in srgb, var(--warning, #f59e0b) 25%, transparent);
+  }
+
+  .suggestions-panel {
+    background: var(--bg-secondary);
+    border: 1px solid color-mix(in srgb, var(--warning, #f59e0b) 30%, var(--border));
+    border-radius: 8px;
+    margin-bottom: 12px;
+    overflow: hidden;
+  }
+  .suggestions-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    font-size: 0.76rem;
+    font-weight: 600;
+    color: var(--warning, #f59e0b);
+    background: color-mix(in srgb, var(--warning, #f59e0b) 6%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--warning, #f59e0b) 15%, var(--border));
+  }
+  .suggestions-count {
+    background: var(--warning, #f59e0b);
+    color: white;
+    border-radius: 8px;
+    padding: 1px 6px;
+    font-size: 0.65rem;
+  }
+  .suggestions-close {
+    margin-left: auto;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    padding: 2px;
+    border-radius: 4px;
+    transition: color 0.1s;
+  }
+  .suggestions-close:hover {
+    color: var(--text-primary);
+  }
+
+  .suggestions-list {
+    padding: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .suggestion-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 0.78rem;
+    text-decoration: none;
+    color: var(--sc);
+    transition: background 0.1s;
+  }
+  .suggestion-row:hover {
+    background: var(--bg-hover);
+  }
+  .suggestion-title {
+    color: var(--text-primary);
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .suggestion-detail {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    flex-shrink: 0;
+  }
+  .suggestion-module {
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--sc);
+    opacity: 0.8;
+    flex-shrink: 0;
   }
 </style>
