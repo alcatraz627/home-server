@@ -6,8 +6,7 @@ import { NAV_GROUPS } from '$lib/constants/nav';
 import os from 'node:os';
 import fs from 'node:fs';
 import path from 'node:path';
-
-const DATA_DIR = path.join(os.homedir(), '.home-server');
+import { CONFIG_DIR } from '$lib/server/paths';
 
 function readJsonFile(filePath: string): any {
   try {
@@ -31,7 +30,7 @@ export const GET: RequestHandler = async () => {
   ];
 
   for (const name of configNames) {
-    const data = readJsonFile(path.join(DATA_DIR, name));
+    const data = readJsonFile(path.join(CONFIG_DIR, name));
     if (data !== null) {
       // For terminal-pin, don't expose the hash
       if (name === 'terminal-pin.json' && data.hash) {
@@ -45,7 +44,7 @@ export const GET: RequestHandler = async () => {
   // Count notes
   let noteCount = 0;
   try {
-    const notesDir = path.join(DATA_DIR, 'notes');
+    const notesDir = path.join(CONFIG_DIR, 'notes');
     if (fs.existsSync(notesDir)) {
       noteCount = fs.readdirSync(notesDir).filter((f) => f.endsWith('.json')).length;
     }
@@ -54,7 +53,7 @@ export const GET: RequestHandler = async () => {
   // Get log file info
   const logFiles: { name: string; size: number }[] = [];
   try {
-    const logsDir = path.join(DATA_DIR, 'logs');
+    const logsDir = path.join(CONFIG_DIR, 'logs');
     if (fs.existsSync(logsDir)) {
       for (const f of fs.readdirSync(logsDir)) {
         try {
@@ -84,7 +83,7 @@ export const GET: RequestHandler = async () => {
       totalPages: NAV_GROUPS.reduce((s, g) => s + g.items.length, 0),
     },
     rateLimits: RATE_LIMITS,
-    dataDir: DATA_DIR,
+    dataDir: CONFIG_DIR,
     configFiles,
     storage: {
       noteCount,

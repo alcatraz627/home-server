@@ -1,11 +1,9 @@
 import { json } from '@sveltejs/kit';
 import fs from 'node:fs';
-import path from 'node:path';
-import os from 'node:os';
 import type { RequestHandler } from './$types';
+import { CONFIG_DIR, PATHS } from '$lib/server/paths';
 
-const DATA_DIR = path.join(os.homedir(), '.home-server');
-const CONFIG_FILE = path.join(DATA_DIR, 'lights-config.json');
+const CONFIG_FILE = PATHS.lightsConfig;
 
 interface CustomPreset {
   label: string;
@@ -43,8 +41,8 @@ function readConfig(): LightsConfig {
 }
 
 function writeConfig(config: LightsConfig): void {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
+  if (!fs.existsSync(CONFIG_DIR)) {
+    fs.mkdirSync(CONFIG_DIR, { recursive: true });
   }
   fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2), 'utf-8');
 }

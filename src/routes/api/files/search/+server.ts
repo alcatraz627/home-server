@@ -4,6 +4,7 @@ import path from 'node:path';
 import { getUploadDir } from '$lib/server/config';
 import { getMime } from '$lib/server/files';
 import type { RequestHandler } from './$types';
+import { FILE_SEARCH_MAX_DEPTH, FILE_SEARCH_MAX_RESULTS } from '$lib/constants/limits';
 
 interface SearchResult {
   name: string;
@@ -13,7 +14,7 @@ interface SearchResult {
 }
 
 async function searchFiles(dir: string, query: string, base: string, depth: number): Promise<SearchResult[]> {
-  if (depth > 5) return [];
+  if (depth > FILE_SEARCH_MAX_DEPTH) return [];
 
   const results: SearchResult[] = [];
   let entries;
@@ -47,7 +48,7 @@ async function searchFiles(dir: string, query: string, base: string, depth: numb
       }
     }
 
-    if (results.length >= 50) break;
+    if (results.length >= FILE_SEARCH_MAX_RESULTS) break;
   }
 
   return results;
@@ -64,7 +65,7 @@ function wildcardToRegex(pattern: string): RegExp {
 
 /** Wildcard search using Node.js fs.readdir (no shell) */
 async function wildcardSearch(dir: string, pattern: string, base: string, depth = 0): Promise<SearchResult[]> {
-  if (depth > 5) return [];
+  if (depth > FILE_SEARCH_MAX_DEPTH) return [];
 
   const regex = depth === 0 ? wildcardToRegex(pattern) : null;
   const results: SearchResult[] = [];
@@ -97,7 +98,7 @@ async function wildcardSearch(dir: string, pattern: string, base: string, depth 
       } catch {}
     }
 
-    if (results.length >= 50) break;
+    if (results.length >= FILE_SEARCH_MAX_RESULTS) break;
   }
 
   return results;
@@ -117,5 +118,5 @@ export const GET: RequestHandler = async ({ url }) => {
     ? await wildcardSearch(uploadDir, query, uploadDir)
     : await searchFiles(uploadDir, query, uploadDir, 0);
 
-  return json({ results: results.slice(0, 50) });
+  return json({ results: results.slice(0, FILE_SEARCH_MAX_RESULTS) });
 };

@@ -1,8 +1,9 @@
 import { spawn, execSync } from 'node:child_process';
 import fs from 'node:fs/promises';
 import { existsSync, readFileSync } from 'node:fs';
-import path from 'node:path';
 import os from 'node:os';
+import { CONFIG_DIR, PATHS } from '$lib/server/paths';
+import { TASK_HISTORY_LIMIT, TASK_OUTPUT_BUFFER_SIZE } from '$lib/constants/defaults';
 import { notifyTaskComplete } from './notify';
 import { createLogger } from './logger';
 
@@ -48,9 +49,8 @@ export interface TaskStatus {
 
 // --- Storage ---
 
-const CONFIG_DIR = path.join(os.homedir(), '.home-server');
-const TASKS_FILE = path.join(CONFIG_DIR, 'tasks.json');
-const TASK_HISTORY_FILE = path.join(CONFIG_DIR, 'task-history.json');
+const TASKS_FILE = PATHS.tasks;
+const TASK_HISTORY_FILE = PATHS.taskHistory;
 
 const runningTasks = new Map<string, { process: any; run: TaskRun }>();
 
@@ -108,7 +108,7 @@ async function appendTaskHistory(run: TaskRun): Promise<void> {
   const idx = history.findIndex((r) => r.id === run.id);
   if (idx >= 0) history[idx] = run;
   else history.push(run);
-  await fs.writeFile(TASK_HISTORY_FILE, JSON.stringify(history.slice(-200), null, 2));
+  await fs.writeFile(TASK_HISTORY_FILE, JSON.stringify(history.slice(-TASK_HISTORY_LIMIT), null, 2));
 }
 
 // --- Status ---
@@ -169,11 +169,11 @@ export async function runTask(taskId: string, attempt = 1): Promise<TaskRun> {
   proc.stdout?.on('data', (d: Buffer) => {
     run.output += d.toString();
     // Cap output at 10KB
-    if (run.output.length > 10240) run.output = run.output.slice(-10240);
+    if (run.output.length > TASK_OUTPUT_BUFFER_SIZE) run.output = run.output.slice(-TASK_OUTPUT_BUFFER_SIZE);
   });
   proc.stderr?.on('data', (d: Buffer) => {
     run.output += d.toString();
-    if (run.output.length > 10240) run.output = run.output.slice(-10240);
+    if (run.output.length > TASK_OUTPUT_BUFFER_SIZE) run.output = run.output.slice(-TASK_OUTPUT_BUFFER_SIZE);
   });
 
   proc.on('close', async (code: number | null) => {

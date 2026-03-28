@@ -4,9 +4,10 @@ import { execSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import { PATHS } from '$lib/server/paths';
 
 const isMac = os.platform() === 'darwin';
-const CACHE_DIR = path.join(os.homedir(), '.home-server', 'icon-cache');
+const CACHE_DIR = PATHS.iconCache;
 
 function ensureCacheDir() {
   if (!fs.existsSync(CACHE_DIR)) {

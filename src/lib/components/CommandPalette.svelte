@@ -5,16 +5,56 @@
   import type { NavItem } from '$lib/constants/nav';
   import Icon from './Icon.svelte';
 
-  let { open = $bindable(false) }: { open: boolean } = $props();
+  export interface CommandAction {
+    id: string;
+    label: string;
+    desc: string;
+    icon: string;
+    group: string;
+    handler: () => void;
+  }
+
+  let { open = $bindable(false), actions = [] }: { open: boolean; actions?: CommandAction[] } = $props();
 
   let query = $state('');
   let selectedIndex = $state(0);
   let inputEl = $state<HTMLInputElement | null>(null);
 
-  // Flatten all nav items with their group label
-  const allItems: (NavItem & { group: string })[] = NAV_GROUPS.flatMap((g) =>
-    g.items.map((item) => ({ ...item, group: g.label })),
-  );
+  type PaletteItem = {
+    id: string;
+    label: string;
+    desc: string;
+    icon: string;
+    group: string;
+    kind: 'page' | 'action';
+    href?: string;
+    handler?: () => void;
+  };
+
+  // Flatten nav items + actions into one list
+  let allItems = $derived.by(() => {
+    const pages: PaletteItem[] = NAV_GROUPS.flatMap((g) =>
+      g.items.map((item) => ({
+        id: `page:${item.href}`,
+        label: item.label,
+        desc: item.desc,
+        icon: item.icon,
+        group: g.label,
+        kind: 'page' as const,
+        href: item.href,
+      })),
+    );
+    const acts: PaletteItem[] = actions.map((a) => ({
+      id: `action:${a.id}`,
+      label: a.label,
+      desc: a.desc,
+      icon: a.icon,
+      group: a.group,
+      kind: 'action' as const,
+      handler: a.handler,
+    }));
+    return [...acts, ...pages];
+  });
 
   let results = $derived.by(() => {
     const q = query.toLowerCase().trim();
@@ -24,7 +64,7 @@
         item.label.toLowerCase().includes(q) ||
         item.desc.toLowerCase().includes(q) ||
         item.group.toLowerCase().includes(q) ||
-        item.href.toLowerCase().includes(q),
+        (item.href?.toLowerCase().includes(q) ?? false),
     );
   });
 
@@ -39,7 +79,6 @@
     if (open) {
       query = '';
       selectedIndex = 0;
-      // Tick delay for DOM render
       setTimeout(() => inputEl?.focus(), 10);
     }
   });
@@ -48,9 +87,13 @@
     open = false;
   }
 
-  function navigate(href: string) {
+  function execute(item: PaletteItem) {
     close();
-    goto(href);
+    if (item.kind === 'page' && item.href) {
+      goto(item.href);
+    } else if (item.kind === 'action' && item.handler) {
+      item.handler();
+    }
   }
 
   function handleKeydown(e: KeyboardEvent) {
@@ -70,7 +113,7 @@
       scrollToSelected();
     } else if (e.key === 'Enter' && results.length > 0) {
       e.preventDefault();
-      navigate(results[selectedIndex].href);
+      execute(results[selectedIndex]);
     }
   }
 
@@ -81,10 +124,11 @@
     }, 0);
   }
 
-  function isActive(href: string): boolean {
+  function isActive(item: PaletteItem): boolean {
+    if (item.kind !== 'page' || !item.href) return false;
     const path = $page.url.pathname;
-    if (href === '/') return path === '/';
-    return path.startsWith(href);
+    if (item.href === '/') return path === '/';
+    return path.startsWith(item.href);
   }
 
   function handleOverlayClick(e: MouseEvent) {
@@ -100,21 +144,27 @@
     <div class="cp-container" role="dialog" aria-label="Command palette">
       <div class="cp-input-wrap">
         <Icon name="search" size={16} />
-        <input bind:this={inputEl} type="text" class="cp-input" placeholder="Search pages..." bind:value={query} />
+        <input
+          bind:this={inputEl}
+          type="text"
+          class="cp-input"
+          placeholder="Search pages and actions..."
+          bind:value={query}
+        />
         <kbd class="cp-kbd">Esc</kbd>
       </div>
 
       <div class="cp-results">
         {#if results.length === 0}
-          <div class="cp-empty">No matching pages</div>
+          <div class="cp-empty">No matching results</div>
         {:else}
-          {#each results as item, i (item.href)}
+          {#each results as item, i (item.id)}
             <!-- svelte-ignore a11y_no_static_element_interactions -->
             <button
               class="cp-item"
               class:selected={i === selectedIndex}
-              class:active={isActive(item.href)}
-              onclick={() => navigate(item.href)}
+              class:active={isActive(item)}
+              onclick={() => execute(item)}
               onmouseenter={() => (selectedIndex = i)}
             >
               <span class="cp-item-icon"><Icon name={item.icon} size={16} /></span>
@@ -122,7 +172,12 @@
                 <span class="cp-item-label">{item.label}</span>
                 <span class="cp-item-desc">{item.desc}</span>
               </span>
-              <span class="cp-item-group">{item.group}</span>
+              <span class="cp-item-group">
+                {#if item.kind === 'action'}
+                  <span class="cp-action-badge">Action</span>
+                {/if}
+                {item.group}
+              </span>
             </button>
           {/each}
         {/if}
@@ -148,6 +203,7 @@
     justify-content: center;
     padding-top: 15vh;
     animation: cp-fade 0.15s ease-out;
+    backdrop-filter: blur(2px);
   }
 
   @keyframes cp-fade {
@@ -282,6 +338,19 @@
     color: var(--text-faint);
     flex-shrink: 0;
     font-family: 'JetBrains Mono', monospace;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .cp-action-badge {
+    font-size: 0.55rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: 3px;
+    padding: 0 3px;
   }
 
   .cp-footer {

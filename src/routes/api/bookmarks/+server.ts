@@ -1,12 +1,10 @@
 import crypto from 'node:crypto';
 import { json } from '@sveltejs/kit';
 import fs from 'node:fs';
-import path from 'node:path';
-import os from 'node:os';
 import type { RequestHandler } from './$types';
+import { CONFIG_DIR, PATHS } from '$lib/server/paths';
 
-const DATA_DIR = path.join(os.homedir(), '.home-server');
-const FILE = path.join(DATA_DIR, 'bookmarks.json');
+const FILE = PATHS.bookmarks;
 
 interface Bookmark {
   id: string;
@@ -18,7 +16,7 @@ interface Bookmark {
 }
 
 function ensureDir() {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+  if (!fs.existsSync(CONFIG_DIR)) fs.mkdirSync(CONFIG_DIR, { recursive: true });
 }
 
 function readBookmarks(): Bookmark[] {

@@ -81,6 +81,65 @@ export const SHORTCUT_DEFAULTS: ShortcutDef[] = [
     defaultKey: '/',
     category: 'Navigation',
   },
+
+  // Files
+  { id: 'files:refresh', page: 'Files', description: 'Refresh file list', defaultKey: 'r', category: 'Actions' },
+  { id: 'files:focus-search', page: 'Files', description: 'Focus search', defaultKey: '/', category: 'Navigation' },
+  { id: 'files:new-folder', page: 'Files', description: 'New folder', defaultKey: 'n', category: 'Actions' },
+  {
+    id: 'files:go-up',
+    page: 'Files',
+    description: 'Go to parent folder',
+    defaultKey: 'Backspace',
+    category: 'Navigation',
+  },
+  {
+    id: 'files:toggle-view',
+    page: 'Files',
+    description: 'Toggle list/grid view',
+    defaultKey: 'v',
+    category: 'Actions',
+  },
+
+  // WiFi
+  { id: 'wifi:refresh', page: 'WiFi', description: 'Refresh scan', defaultKey: 'r', category: 'Actions' },
+  { id: 'wifi:focus-search', page: 'WiFi', description: 'Focus search', defaultKey: '/', category: 'Navigation' },
+
+  // Docker
+  { id: 'docker:refresh', page: 'Docker', description: 'Refresh containers', defaultKey: 'r', category: 'Actions' },
+
+  // Network
+  { id: 'network:refresh', page: 'Network', description: 'Refresh', defaultKey: 'r', category: 'Actions' },
+
+  // Services
+  { id: 'services:refresh', page: 'Services', description: 'Refresh services', defaultKey: 'r', category: 'Actions' },
+
+  // Screenshots
+  {
+    id: 'screenshots:capture',
+    page: 'Screenshots',
+    description: 'Take screenshot',
+    defaultKey: 'c',
+    category: 'Actions',
+  },
+
+  // Clipboard
+  {
+    id: 'clipboard:refresh',
+    page: 'Clipboard',
+    description: 'Refresh clipboard',
+    defaultKey: 'r',
+    category: 'Actions',
+  },
+
+  // DNS
+  { id: 'dns:focus-input', page: 'DNS', description: 'Focus domain input', defaultKey: '/', category: 'Navigation' },
+
+  // Terminal
+  { id: 'terminal:new-tab', page: 'Terminal', description: 'New terminal tab', defaultKey: 't', category: 'Actions' },
+
+  // Kanban
+  { id: 'kanban:new-task', page: 'Kanban', description: 'New task', defaultKey: 'n', category: 'Actions' },
 ];
 
 const STORAGE_KEY = 'shortcuts-custom';

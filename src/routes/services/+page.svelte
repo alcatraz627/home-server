@@ -2,13 +2,15 @@
   import type { PageData } from './$types';
   import type { ServiceStatus } from '$lib/server/services';
   import { toast } from '$lib/toast';
-  import { fetchApi } from '$lib/api';
+  import { fetchApi, postJson } from '$lib/api';
+  import { getErrorMessage } from '$lib/errors';
   import Button from '$lib/components/Button.svelte';
   import Badge from '$lib/components/Badge.svelte';
   import Icon from '$lib/components/Icon.svelte';
   import Tooltip from '$lib/components/Tooltip.svelte';
-  import EmptyState from '$lib/components/EmptyState.svelte';
-  import Loading from '$lib/components/Loading.svelte';
+  import PageHeader from '$lib/components/PageHeader.svelte';
+  import AsyncState from '$lib/components/AsyncState.svelte';
+  import ProgressBar from '$lib/components/ProgressBar.svelte';
 
   let { data } = $props<{ data: PageData }>();
   // svelte-ignore state_referenced_locally
@@ -26,17 +28,17 @@
   let adding = $state(false);
   let checkingId = $state<string | null>(null);
 
-  // Auto-refresh every 30s
-  let autoRefreshTimer: ReturnType<typeof setInterval> | null = null;
+  import { onMount } from 'svelte';
+  import { useShortcuts, SHORTCUT_DEFAULTS } from '$lib/shortcuts';
+  import { createAutoRefresh } from '$lib/auto-refresh.svelte';
 
-  import { onMount, onDestroy } from 'svelte';
+  // Auto-refresh every 30s
+  createAutoRefresh(refresh, 30000);
 
   onMount(() => {
-    autoRefreshTimer = setInterval(refresh, 30000);
-  });
-
-  onDestroy(() => {
-    if (autoRefreshTimer) clearInterval(autoRefreshTimer);
+    return useShortcuts([
+      { ...SHORTCUT_DEFAULTS.find((d) => d.id === 'services:refresh')!, handler: () => refreshWithIndicator() },
+    ]);
   });
 
   async function refresh() {
@@ -77,23 +79,19 @@
 
     adding = true;
     try {
-      const res = await fetchApi('/api/services', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'add',
-          name: formName.trim(),
-          url: formUrl.trim(),
-          interval: formInterval,
-          timeout: formTimeout,
-        }),
+      const res = await postJson('/api/services', {
+        action: 'add',
+        name: formName.trim(),
+        url: formUrl.trim(),
+        interval: formInterval,
+        timeout: formTimeout,
       });
       if (!res.ok) throw new Error('Failed to add service');
       toast.success(`Added ${formName}`);
       resetForm();
       await refresh();
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err));
     } finally {
       adding = false;
     }
@@ -101,27 +99,19 @@
 
   async function removeService(id: string, name: string) {
     try {
-      const res = await fetchApi('/api/services', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'remove', id }),
-      });
+      const res = await postJson('/api/services', { action: 'remove', id });
       if (!res.ok) throw new Error('Failed to remove');
       toast.success(`Removed ${name}`);
       await refresh();
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err));
     }
   }
 
   async function checkNow(id: string) {
     checkingId = id;
     try {
-      await fetchApi('/api/services', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'check', id }),
-      });
+      await postJson('/api/services', { action: 'check', id });
       await refresh();
     } catch {
       toast.error('Check failed');
@@ -168,23 +158,19 @@
   ];
 </script>
 
-<div class="page">
-  <header class="page-header">
-    <div class="page-title">
-      <Icon name="signal" size={20} />
-      <h1>Service Health</h1>
+<div class="page page-lg">
+  <PageHeader title="Service Health" icon="signal">
+    {#snippet titleExtra()}
       <Badge variant="default" size="sm">{statuses.length}</Badge>
-    </div>
-    <div class="header-actions">
-      <Button variant="ghost" size="sm" icon="refresh" loading={refreshing} onclick={refreshWithIndicator}>
-        Refresh
-      </Button>
-      <Button variant="primary" size="sm" icon="add" onclick={() => (showForm = !showForm)}>Add Service</Button>
-    </div>
-  </header>
+    {/snippet}
+    <Button variant="ghost" size="sm" icon="refresh" loading={refreshing} onclick={refreshWithIndicator}>
+      Refresh
+    </Button>
+    <Button variant="primary" size="sm" icon="add" onclick={() => (showForm = !showForm)}>Add Service</Button>
+  </PageHeader>
 
   {#if showForm}
-    <div class="add-form card">
+    <div class="add-form card card-padded">
       <h3>Add Service</h3>
       <div class="form-grid">
         <label class="form-field">
@@ -219,18 +205,17 @@
     </div>
   {/if}
 
-  {#if statuses.length === 0}
-    <EmptyState
-      icon="signal"
-      title="No services configured"
-      hint="Add an HTTP endpoint to monitor its health."
-      actionLabel="Add Service"
-      onaction={() => (showForm = true)}
-    />
-  {:else}
+  <AsyncState
+    empty={statuses.length === 0}
+    emptyTitle="No services configured"
+    emptyIcon="signal"
+    emptyHint="Add an HTTP endpoint to monitor its health."
+    emptyActionLabel="Add Service"
+    onemptyaction={() => (showForm = true)}
+  >
     <div class="service-grid">
       {#each statuses as svc (svc.config.id)}
-        <div class="service-card card">
+        <div class="service-card card card-padded">
           <div class="service-top">
             <div class="service-info">
               <div class="service-name">{svc.config.name}</div>
@@ -265,15 +250,15 @@
           </div>
 
           {#if svc.uptime24h >= 0}
-            <div class="uptime-bar">
-              <div
-                class="uptime-fill"
-                class:uptime-good={svc.uptime24h >= 95}
-                class:uptime-warn={svc.uptime24h >= 50 && svc.uptime24h < 95}
-                class:uptime-bad={svc.uptime24h < 50}
-                style="width: {svc.uptime24h}%"
-              ></div>
-            </div>
+            <ProgressBar
+              value={svc.uptime24h}
+              height="4px"
+              colorThresholds={[
+                { value: 0, color: 'var(--danger)' },
+                { value: 50, color: 'var(--warning)' },
+                { value: 95, color: 'var(--success)' },
+              ]}
+            />
           {/if}
 
           {#if svc.lastCheck?.error}
@@ -291,64 +276,25 @@
                 onclick={() => checkNow(svc.config.id)}
               />
             </Tooltip>
-            <Button
-              variant="ghost"
-              size="xs"
-              icon="delete"
-              iconOnly
-              confirm
-              confirmText="Delete?"
-              onclick={() => removeService(svc.config.id, svc.config.name)}
-            />
+            <Tooltip text="Delete">
+              <Button
+                variant="ghost"
+                size="xs"
+                icon="delete"
+                iconOnly
+                confirm
+                confirmText="Delete?"
+                onclick={() => removeService(svc.config.id, svc.config.name)}
+              />
+            </Tooltip>
           </div>
         </div>
       {/each}
     </div>
-  {/if}
+  </AsyncState>
 </div>
 
 <style>
-  .page {
-    max-width: 1100px;
-    margin: 0 auto;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-  }
-
-  .page-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 12px;
-  }
-
-  .page-title {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .page-title h1 {
-    font-size: 1.2rem;
-    font-weight: 600;
-    margin: 0;
-    color: var(--text-primary);
-  }
-
-  .header-actions {
-    display: flex;
-    gap: 8px;
-  }
-
-  .card {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 16px;
-  }
-
   .add-form h3 {
     margin: 0 0 12px;
     font-size: 0.9rem;
@@ -454,29 +400,6 @@
     font-size: 0.82rem;
     font-weight: 600;
     color: var(--text-secondary);
-  }
-
-  .uptime-bar {
-    height: 4px;
-    background: var(--bg-hover);
-    border-radius: 2px;
-    overflow: hidden;
-  }
-
-  .uptime-fill {
-    height: 100%;
-    border-radius: 2px;
-    transition: width 0.3s;
-  }
-
-  .uptime-good {
-    background: var(--success);
-  }
-  .uptime-warn {
-    background: var(--warning);
-  }
-  .uptime-bad {
-    background: var(--danger);
   }
 
   .service-error {

@@ -1,5 +1,13 @@
 import { json } from '@sveltejs/kit';
-import { getFileStream, deleteFile, deleteDirectory, renameFile, moveFile, getMime } from '$lib/server/files';
+import {
+  getFileStream,
+  deleteFile,
+  deleteDirectory,
+  renameFile,
+  moveFile,
+  duplicateFile,
+  getMime,
+} from '$lib/server/files';
 import { removeFileMetadata, renameFileMetadata } from '$lib/server/metadata';
 import type { RequestHandler } from './$types';
 
@@ -50,6 +58,18 @@ export const PATCH: RequestHandler = async ({ params, request, url }) => {
 
   await renameFileMetadata(params.filename, newName);
   return json({ ok: true, name: newName });
+};
+
+/** Duplicate a file */
+export const POST: RequestHandler = async ({ params, url }) => {
+  const subpath = url.searchParams.get('path') || undefined;
+  const copyName = await duplicateFile(params.filename, subpath);
+
+  if (!copyName) {
+    return json({ error: 'Duplicate failed' }, { status: 400 });
+  }
+
+  return json({ ok: true, name: copyName }, { status: 201 });
 };
 
 /** Delete a file or directory */

@@ -1,7 +1,9 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { toast } from '$lib/toast';
-  import { fetchApi } from '$lib/api';
+  import { fetchApi, postJson } from '$lib/api';
+  import { getErrorMessage } from '$lib/errors';
+  import PageHeader from '$lib/components/PageHeader.svelte';
 
   interface PacketEntry {
     id: number;
@@ -42,15 +44,11 @@
   async function startCapture() {
     loading = true;
     try {
-      const res = await fetchApi('/api/packets', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'start',
-          interface: selectedInterface,
-          filter: filterExpr,
-          count: packetLimit,
-        }),
+      const res = await postJson('/api/packets', {
+        action: 'start',
+        interface: selectedInterface,
+        filter: filterExpr,
+        count: packetLimit,
       });
       const data = await res.json();
       if (data.error) {
@@ -62,8 +60,8 @@
       lastSeenId = 0;
       toast.success(data.message || 'Capture started');
       startPolling();
-    } catch (e: any) {
-      toast.error('Failed to start capture');
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, 'Failed to start capture'));
     } finally {
       loading = false;
     }
@@ -71,11 +69,7 @@
 
   async function stopCapture() {
     try {
-      await fetchApi('/api/packets', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'stop' }),
-      });
+      await postJson('/api/packets', { action: 'stop' });
       capturing = false;
       stopPolling();
       toast.info('Capture stopped');
@@ -85,11 +79,7 @@
   }
 
   async function clearPackets() {
-    await fetchApi('/api/packets', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'clear' }),
-    });
+    await postJson('/api/packets', { action: 'clear' });
     packets = [];
     lastSeenId = 0;
   }
@@ -164,16 +154,16 @@
   <title>Packet Sniffer | Home Server</title>
 </svelte:head>
 
-<div class="header">
-  <h2 class="page-title">Packet Sniffer</h2>
-  <div class="header-actions">
-    {#if capturing}
-      <span class="live-dot"></span>
-      <span class="live-label">Capturing</span>
-    {/if}
-  </div>
-</div>
-<p class="page-desc">Capture and inspect network packets in real time. Filter by interface, protocol, and port.</p>
+<PageHeader
+  title="Packet Sniffer"
+  icon="packet"
+  description="Capture and inspect network packets in real time. Filter by interface, protocol, and port."
+>
+  {#if capturing}
+    <span class="live-dot"></span>
+    <span class="live-label">Capturing</span>
+  {/if}
+</PageHeader>
 
 <div class="card sudo-warning">
   <strong>Note:</strong> Packet capture typically requires root/sudo privileges. If capture fails, run the server with elevated
@@ -265,23 +255,6 @@
 <p class="count">{packets.length} packet{packets.length !== 1 ? 's' : ''} captured</p>
 
 <style>
-  .header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 16px;
-  }
-
-  h2 {
-    font-size: 1.3rem;
-  }
-
-  .header-actions {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
   .live-dot {
     width: 8px;
     height: 8px;

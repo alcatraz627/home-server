@@ -1,4 +1,5 @@
 import { writable } from 'svelte/store';
+import { TOAST_DURATION } from '$lib/constants/defaults';
 
 export type ToastType = 'success' | 'warning' | 'error' | 'info';
 
@@ -23,12 +24,7 @@ function createToastStore() {
   const { subscribe, update } = writable<Toast[]>([]);
 
   // Default durations by type: errors persist, info is short
-  const DEFAULT_DURATION: Record<ToastType, number> = {
-    success: 4000,
-    warning: 5000,
-    error: 0, // persists until dismissed
-    info: 2000,
-  };
+  const DEFAULT_DURATION = TOAST_DURATION;
 
   function add(type: ToastType, message: string, opts: ToastOptions = {}) {
     const duration = opts.duration ?? DEFAULT_DURATION[type];

@@ -1,5 +1,6 @@
 import { writable } from 'svelte/store';
 import { browser } from '$app/environment';
+import { SK_THEME } from '$lib/constants/storage-keys';
 
 export type Theme =
   | 'dark'
@@ -26,7 +27,14 @@ export type Theme =
   | 'horizon'
   | 'synthwave'
   | 'night-owl'
-  | 'panda';
+  | 'panda'
+  | 'github-light'
+  | 'catppuccin-latte'
+  | 'nord-light'
+  | 'one-light'
+  | 'rose-pine-dawn'
+  | 'everforest-light'
+  | 'material-light';
 
 export interface ThemeDef {
   id: Theme;
@@ -60,6 +68,13 @@ export const THEMES: ThemeDef[] = [
   { id: 'synthwave', label: "Synthwave '84", dark: true },
   { id: 'night-owl', label: 'Night Owl', dark: true },
   { id: 'panda', label: 'Panda', dark: true },
+  { id: 'github-light', label: 'GitHub Light', dark: false },
+  { id: 'catppuccin-latte', label: 'Catppuccin Latte', dark: false },
+  { id: 'nord-light', label: 'Nord Light', dark: false },
+  { id: 'one-light', label: 'One Light', dark: false },
+  { id: 'rose-pine-dawn', label: 'Rosé Pine Dawn', dark: false },
+  { id: 'everforest-light', label: 'Everforest Light', dark: false },
+  { id: 'material-light', label: 'Material Light', dark: false },
 ];
 
 export const THEME_SWATCHES: Record<Theme, { bg: string; accent: string; text: string }> = {
@@ -88,23 +103,38 @@ export const THEME_SWATCHES: Record<Theme, { bg: string; accent: string; text: s
   synthwave: { bg: '#2b213a', accent: '#ff7edb', text: '#f5e1ff' },
   'night-owl': { bg: '#011627', accent: '#82aaff', text: '#d6deeb' },
   panda: { bg: '#292a2b', accent: '#19f9d8', text: '#e6e6e6' },
+  'github-light': { bg: '#ffffff', accent: '#0969da', text: '#1f2328' },
+  'catppuccin-latte': { bg: '#eff1f5', accent: '#1e66f5', text: '#4c4f69' },
+  'nord-light': { bg: '#eceff4', accent: '#5e81ac', text: '#2e3440' },
+  'one-light': { bg: '#fafafa', accent: '#4078f2', text: '#383a42' },
+  'rose-pine-dawn': { bg: '#faf4ed', accent: '#56949f', text: '#575279' },
+  'everforest-light': { bg: '#fdf6e3', accent: '#8da101', text: '#5c6a72' },
+  'material-light': { bg: '#fafafa', accent: '#6182b8', text: '#212121' },
 };
 
 const VALID_THEMES = new Set(THEMES.map((t) => t.id));
 
 function getInitialTheme(): Theme {
   if (!browser) return 'dark';
-  const saved = localStorage.getItem('hs:theme');
+  const saved = localStorage.getItem(SK_THEME);
   if (saved && VALID_THEMES.has(saved as Theme)) return saved as Theme;
   return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
 }
 
 export const theme = writable<Theme>(getInitialTheme());
 
+function updateMetaThemeColor(id: Theme) {
+  const swatch = THEME_SWATCHES[id];
+  if (!swatch) return;
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', swatch.bg);
+}
+
 export function setTheme(id: Theme) {
   if (browser) {
-    localStorage.setItem('hs:theme', id);
+    localStorage.setItem(SK_THEME, id);
     document.documentElement.setAttribute('data-theme', id);
+    updateMetaThemeColor(id);
   }
   theme.set(id);
 }
@@ -122,5 +152,6 @@ export function initTheme() {
   if (!browser) return;
   const t = getInitialTheme();
   document.documentElement.setAttribute('data-theme', t);
+  updateMetaThemeColor(t);
   theme.set(t);
 }

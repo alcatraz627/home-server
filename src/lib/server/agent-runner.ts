@@ -2,7 +2,8 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import fs from 'node:fs/promises';
 import { createWriteStream, existsSync } from 'node:fs';
 import path from 'node:path';
-import { LOGS_DIR, getRequests, updateRequest } from './keeper';
+import { LOGS_DIR, getRequests, updateRequest, listImages, IMAGES_DIR } from './keeper';
+import { AGENT_KILL_GRACE_MS } from '$lib/constants/limits';
 import { createLogger } from './logger';
 
 const log = createLogger('agent-runner');
@@ -57,6 +58,16 @@ export async function startAgent(requestId: string): Promise<{ ok: true } | { ok
   if (req.details) {
     contextParts.push('', '## Details', req.details);
   }
+
+  // Include attached images
+  const images = await listImages(requestId);
+  if (images.length > 0) {
+    contextParts.push('', '## Attached Images');
+    for (const img of images) {
+      contextParts.push(`- ${path.join(IMAGES_DIR, requestId, img)}`);
+    }
+  }
+
   const context = contextParts.join('\n');
 
   // Ensure log dir exists
@@ -146,7 +157,7 @@ export async function stopAgent(requestId: string): Promise<boolean> {
     if (activeAgents.has(requestId)) {
       agent.process.kill('SIGKILL');
     }
-  }, 5000);
+  }, AGENT_KILL_GRACE_MS);
 
   return true;
 }
@@ -179,7 +190,10 @@ export async function getLogContent(requestId: string, offset: number = 0): Prom
   return { content: buf.toString('utf-8'), size: stat.size };
 }
 
-export async function resumeAgent(requestId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+export async function resumeAgent(
+  requestId: string,
+  followUp?: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
   if (activeAgents.has(requestId)) {
     log.warn('Agent already running for resume', { requestId });
     return { ok: false, error: 'Agent is already running for this request' };
@@ -200,9 +214,29 @@ export async function resumeAgent(requestId: string): Promise<{ ok: true } | { o
   if (req.details) {
     contextParts.push('', '## Details', req.details);
   }
+
+  // Include attached images
+  const images = await listImages(requestId);
+  if (images.length > 0) {
+    contextParts.push('', '## Attached Images');
+    for (const img of images) {
+      contextParts.push(`- ${path.join(IMAGES_DIR, requestId, img)}`);
+    }
+  }
+
   if (existingLog.content) {
     contextParts.push('', '## Previous Session Log', '```', existingLog.content.slice(-8000), '```');
-    contextParts.push('', 'Continue from where the previous session left off.');
+    if (followUp?.trim()) {
+      contextParts.push('', '## Follow-up Instructions', followUp.trim());
+      contextParts.push(
+        '',
+        'Continue from where the previous session left off, addressing the follow-up instructions above.',
+      );
+    } else {
+      contextParts.push('', 'Continue from where the previous session left off.');
+    }
+  } else if (followUp?.trim()) {
+    contextParts.push('', '## Additional Instructions', followUp.trim());
   }
   const context = contextParts.join('\n');
 

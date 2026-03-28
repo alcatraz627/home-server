@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 import { errorMessage, errorCode } from '$lib/server/errors';
 import { execSync, spawnSync } from 'node:child_process';
 import type { RequestHandler } from './$types';
-import { sanitizeShellArg } from '$lib/server/security';
+import { sanitizeShellArg, isCommandAvailable } from '$lib/server/security';
 
 const isMac = process.platform === 'darwin';
 
@@ -763,10 +763,7 @@ function bluetoothAction(action: 'connect' | 'disconnect', address: string): { o
 
   try {
     if (isMac) {
-      // Check if blueutil is available
-      try {
-        execSync('which blueutil', { encoding: 'utf-8', timeout: 3000 });
-      } catch {
+      if (!isCommandAvailable('blueutil')) {
         return {
           ok: false,
           error: 'blueutil not found. Install it with: brew install blueutil',
@@ -780,9 +777,7 @@ function bluetoothAction(action: 'connect' | 'disconnect', address: string): { o
       return { ok: true };
     } else {
       // Linux: use bluetoothctl
-      try {
-        execSync('which bluetoothctl', { encoding: 'utf-8', timeout: 3000 });
-      } catch {
+      if (!isCommandAvailable('bluetoothctl')) {
         return {
           ok: false,
           error: 'bluetoothctl not found. Install bluez: sudo apt install bluez',

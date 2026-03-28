@@ -1,26 +1,9 @@
 import { json } from '@sveltejs/kit';
 import { errorMessage, errorCode } from '$lib/server/errors';
+import { isCommandAvailable } from '$lib/server/security';
 import { execSync } from 'node:child_process';
 import type { RequestHandler } from './$types';
-
-export interface DockerContainer {
-  id: string;
-  name: string;
-  image: string;
-  status: string;
-  state: string;
-  ports: string;
-  created: string;
-}
-
-function isDockerInstalled(): boolean {
-  try {
-    execSync('which docker', { encoding: 'utf-8', timeout: 3000 });
-    return true;
-  } catch {
-    return false;
-  }
-}
+import type { DockerContainer } from '$lib/types/docker';
 
 function listContainers(): DockerContainer[] {
   try {
@@ -51,7 +34,7 @@ function listContainers(): DockerContainer[] {
 
 /** List containers */
 export const GET: RequestHandler = async () => {
-  const installed = isDockerInstalled();
+  const installed = isCommandAvailable('docker');
   if (!installed) return json({ installed, containers: [] });
   const containers = listContainers();
   return json({ installed, containers });
@@ -59,7 +42,7 @@ export const GET: RequestHandler = async () => {
 
 /** Start/stop/restart container */
 export const POST: RequestHandler = async ({ request }) => {
-  if (!isDockerInstalled()) {
+  if (!isCommandAvailable('docker')) {
     return json({ error: 'Docker not installed' }, { status: 400 });
   }
 

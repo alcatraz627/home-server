@@ -7,6 +7,8 @@
   import Icon from '$lib/components/Icon.svelte';
   import Card from '$lib/components/Card.svelte';
   import DataChip from '$lib/components/DataChip.svelte';
+  import InfoRow from '$lib/components/InfoRow.svelte';
+  import AsyncState from '$lib/components/AsyncState.svelte';
 
   interface StorageEntry {
     name: string;
@@ -62,111 +64,108 @@
   </div>
   <p class="page-desc">Server health, resource usage, storage breakdown, and application info.</p>
 
-  {#if status}
-    <!-- Health indicator -->
-    <div
-      class="health-banner"
-      class:green={health?.status === 'green'}
-      class:yellow={health?.status === 'yellow'}
-      class:red={health?.status === 'red'}
-    >
-      <span class="health-dot-lg"></span>
-      <span class="health-label">
-        {health?.status === 'green'
-          ? 'Healthy'
-          : health?.status === 'yellow'
-            ? 'Degraded'
-            : health?.status === 'red'
-              ? 'Unhealthy'
-              : 'Checking...'}
-      </span>
-      {#if health?.latency != null}
-        <span class="health-latency">{health.latency}ms</span>
-      {/if}
-    </div>
+  <AsyncState {loading} empty={!status} emptyTitle="No status data" emptyIcon="activity">
+    {#if status}
+      <!-- Health indicator -->
+      <div
+        class="health-banner"
+        class:green={health?.status === 'green'}
+        class:yellow={health?.status === 'yellow'}
+        class:red={health?.status === 'red'}
+      >
+        <span class="health-dot-lg"></span>
+        <span class="health-label">
+          {health?.status === 'green'
+            ? 'Healthy'
+            : health?.status === 'yellow'
+              ? 'Degraded'
+              : health?.status === 'red'
+                ? 'Unhealthy'
+                : 'Checking...'}
+        </span>
+        {#if health?.latency != null}
+          <span class="health-latency">{health.latency}ms</span>
+        {/if}
+      </div>
 
-    <!-- Version & App Info -->
-    <div class="info-grid">
-      <Card padding="sm">
-        {#snippet header()}<strong>Application</strong>{/snippet}
-        <div class="info-rows">
-          <div class="info-r"><span class="lbl">Version</span><code>{status.app.version}</code></div>
-          <div class="info-r"><span class="lbl">Node.js</span><code>{status.app.nodeVersion}</code></div>
-          <div class="info-r"><span class="lbl">PID</span><code>{status.app.pid}</code></div>
-          <div class="info-r"><span class="lbl">Pages</span><span>{status.app.pageCount}</span></div>
-          <div class="info-r">
-            <span class="lbl">Branch</span><code>{status.app.git.branch}</code>{#if status.app.git.dirty}<Badge
-                variant="warning"
-                size="sm">dirty</Badge
-              >{/if}
+      <!-- Version & App Info -->
+      <div class="info-grid">
+        <Card padding="sm">
+          {#snippet header()}<strong>Application</strong>{/snippet}
+          <div class="info-rows">
+            <InfoRow label="Version" value={status.app.version} code />
+            <InfoRow label="Node.js" value={status.app.nodeVersion} code />
+            <InfoRow label="PID" value={status.app.pid} code />
+            <InfoRow label="Pages" value={status.app.pageCount} />
+            <InfoRow label="Branch">
+              <code>{status.app.git.branch}</code>{#if status.app.git.dirty}<Badge variant="warning" size="sm"
+                  >dirty</Badge
+                >{/if}
+            </InfoRow>
+            <InfoRow label="Commit" value={status.app.git.commit} code />
           </div>
-          <div class="info-r"><span class="lbl">Commit</span><code>{status.app.git.commit}</code></div>
-        </div>
-      </Card>
+        </Card>
 
-      <Card padding="sm">
-        {#snippet header()}<strong>Server</strong>{/snippet}
-        <div class="info-rows">
-          <div class="info-r"><span class="lbl">Hostname</span><code>{status.server.hostname}</code></div>
-          <div class="info-r">
-            <span class="lbl">Platform</span><span>{status.server.platform} / {status.server.arch}</span>
+        <Card padding="sm">
+          {#snippet header()}<strong>Server</strong>{/snippet}
+          <div class="info-rows">
+            <InfoRow label="Hostname" value={status.server.hostname} code />
+            <InfoRow label="Platform" value="{status.server.platform} / {status.server.arch}" />
+            <InfoRow label="CPU" value={status.server.cpuModel} />
+            <InfoRow label="Cores" value={status.server.cpuCount} />
+            <InfoRow label="Uptime" value="{status.server.uptimeDays}d {status.server.uptimeHours % 24}h" />
+            <InfoRow label="Load" value={status.server.loadAvg} />
           </div>
-          <div class="info-r"><span class="lbl">CPU</span><span>{status.server.cpuModel}</span></div>
-          <div class="info-r"><span class="lbl">Cores</span><span>{status.server.cpuCount}</span></div>
-          <div class="info-r">
-            <span class="lbl">Uptime</span><span>{status.server.uptimeDays}d {status.server.uptimeHours % 24}h</span>
-          </div>
-          <div class="info-r"><span class="lbl">Load</span><span>{status.server.loadAvg}</span></div>
-        </div>
-      </Card>
+        </Card>
 
-      <Card padding="sm">
-        {#snippet header()}<strong>App Memory</strong>{/snippet}
-        <div class="mem-visual">
-          <div class="mem-bar">
-            <div class="mem-fill" style="width: {status.process.heapPercent}%"></div>
+        <Card padding="sm">
+          {#snippet header()}<strong>App Memory</strong>{/snippet}
+          <div class="mem-visual">
+            <div class="mem-bar">
+              <div class="mem-fill" style="width: {status.process.heapPercent}%"></div>
+            </div>
+            <div class="mem-labels">
+              <span>Heap {status.process.heapUsedMB} / {status.process.heapTotalMB} MB</span>
+              <span>{status.process.heapPercent}%</span>
+            </div>
+            <div class="mem-percent">{status.process.rssMB} MB</div>
+            <div class="mem-rss-label">RSS (total process)</div>
           </div>
-          <div class="mem-labels">
-            <span>Heap {status.process.heapUsedMB} / {status.process.heapTotalMB} MB</span>
-            <span>{status.process.heapPercent}%</span>
+          <div class="info-rows" style="margin-top: 10px">
+            <InfoRow label="Heap Used" value="{status.process.heapUsedMB} MB" code />
+            <InfoRow label="Heap Total" value="{status.process.heapTotalMB} MB" code />
+            <InfoRow label="RSS" value="{status.process.rssMB} MB" code />
+            <InfoRow label="External" value="{status.process.externalMB} MB" code />
           </div>
-          <div class="mem-percent">{status.process.rssMB} MB</div>
-          <div class="mem-rss-label">RSS (total process)</div>
-        </div>
-        <div class="info-rows" style="margin-top: 10px">
-          <div class="info-r"><span class="lbl">Heap Used</span><code>{status.process.heapUsedMB} MB</code></div>
-          <div class="info-r"><span class="lbl">Heap Total</span><code>{status.process.heapTotalMB} MB</code></div>
-          <div class="info-r"><span class="lbl">RSS</span><code>{status.process.rssMB} MB</code></div>
-          <div class="info-r"><span class="lbl">External</span><code>{status.process.externalMB} MB</code></div>
-        </div>
-      </Card>
-    </div>
+        </Card>
+      </div>
 
-    <!-- Storage breakdown -->
-    <h3 class="section-title">Storage ({formatBytes(status.totalStorageBytes)})</h3>
-    <div class="storage-grid">
-      {#each status.storage as entry}
-        <div class="storage-item">
-          <div class="storage-bar-wrap">
-            <div
-              class="storage-bar-fill"
-              style="width: {Math.max(2, (entry.sizeBytes / status.totalStorageBytes) * 100)}%"
-            ></div>
+      <!-- Storage breakdown -->
+      <h3 class="section-title">Storage ({formatBytes(status.totalStorageBytes)})</h3>
+      <div class="storage-grid">
+        {#each status.storage as entry}
+          <div class="storage-item">
+            <div class="storage-bar-wrap">
+              <div
+                class="storage-bar-fill"
+                style="width: {Math.max(2, (entry.sizeBytes / status.totalStorageBytes) * 100)}%"
+              ></div>
+            </div>
+            <div class="storage-info">
+              <span class="storage-name">{entry.name}</span>
+              <span class="storage-size">{formatBytes(entry.sizeBytes)}</span>
+              <span class="storage-count">{entry.fileCount} files</span>
+            </div>
           </div>
-          <div class="storage-info">
-            <span class="storage-name">{entry.name}</span>
-            <span class="storage-size">{formatBytes(entry.sizeBytes)}</span>
-            <span class="storage-count">{entry.fileCount} files</span>
-          </div>
-        </div>
-      {/each}
-    </div>
+        {/each}
+      </div>
 
-    <div class="data-dir">
-      <Icon name="folder" size={14} />
-      <code>{status.dataDir}</code>
-    </div>
-  {/if}
+      <div class="data-dir">
+        <Icon name="folder" size={14} />
+        <code>{status.dataDir}</code>
+      </div>
+    {/if}
+  </AsyncState>
 </div>
 
 <style>
@@ -253,28 +252,6 @@
     display: flex;
     flex-direction: column;
     gap: 4px;
-  }
-
-  .info-r {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-    font-size: 0.78rem;
-  }
-
-  .info-r .lbl {
-    color: var(--text-faint);
-    font-size: 0.68rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    min-width: 65px;
-  }
-
-  .info-r code {
-    font-size: 0.72rem;
-    background: var(--code-bg);
-    padding: 1px 5px;
-    border-radius: 3px;
   }
 
   .mem-visual {

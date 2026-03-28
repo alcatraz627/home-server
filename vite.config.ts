@@ -7,11 +7,26 @@ function webSocketPlugin(): Plugin {
     name: 'websocket-terminal',
     configureServer(server: ViteDevServer) {
       server.httpServer?.on('listening', async () => {
+        // Write resolved port to ~/.home-server/config.json for CLI attach script discovery
+        try {
+          const fs = require('fs');
+          const path = require('path');
+          const osModule = require('os');
+          const actualPort = (server.httpServer?.address() as any)?.port || server.config.server.port || 5555;
+          const cfgDir = path.join(osModule.homedir(), '.home-server');
+          const cfgPath = path.join(cfgDir, 'config.json');
+          if (!fs.existsSync(cfgDir)) fs.mkdirSync(cfgDir, { recursive: true });
+          const existing = fs.existsSync(cfgPath) ? JSON.parse(fs.readFileSync(cfgPath, 'utf-8')) : {};
+          fs.writeFileSync(cfgPath, JSON.stringify({ ...existing, port: actualPort }, null, 2));
+        } catch {
+          /* ignore */
+        }
+
         try {
           const ws = await import('ws');
           console.log('[terminal] Loading terminal module...');
           const terminalModule = await server.ssrLoadModule('/src/lib/server/terminal.ts');
-          const { createSession, getSession, resizeSession, listSessions } = terminalModule as any;
+          const { createSession, getSession, renameSession } = terminalModule as any;
           console.log('[terminal] Terminal module loaded. createSession:', typeof createSession);
 
           const wss = new ws.WebSocketServer({ noServer: true });
@@ -70,7 +85,7 @@ function webSocketPlugin(): Plugin {
                   session = createSession(cols, rows);
                   console.log(`[terminal] Session created: ${session.id}`);
                 } else {
-                  console.log(`[terminal] Session resumed: ${session.id}`);
+                  console.log(`[terminal] Session resumed: ${session.id} (clients: ${session.clientCount})`);
                 }
               } catch (err: any) {
                 console.error(`[terminal] FAILED to create session:`, err.message || err);
@@ -81,20 +96,28 @@ function webSocketPlugin(): Plugin {
                 return;
               }
 
-              wsConn.send(JSON.stringify({ type: 'session', id: session.id, shell: session.label }));
-              // Resize pty to match new client dimensions on reconnect
-              if (sessionParam) {
-                resizeSession(session.id, cols, rows);
-              }
-              // Send scrollback buffer for reconnected sessions
+              // Register this client — tracks its dimensions for min-wins PTY resize
+              const clientToken = Symbol('ws-client');
+              session.registerClient(clientToken, { cols, rows });
+
+              wsConn.send(
+                JSON.stringify({
+                  type: 'session',
+                  id: session.id,
+                  shell: session.label,
+                  clientCount: session.clientCount,
+                }),
+              );
+
+              // Send scrollback to any client joining an existing session (new or resumed)
               if (session.scrollback) {
-                // Clear screen first, then write scrollback to avoid stale rendering
                 wsConn.send(JSON.stringify({ type: 'output', data: '\x1b[2J\x1b[H' }));
                 wsConn.send(JSON.stringify({ type: 'scrollback', data: session.scrollback }));
                 console.log(`[terminal] Session ${session.id} — sent ${session.scrollback.length} chars of scrollback`);
               }
-              console.log(`[terminal] Session ${session.id} — WebSocket connected`);
+              console.log(`[terminal] Session ${session.id} — WebSocket connected (clients: ${session.clientCount})`);
 
+              // Fan-out: each WS gets its own onData listener — node-pty fires all independently
               const dataHandler = session.onData((data: string) => {
                 if (wsConn.readyState === ws.WebSocket.OPEN) {
                   wsConn.send(JSON.stringify({ type: 'output', data }));
@@ -105,6 +128,20 @@ function webSocketPlugin(): Plugin {
                 if (wsConn.readyState === ws.WebSocket.OPEN) {
                   wsConn.send(JSON.stringify({ type: 'exit', code }));
                   wsConn.close();
+                }
+              });
+
+              // Broadcast client count changes to this connection
+              const countHandler = session.onClientCountChange((count: number) => {
+                if (wsConn.readyState === ws.WebSocket.OPEN) {
+                  wsConn.send(JSON.stringify({ type: 'client_count', count }));
+                }
+              });
+
+              // Broadcast rename events to this connection
+              const renameHandler = session.onRename((label: string) => {
+                if (wsConn.readyState === ws.WebSocket.OPEN) {
+                  wsConn.send(JSON.stringify({ type: 'renamed', label }));
                 }
               });
 
@@ -119,8 +156,11 @@ function webSocketPlugin(): Plugin {
                       console.log(`[terminal] Session ${session.id} — input received (msg #${msgCount})`);
                     }
                   } else if (msg.type === 'resize') {
-                    console.log(`[terminal] Session ${session.id} — resize ${msg.cols}x${msg.rows}`);
-                    resizeSession(session.id, msg.cols, msg.rows);
+                    // Update this client's dims; PTY resizes to min across all clients
+                    session.updateClientDims(clientToken, { cols: msg.cols, rows: msg.rows });
+                  } else if (msg.type === 'rename') {
+                    const label = (msg.label || '').toString().trim().slice(0, 64);
+                    if (label) renameSession(session.id, label);
                   }
                 } catch (err: any) {
                   console.error(`[terminal] Session ${session.id} — message parse error:`, err.message);
@@ -128,9 +168,12 @@ function webSocketPlugin(): Plugin {
               });
 
               wsConn.on('close', () => {
-                console.log(`[terminal] Session ${session.id} — WebSocket closed (${msgCount} messages received)`);
+                console.log(`[terminal] Session ${session.id} — WebSocket closed (${msgCount} messages)`);
+                session.unregisterClient(clientToken);
                 dataHandler.dispose();
                 exitHandler.dispose();
+                countHandler.dispose();
+                renameHandler.dispose();
               });
 
               wsConn.on('error', (err: any) => {

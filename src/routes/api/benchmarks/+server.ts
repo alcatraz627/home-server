@@ -2,11 +2,11 @@ import crypto from 'node:crypto';
 import { json } from '@sveltejs/kit';
 import fs from 'node:fs';
 import path from 'node:path';
-import os from 'node:os';
 import type { RequestHandler } from './$types';
+import { CONFIG_DIR, PATHS } from '$lib/server/paths';
+import { BENCHMARK_CPU_PRIME_LIMIT, BENCHMARK_MEMORY_SIZE_MB, BENCHMARK_DISK_SIZE_MB } from '$lib/constants/limits';
 
-const DATA_DIR = path.join(os.homedir(), '.home-server');
-const FILE = path.join(DATA_DIR, 'benchmarks.json');
+const FILE = PATHS.benchmarks;
 
 interface BenchmarkResult {
   id: string;
@@ -17,7 +17,7 @@ interface BenchmarkResult {
 }
 
 function ensureDir() {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+  if (!fs.existsSync(CONFIG_DIR)) fs.mkdirSync(CONFIG_DIR, { recursive: true });
 }
 
 function readResults(): BenchmarkResult[] {
@@ -36,7 +36,7 @@ function writeResults(results: BenchmarkResult[]) {
 }
 
 function benchmarkCPU(): { primes: number; timeMs: number; primesPerSec: number } {
-  const N = 100_000;
+  const N = BENCHMARK_CPU_PRIME_LIMIT;
   const start = performance.now();
   let count = 0;
 
@@ -60,7 +60,7 @@ function benchmarkCPU(): { primes: number; timeMs: number; primesPerSec: number 
 }
 
 function benchmarkMemory(): { sizeMB: number; timeMs: number; throughputMBps: number } {
-  const sizeMB = 64;
+  const sizeMB = BENCHMARK_MEMORY_SIZE_MB;
   const size = sizeMB * 1024 * 1024;
   const start = performance.now();
 
@@ -85,9 +85,9 @@ function benchmarkMemory(): { sizeMB: number; timeMs: number; throughputMBps: nu
 
 function benchmarkDisk(): { sizeMB: number; writeMs: number; readMs: number; writeMBps: number; readMBps: number } {
   ensureDir();
-  const sizeMB = 32;
+  const sizeMB = BENCHMARK_DISK_SIZE_MB;
   const size = sizeMB * 1024 * 1024;
-  const tmpFile = path.join(DATA_DIR, '.benchmark-tmp');
+  const tmpFile = path.join(CONFIG_DIR, '.benchmark-tmp');
   const data = Buffer.alloc(size, 0x42);
 
   // Write

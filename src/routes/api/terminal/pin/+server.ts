@@ -1,11 +1,11 @@
 import { json } from '@sveltejs/kit';
 import fs from 'node:fs';
 import path from 'node:path';
-import os from 'node:os';
 import crypto from 'node:crypto';
 import type { RequestHandler } from './$types';
+import { PATHS } from '$lib/server/paths';
 
-const PIN_FILE = path.join(os.homedir(), '.home-server', 'terminal-pin.json');
+const PIN_FILE = PATHS.terminalPin;
 
 interface PinConfig {
   hash: string;

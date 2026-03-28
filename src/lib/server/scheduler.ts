@@ -3,6 +3,7 @@ import { errorMessage, errorCode } from '$lib/server/errors';
 import { getTaskConfigs, runTask } from './operator';
 import { getBackupConfigs, runBackup } from './backups';
 import { notifyTaskComplete, notifyBackupComplete, isNotifyConfigured } from './notify';
+import { checkReminders } from './reminders';
 import { createLogger } from './logger';
 
 const log = createLogger('scheduler');
@@ -12,6 +13,17 @@ const scheduledJobs = new Map<string, ScheduledTask>();
 /** Start all scheduled tasks and backups */
 export async function startScheduler(): Promise<void> {
   await scheduleAll();
+
+  // Check reminders every minute
+  const reminderJob = cron.schedule('* * * * *', async () => {
+    try {
+      await checkReminders();
+    } catch (err: unknown) {
+      log.error('Reminder check failed', { error: errorMessage(err) });
+    }
+  });
+  scheduledJobs.set('system:reminders', reminderJob);
+
   log.info('Scheduler started', { notifications: isNotifyConfigured() ? 'enabled' : 'disabled' });
 }
 

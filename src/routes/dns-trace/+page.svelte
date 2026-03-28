@@ -1,7 +1,9 @@
 <script lang="ts">
-  import { fetchApi } from '$lib/api';
+  import { postJson } from '$lib/api';
   import { toast } from '$lib/toast';
+  import { getErrorMessage } from '$lib/errors';
   import { createHistory } from '$lib/history.svelte';
+  import { SK_DNS_TRACE_HISTORY } from '$lib/constants/storage-keys';
   import Button from '$lib/components/Button.svelte';
   import Badge from '$lib/components/Badge.svelte';
   import Icon from '$lib/components/Icon.svelte';
@@ -38,7 +40,7 @@
   const RECORD_TYPES = ['A', 'AAAA', 'MX', 'CNAME', 'TXT', 'NS'];
 
   const traceHistory = createHistory<{ domain: string; type: string; hops: number; time: string }>(
-    'hs:dns-trace-history',
+    SK_DNS_TRACE_HISTORY,
   );
 
   async function trace() {
@@ -50,11 +52,7 @@
     hops = [];
     rawOutput = '';
     try {
-      const res = await fetchApi('/api/dns/trace', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ domain: domain.trim(), type: recordType }),
-      });
+      const res = await postJson('/api/dns/trace', { domain: domain.trim(), type: recordType });
       if (!res.ok) throw new Error((await res.json()).error || 'Trace failed');
       const data = await res.json();
       hops = data.hops;
@@ -66,8 +64,8 @@
         time: new Date().toISOString(),
       });
       toast.success(`Traced ${data.hopCount} hops for ${domain}`);
-    } catch (e: any) {
-      toast.error(e.message || 'DNS trace failed');
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, 'DNS trace failed'));
     } finally {
       loading = false;
     }
@@ -318,11 +316,6 @@
 </div>
 
 <style>
-  .page {
-    max-width: 900px;
-    margin: 0 auto;
-  }
-
   .trace-form {
     display: flex;
     gap: 8px;

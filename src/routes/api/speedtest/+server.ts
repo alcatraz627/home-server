@@ -3,6 +3,7 @@ import { errorMessage, errorCode } from '$lib/server/errors';
 import crypto from 'node:crypto';
 import { execSync } from 'node:child_process';
 import type { RequestHandler } from './$types';
+import { SPEEDTEST_DEFAULT_SIZE_KB, SPEEDTEST_MAX_SIZE_KB } from '$lib/constants/limits';
 
 /** GET: generate random blob for download speed test */
 export const GET: RequestHandler = async ({ url }) => {
@@ -13,8 +14,8 @@ export const GET: RequestHandler = async ({ url }) => {
   }
 
   if (action === 'download') {
-    const sizeKB = parseInt(url.searchParams.get('size') || '1024');
-    const size = Math.min(sizeKB, 10240) * 1024; // max 10MB
+    const sizeKB = parseInt(url.searchParams.get('size') || String(SPEEDTEST_DEFAULT_SIZE_KB));
+    const size = Math.min(sizeKB, SPEEDTEST_MAX_SIZE_KB) * 1024; // max 10MB
     const data = crypto.randomBytes(size);
     return new Response(data, {
       headers: {

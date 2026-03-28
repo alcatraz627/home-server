@@ -213,7 +213,20 @@ function getContextSwitches(): number {
   return 0;
 }
 
-export const load: LayoutServerLoad = async () => {
+// --- Module-level cache (survives across requests within the same process) ---
+// Shell commands (sysctl, vm_stat, netstat, iostat, ps) are expensive (~3-5s total).
+// SvelteKit re-runs layout loads on every navigation, so we cache results with a TTL
+// to keep page transitions instant while still refreshing stats periodically.
+
+interface SystemCache {
+  data: ReturnType<typeof computeSystemStats>;
+  timestamp: number;
+}
+
+let systemCache: SystemCache | null = null;
+const CACHE_TTL = 15_000; // 15 seconds
+
+function computeSystemStats() {
   const totalMem = os.totalmem();
   const cpus = os.cpus();
   const [load1, load5, load15] = os.loadavg();
@@ -221,27 +234,41 @@ export const load: LayoutServerLoad = async () => {
   const bootTime = new Date(Date.now() - uptimeSec * 1000).toISOString();
 
   return {
+    memUsedPercent: getMemUsedPercent(),
+    memTotal: Math.round((totalMem / (1024 * 1024 * 1024)) * 10) / 10,
+    cpuCount: cpus.length,
+    loadAvg: Math.round(load1 * 100) / 100,
+    loadAvg5: Math.round(load5 * 100) / 100,
+    loadAvg15: Math.round(load15 * 100) / 100,
+    uptime: Math.floor(uptimeSec / 3600),
+    bootTime,
+    swapPercent: getSwapPercent(),
+    processCount: getProcessCount(),
+    networkBytes: getNetworkBytes(),
+    diskIO: getDiskIO(),
+    openFDs: getOpenFileDescriptors(),
+    tcpConnections: getTcpConnections(),
+    contextSwitches: getContextSwitches(),
+  };
+}
+
+function getSystemStatsCached() {
+  const now = Date.now();
+  if (systemCache && now - systemCache.timestamp < CACHE_TTL) {
+    return systemCache.data;
+  }
+  const data = computeSystemStats();
+  systemCache = { data, timestamp: now };
+  return data;
+}
+
+export const load: LayoutServerLoad = async () => {
+  return {
     device: {
       hostname: os.hostname(),
       platform: os.platform(),
       arch: os.arch(),
     },
-    system: {
-      memUsedPercent: getMemUsedPercent(),
-      memTotal: Math.round((totalMem / (1024 * 1024 * 1024)) * 10) / 10,
-      cpuCount: cpus.length,
-      loadAvg: Math.round(load1 * 100) / 100,
-      loadAvg5: Math.round(load5 * 100) / 100,
-      loadAvg15: Math.round(load15 * 100) / 100,
-      uptime: Math.floor(uptimeSec / 3600),
-      bootTime,
-      swapPercent: getSwapPercent(),
-      processCount: getProcessCount(),
-      networkBytes: getNetworkBytes(),
-      diskIO: getDiskIO(),
-      openFDs: getOpenFileDescriptors(),
-      tcpConnections: getTcpConnections(),
-      contextSwitches: getContextSwitches(),
-    },
+    system: getSystemStatsCached(),
   };
 };

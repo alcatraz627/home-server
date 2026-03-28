@@ -1,5 +1,6 @@
 import { writable, get } from 'svelte/store';
 import { browser } from '$app/environment';
+import { SK_STARRED } from '$lib/constants/storage-keys';
 
 export type StarType = 'process' | 'file' | 'bulb' | 'backup' | 'task' | 'device';
 
@@ -7,7 +8,7 @@ interface StarredItems {
   [type: string]: string[];
 }
 
-const STORAGE_KEY = 'hs:starred';
+const STORAGE_KEY = SK_STARRED;
 
 function loadStarred(): StarredItems {
   if (!browser) return {};

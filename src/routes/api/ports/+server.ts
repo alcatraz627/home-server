@@ -1,6 +1,14 @@
 import { json } from '@sveltejs/kit';
 import net from 'node:net';
 import type { RequestHandler } from './$types';
+import {
+  PORT_SCAN_MAX_RANGE,
+  PORT_SCAN_LARGE_CAP,
+  PORT_SCAN_CONCURRENCY,
+  PORT_SCAN_TIMEOUT_MS,
+  PORT_SCAN_FULL_CONCURRENCY,
+  PORT_SCAN_FULL_TIMEOUT_MS,
+} from '$lib/constants/limits';
 
 const COMMON_SERVICES: Record<number, string> = {
   20: 'FTP Data',
@@ -100,8 +108,8 @@ export const POST: RequestHandler = async ({ request }) => {
 
   if (preset === 'all') {
     // Full scan 1-65535 — use streaming response
-    const concurrency = 50;
-    const timeout = 800;
+    const concurrency = PORT_SCAN_FULL_CONCURRENCY;
+    const timeout = PORT_SCAN_FULL_TIMEOUT_MS;
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       async start(controller) {
@@ -151,7 +159,7 @@ export const POST: RequestHandler = async ({ request }) => {
         const [start, end] = trimmed.split('-').map(Number);
         if (isNaN(start) || isNaN(end) || start < 1 || end > 65535 || start > end) continue;
         // Limit range to 1024 ports
-        const actualEnd = Math.min(end, start + 1023);
+        const actualEnd = Math.min(end, start + PORT_SCAN_MAX_RANGE);
         for (let p = start; p <= actualEnd; p++) portsToScan.push(p);
       } else {
         const p = parseInt(trimmed);
@@ -167,13 +175,13 @@ export const POST: RequestHandler = async ({ request }) => {
   }
 
   // For "all" mode, allow up to 65535 but use streaming via GET
-  const isLargeRange = portsToScan.length > 1024;
+  const isLargeRange = portsToScan.length > PORT_SCAN_LARGE_CAP;
   if (isLargeRange && body.preset !== 'all') {
-    portsToScan = portsToScan.slice(0, 1024);
+    portsToScan = portsToScan.slice(0, PORT_SCAN_LARGE_CAP);
   }
 
   // Scan with limited concurrency
-  const concurrency = 20;
+  const concurrency = PORT_SCAN_CONCURRENCY;
   const results: { port: number; open: boolean; service: string }[] = [];
   const batches = [];
 
@@ -184,7 +192,7 @@ export const POST: RequestHandler = async ({ request }) => {
   for (const batch of batches) {
     const batchResults = await Promise.all(
       batch.map(async (port) => {
-        const open = await scanPort(host, port, 1500);
+        const open = await scanPort(host, port, PORT_SCAN_TIMEOUT_MS);
         return { port, open, service: COMMON_SERVICES[port] || '' };
       }),
     );

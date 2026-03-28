@@ -1,11 +1,11 @@
 <script lang="ts">
-  import { fetchApi } from '$lib/api';
+  import { fetchApi, postJson } from '$lib/api';
   import { toast } from '$lib/toast';
   import { onMount } from 'svelte';
   import Button from '$lib/components/Button.svelte';
   import Badge from '$lib/components/Badge.svelte';
-  import Icon from '$lib/components/Icon.svelte';
-  import Card from '$lib/components/Card.svelte';
+  import PageHeader from '$lib/components/PageHeader.svelte';
+  import AsyncState from '$lib/components/AsyncState.svelte';
 
   interface ServiceStatus {
     name: string;
@@ -74,11 +74,7 @@
 
   async function pm2Action(action: string, target: string) {
     try {
-      const res = await fetchApi('/api/databases', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ service: 'pm2', action, target }),
-      });
+      const res = await postJson('/api/databases', { service: 'pm2', action, target });
       if (res.ok) {
         toast.success(`PM2: ${action} ${target}`);
         setTimeout(() => loadDetails('PM2'), 1000);
@@ -108,134 +104,134 @@
   <title>Databases & Services | Home Server</title>
 </svelte:head>
 
-<div class="page-header-row">
-  <h2 class="page-title">Databases & Services</h2>
-  <Button size="sm" onclick={refresh} disabled={loading} {loading}>Refresh</Button>
-</div>
-<p class="page-desc">Monitor and manage PostgreSQL, Redis, MongoDB, and PM2 process manager.</p>
+<PageHeader
+  title="Databases & Services"
+  description="Monitor and manage PostgreSQL, Redis, MongoDB, and PM2 process manager."
+>
+  {#snippet children()}
+    <Button size="sm" icon="refresh" onclick={refresh} disabled={loading} {loading}>Refresh</Button>
+  {/snippet}
+</PageHeader>
 
-<div class="service-grid">
-  {#each services as svc}
-    <!-- svelte-ignore a11y_click_events_have_key_events -->
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div
-      class="service-card"
-      class:running={svc.running}
-      class:not-installed={!svc.installed}
-      onclick={() => svc.installed && loadDetails(svc.name)}
-    >
-      <div class="svc-header">
-        <span class="svc-dot" class:online={svc.running}></span>
-        <h3>{svc.name}</h3>
-        {#if svc.version}
-          <Badge size="sm">{svc.version}</Badge>
-        {/if}
-        <Badge variant={svc.running ? 'success' : svc.installed ? 'warning' : 'default'}>
-          {svc.running ? 'Running' : svc.installed ? 'Stopped' : 'Not Installed'}
-        </Badge>
-      </div>
-
-      {#if svc.installed}
-        <div class="svc-stats">
-          {#if svc.port}<span class="svc-stat">Port: <strong>{svc.port}</strong></span>{/if}
-          {#if svc.pid}<span class="svc-stat">PID: <strong>{svc.pid}</strong></span>{/if}
-          {#if svc.memMB}<span class="svc-stat">Mem: <strong>{svc.memMB}MB</strong></span>{/if}
-          {#if svc.connections}<span class="svc-stat">Conn: <strong>{svc.connections}</strong></span>{/if}
-          {#if svc.uptime}<span class="svc-stat">Up: <strong>{svc.uptime}</strong></span>{/if}
-        </div>
-      {:else}
-        <p class="svc-install-hint">Not detected on this system</p>
-      {/if}
-
-      {#if expanded === svc.name}
-        <div class="svc-details" onclick={(e) => e.stopPropagation()}>
-          {#if svc.name === 'PM2' && pm2Processes.length > 0}
-            <table class="detail-table">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Status</th>
-                  <th>CPU</th>
-                  <th>Mem</th>
-                  <th>Uptime</th>
-                  <th>Restarts</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {#each pm2Processes as proc}
-                  <tr>
-                    <td class="mono">{proc.name}</td>
-                    <td>
-                      <Badge
-                        variant={proc.status === 'online'
-                          ? 'success'
-                          : proc.status === 'stopped'
-                            ? 'warning'
-                            : 'danger'}
-                      >
-                        {proc.status}
-                      </Badge>
-                    </td>
-                    <td>{proc.cpu}%</td>
-                    <td>{proc.memory}MB</td>
-                    <td>{formatUptime(proc.uptime)}</td>
-                    <td>{proc.restarts}</td>
-                    <td class="action-cell">
-                      <Button size="xs" onclick={() => pm2Action('restart', proc.name)}>Restart</Button>
-                      {#if proc.status === 'online'}
-                        <Button size="xs" variant="danger" onclick={() => pm2Action('stop', proc.name)}>Stop</Button>
-                      {:else}
-                        <Button size="xs" variant="accent" onclick={() => pm2Action('start', proc.name)}>Start</Button>
-                      {/if}
-                    </td>
-                  </tr>
-                {/each}
-              </tbody>
-            </table>
-          {:else if svc.name === 'PostgreSQL' && pgDatabases.length > 0}
-            <table class="detail-table">
-              <thead>
-                <tr><th>Database</th><th>Size</th></tr>
-              </thead>
-              <tbody>
-                {#each pgDatabases as db}
-                  <tr>
-                    <td class="mono">{db.name}</td>
-                    <td>{formatBytes(db.sizeBytes)}</td>
-                  </tr>
-                {/each}
-              </tbody>
-            </table>
-          {:else if svc.name === 'Redis'}
-            <div class="redis-info">
-              <span>Keys in current DB: <strong>{redisKeyCount}</strong></span>
-            </div>
-          {:else}
-            <p class="no-details">Click to load details</p>
+<AsyncState
+  {loading}
+  empty={services.length === 0}
+  emptyTitle="No database services detected"
+  emptyIcon="database"
+  emptyHint="Install PostgreSQL, Redis, MongoDB, or PM2 to manage them here."
+  loadingCount={4}
+  loadingHeight="120px"
+  loadingColumns={2}
+>
+  <div class="service-grid">
+    {#each services as svc}
+      <!-- svelte-ignore a11y_click_events_have_key_events -->
+      <!-- svelte-ignore a11y_no_static_element_interactions -->
+      <div
+        class="service-card"
+        class:running={svc.running}
+        class:not-installed={!svc.installed}
+        onclick={() => svc.installed && loadDetails(svc.name)}
+      >
+        <div class="svc-header">
+          <span class="svc-dot" class:online={svc.running}></span>
+          <h3>{svc.name}</h3>
+          {#if svc.version}
+            <Badge size="sm">{svc.version}</Badge>
           {/if}
+          <Badge variant={svc.running ? 'success' : svc.installed ? 'warning' : 'default'}>
+            {svc.running ? 'Running' : svc.installed ? 'Stopped' : 'Not Installed'}
+          </Badge>
         </div>
-      {/if}
-    </div>
-  {/each}
-</div>
 
-{#if services.every((s) => !s.installed)}
-  <Card padding="md">
-    <p style="color: var(--text-muted); text-align: center;">
-      No database services detected. Install PostgreSQL, Redis, MongoDB, or PM2 to manage them here.
-    </p>
-  </Card>
-{/if}
+        {#if svc.installed}
+          <div class="svc-stats">
+            {#if svc.port}<span class="svc-stat">Port: <strong>{svc.port}</strong></span>{/if}
+            {#if svc.pid}<span class="svc-stat">PID: <strong>{svc.pid}</strong></span>{/if}
+            {#if svc.memMB}<span class="svc-stat">Mem: <strong>{svc.memMB}MB</strong></span>{/if}
+            {#if svc.connections}<span class="svc-stat">Conn: <strong>{svc.connections}</strong></span>{/if}
+            {#if svc.uptime}<span class="svc-stat">Up: <strong>{svc.uptime}</strong></span>{/if}
+          </div>
+        {:else}
+          <p class="svc-install-hint">Not detected on this system</p>
+        {/if}
+
+        {#if expanded === svc.name}
+          <div class="svc-details" onclick={(e) => e.stopPropagation()}>
+            {#if svc.name === 'PM2' && pm2Processes.length > 0}
+              <table class="detail-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Status</th>
+                    <th>CPU</th>
+                    <th>Mem</th>
+                    <th>Uptime</th>
+                    <th>Restarts</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {#each pm2Processes as proc}
+                    <tr>
+                      <td class="mono">{proc.name}</td>
+                      <td>
+                        <Badge
+                          variant={proc.status === 'online'
+                            ? 'success'
+                            : proc.status === 'stopped'
+                              ? 'warning'
+                              : 'danger'}
+                        >
+                          {proc.status}
+                        </Badge>
+                      </td>
+                      <td>{proc.cpu}%</td>
+                      <td>{proc.memory}MB</td>
+                      <td>{formatUptime(proc.uptime)}</td>
+                      <td>{proc.restarts}</td>
+                      <td class="action-cell">
+                        <Button size="xs" onclick={() => pm2Action('restart', proc.name)}>Restart</Button>
+                        {#if proc.status === 'online'}
+                          <Button size="xs" variant="danger" onclick={() => pm2Action('stop', proc.name)}>Stop</Button>
+                        {:else}
+                          <Button size="xs" variant="accent" onclick={() => pm2Action('start', proc.name)}>Start</Button
+                          >
+                        {/if}
+                      </td>
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
+            {:else if svc.name === 'PostgreSQL' && pgDatabases.length > 0}
+              <table class="detail-table">
+                <thead>
+                  <tr><th>Database</th><th>Size</th></tr>
+                </thead>
+                <tbody>
+                  {#each pgDatabases as db}
+                    <tr>
+                      <td class="mono">{db.name}</td>
+                      <td>{formatBytes(db.sizeBytes)}</td>
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
+            {:else if svc.name === 'Redis'}
+              <div class="redis-info">
+                <span>Keys in current DB: <strong>{redisKeyCount}</strong></span>
+              </div>
+            {:else}
+              <p class="no-details">Click to load details</p>
+            {/if}
+          </div>
+        {/if}
+      </div>
+    {/each}
+  </div>
+</AsyncState>
 
 <style>
-  .page-header-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 4px;
-  }
-
   .service-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(min(400px, 100%), 1fr));

@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { execSync } from 'node:child_process';
 
 /**
  * Security utilities for input sanitization and validation.
@@ -37,6 +38,19 @@ export function sanitizeShellArg(arg: string): string {
  *
  * @throws Error listing the missing fields
  */
+/**
+ * Check whether a CLI command is available on this system.
+ * Uses `which` to locate the binary; returns false on any failure.
+ */
+export function isCommandAvailable(cmd: string): boolean {
+  try {
+    execSync(`which ${cmd}`, { encoding: 'utf-8', timeout: 3000, stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function validateRequired(body: any, fields: string[]): void {
   if (!body || typeof body !== 'object') {
     throw new Error(`Request body is required`);

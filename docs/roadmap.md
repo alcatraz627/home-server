@@ -319,37 +319,51 @@
 
 ## Release Summary
 
-| Version | Highlights                                                                                                             |
-| ------- | ---------------------------------------------------------------------------------------------------------------------- |
-| v3.1    | Starring system, global theme/font control (10 themes), mobile PWA                                                     |
-| v3.2    | Tailscale extended info, Keeper agent integration, multi-computer support                                              |
-| v3.3    | Animations plan, cross-device backup preview, media server                                                             |
-| v3.4    | Task page overhaul, 10 new fun pages (QR, bookmarks, kanban, etc.)                                                     |
-| v3.5    | Security/network tools (WiFi, packets, network toolkit), AI chat polish                                                |
-| v3.6    | Component library (17 components), app launcher, 20 themes, documentation sprint                                       |
-| v4.0    | Test suite, toast behavior, 25 themes, font/color customization                                                        |
-| v4.1    | Logging (all modules), security hardening, Linux support, lucide-svelte                                                |
-| v4.2    | Service health, notifications, Docker, fetchApi, /api/audit                                                            |
-| v4.3    | Command palette, 7 new components, keyboard nav, WiFi diagnostics, app icons, kanban enhancements, 6 bug fixes         |
-| v4.4    | DNS trace page, port scanner SSE streaming, health API, Tailscale device picker, tasks filter/hide, security hardening |
-| v4.5    | Databases page, screenshots metadata, speed test external mode, log preview, theme expansion, files system browse      |
-| v4.6    | Security complete (11/11), full Linux support (17/17), terminal PIN, rate limiting, browse allowlist                   |
-| v4.7    | Notes module (Notion-like block editor with auto-save)                                                                 |
-| v4.8    | Status page, 14 dashboard modules, 38 tests (100%), type safety migration, tasks refactor                              |
+| Version    | Highlights                                                                                                             |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------- |
+| v3.1       | Starring system, global theme/font control (10 themes), mobile PWA                                                     |
+| v3.2       | Tailscale extended info, Keeper agent integration, multi-computer support                                              |
+| v3.3       | Animations plan, cross-device backup preview, media server                                                             |
+| v3.4       | Task page overhaul, 10 new fun pages (QR, bookmarks, kanban, etc.)                                                     |
+| v3.5       | Security/network tools (WiFi, packets, network toolkit), AI chat polish                                                |
+| v3.6       | Component library (17 components), app launcher, 20 themes, documentation sprint                                       |
+| v4.0       | Test suite, toast behavior, 25 themes, font/color customization                                                        |
+| v4.1       | Logging (all modules), security hardening, Linux support, lucide-svelte                                                |
+| v4.2       | Service health, notifications, Docker, fetchApi, /api/audit                                                            |
+| v4.3       | Command palette, 7 new components, keyboard nav, WiFi diagnostics, app icons, kanban enhancements, 6 bug fixes         |
+| v4.4       | DNS trace page, port scanner SSE streaming, health API, Tailscale device picker, tasks filter/hide, security hardening |
+| v4.5       | Databases page, screenshots metadata, speed test external mode, log preview, theme expansion, files system browse      |
+| v4.6       | Security complete (11/11), full Linux support (17/17), terminal PIN, rate limiting, browse allowlist                   |
+| v4.7       | Notes module (Notion-like block editor with auto-save)                                                                 |
+| v4.8       | Status page, 14 dashboard modules, 38 tests (100%), type safety migration, tasks refactor                              |
+| v4.9       | iMessage reader page (macOS-only), keyboard shortcuts system + /shortcuts page                                         |
+| v4.10      | Settings overhaul, sidebar resize, keyboard nav, status memory                                                         |
+| v4.11      | Files: folder size on demand, icon action buttons, borderless toggles                                                  |
+| v4.12      | Files: per-segment breadcrumb dropdown + absolute path display, redesigned upload UI                                   |
+| v4.13–4.20 | Component adoption sprint: InfoRow, InteractiveChip, AsyncState (12+ pages), StatCard, FilterBar (4 pages)             |
+| v4.21      | Bug fixes: notification bell loading, logs slow loading, QR center image overlay                                       |
+| v4.22      | Processes page: category tabs, inline resource bars, summary stats row                                                 |
+| v4.23–4.25 | Code cleanup: shared OUI table, postJson helper, typed domain interfaces, getErrorMessage, isCommandAvailable          |
+| v4.26      | Showcase: 6 new sections (Icon Gallery, Design Tokens, Command Palette, Prop Variations, New Components)               |
+| v4.27      | PWA: PNG icons, SvelteKit service worker, offline page, SW update toast, Wake Lock, Badging API                        |
+| v4.28      | ActionGroup + DropdownMenu components, FilterBar adopted on logs/keeper/apps/bookmarks                                 |
+| v4.29      | Dashboard builder: widget registry, DashboardWidget renderer, settings modal, drag-and-drop, presets, S/M/L sizing     |
 
 ## Architecture Notes
 
-- **Stack:** SvelteKit 2 + Svelte 5 (runes), adapter-node, Node v23
-- **Pages:** 36 pages across 5 nav groups
+- **Stack:** SvelteKit 2 + Svelte 5 (runes), adapter-node, Node v20
+- **Pages:** 37 pages across 5 nav groups
 - **Persistence:** JSON files in `~/.home-server/` — no database
-- **Themes:** 25 CSS custom property themes with 17 customizable colors + 6 body/heading fonts
-- **Components:** 24 reusable Svelte components (14 shared primitives + 10 feature)
-- **Icons:** lucide-svelte with 80+ icon mappings
+- **Themes:** 27 CSS custom property themes with 17 customizable colors + 6 body/heading fonts
+- **Components:** 34 reusable Svelte components (shared primitives + feature components including AsyncState, StatCard, FilterBar, ActionGroup, DropdownMenu, ConfirmDialog, ProgressBar, AgentLogViewer, DashboardWidget)
+- **Icons:** lucide-svelte with 113 icon mappings
 - **Logging:** JSON Lines to `~/.home-server/logs/` with rotation + /logs viewer + structured request logging
 - **Security:** 11/11 security items resolved — spawnSync, rate limiting, PIN gate, env filtering, browse allowlist
 - **Testing:** 38 test files (100% passing), tiered runner (basic/comprehensive/integration/platform), UI SSR smoke tests
 - **Linux:** 17/17 features fully cross-platform (macOS + Linux/Raspberry Pi)
-- **Dashboard:** 14 customizable modules with drag reorder + S/M/L sizing
+- **Dashboard:** Configurable widget grid with widget registry, DashboardWidget renderer, settings modal (layout/presets/add tabs), drag-and-drop, S/M/L sizing, preset templates
+- **PWA:** PNG icons (192/512 regular + maskable), SvelteKit service worker with precaching, offline fallback page, SW update toast, Wake Lock API, Badging API
+- **Utilities:** Shared `createAutoRefresh()`, `createTableSort()`, `postJson()`, `getErrorMessage()`, shared OUI vendor lookup, typed domain interfaces (`$lib/types/`)
 - **Styling:** Prettier with svelte plugin, 2-space indent
 - **VPN:** Tailscale for multi-device access with health indicator
 - **Notifications:** ntfy.sh + in-app notification center with navbar badge

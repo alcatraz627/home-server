@@ -18,6 +18,16 @@
     footer?: Snippet;
   } = $props();
 
+  /** Move the node to document.body so it escapes any overflow/transform ancestors */
+  function portal(node: HTMLElement) {
+    document.body.appendChild(node);
+    return {
+      destroy() {
+        node.remove();
+      },
+    };
+  }
+
   function close() {
     open = false;
     onclose?.();
@@ -41,27 +51,29 @@
 <svelte:window onkeydown={handleKeydown} />
 
 {#if open}
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="modal-backdrop" onclick={handleOverlayClick} role="presentation">
-    <div class="modal-container" style="max-width: {width};" role="dialog" aria-label={title || 'Modal'}>
-      {#if title}
-        <div class="modal-header">
-          <h3>{title}</h3>
-          <button class="modal-close" onclick={close} aria-label="Close"><Icon name="close" size={14} /></button>
+  <div use:portal class="modal-portal">
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="modal-backdrop" onclick={handleOverlayClick} role="presentation">
+      <div class="modal-container" style="max-width: {width};" role="dialog" aria-label={title || 'Modal'}>
+        {#if title}
+          <div class="modal-header">
+            <h3>{title}</h3>
+            <button class="modal-close" onclick={close} aria-label="Close"><Icon name="close" size={14} /></button>
+          </div>
+        {:else}
+          <button class="modal-close modal-close-floating" onclick={close} aria-label="Close"
+            ><Icon name="close" size={14} /></button
+          >
+        {/if}
+        <div class="modal-body">
+          {@render children()}
         </div>
-      {:else}
-        <button class="modal-close modal-close-floating" onclick={close} aria-label="Close"
-          ><Icon name="close" size={14} /></button
-        >
-      {/if}
-      <div class="modal-body">
-        {@render children()}
+        {#if footer}
+          <div class="modal-footer">
+            {@render footer()}
+          </div>
+        {/if}
       </div>
-      {#if footer}
-        <div class="modal-footer">
-          {@render footer()}
-        </div>
-      {/if}
     </div>
   </div>
 {/if}

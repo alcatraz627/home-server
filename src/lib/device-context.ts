@@ -1,5 +1,6 @@
 import { writable } from 'svelte/store';
 import { browser } from '$app/environment';
+import { SK_DEVICE_CONTEXT, SK_REMOTE_DEVICES } from '$lib/constants/storage-keys';
 
 export interface RemoteDevice {
   hostname: string;
@@ -8,8 +9,8 @@ export interface RemoteDevice {
   label: string;
 }
 
-const STORAGE_KEY = 'hs:device-context';
-const DEVICES_KEY = 'hs:remote-devices';
+const STORAGE_KEY = SK_DEVICE_CONTEXT;
+const DEVICES_KEY = SK_REMOTE_DEVICES;
 
 function loadTarget(): string {
   if (!browser) return 'local';

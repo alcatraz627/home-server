@@ -1,12 +1,14 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
+  import { useShortcuts, SHORTCUT_DEFAULTS } from '$lib/shortcuts';
   import { browser } from '$app/environment';
   import { toast } from '$lib/toast';
   import EmptyState from '$lib/components/EmptyState.svelte';
   import Badge from '$lib/components/Badge.svelte';
   import Icon from '$lib/components/Icon.svelte';
   import Button from '$lib/components/Button.svelte';
-  import { fetchApi } from '$lib/api';
+  import { fetchApi, postJson } from '$lib/api';
+  import { SK_TERMINAL_SESSIONS } from '$lib/constants/storage-keys';
 
   interface Tab {
     id: number;
@@ -20,6 +22,7 @@
     cols: number;
     rows: number;
     exited: boolean;
+    clientCount: number;
   }
 
   interface ServerSession {
@@ -27,9 +30,10 @@
     label: string;
     pid: number;
     uptime: number;
+    clientCount: number;
   }
 
-  const SESSION_STORAGE_KEY = 'terminal_sessions';
+  const SESSION_STORAGE_KEY = SK_TERMINAL_SESSIONS;
 
   let terminalEls: Record<number, HTMLDivElement> = {};
   let tabs = $state<Tab[]>([]);
@@ -52,7 +56,7 @@
 
   async function checkPinRequired() {
     try {
-      const res = await fetch('/api/terminal/pin');
+      const res = await fetchApi('/api/terminal/pin');
       if (res.ok) {
         const data = await res.json();
         pinRequired = data.enabled;
@@ -66,11 +70,7 @@
   async function submitPin() {
     pinError = '';
     try {
-      const res = await fetch('/api/terminal/pin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'verify', pin: pinInput }),
-      });
+      const res = await postJson('/api/terminal/pin', { action: 'verify', pin: pinInput });
       const data = await res.json();
       if (data.valid) {
         pinVerified = true;
@@ -123,8 +123,24 @@
     return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
   }
 
+  let cleanupShortcuts: (() => void) | null = null;
+  let wakeLock: WakeLockSentinel | null = null;
+
   onMount(async () => {
     if (!browser) return;
+
+    // Keep screen on during terminal sessions (PWA / Android)
+    if ('wakeLock' in navigator) {
+      try {
+        wakeLock = await navigator.wakeLock.request('screen');
+      } catch {
+        // Wake lock request can fail if page is not visible
+      }
+    }
+
+    cleanupShortcuts = useShortcuts([
+      { ...SHORTCUT_DEFAULTS.find((d) => d.id === 'terminal:new-tab')!, handler: () => addTab() },
+    ]);
 
     await checkPinRequired();
 
@@ -223,6 +239,7 @@
       cols: 80,
       rows: 24,
       exited: false,
+      clientCount: 1,
     };
     tabs = [...tabs, tab];
     activeTab = tabs.length - 1;
@@ -292,8 +309,16 @@
         } else if (msg.type === 'session') {
           tab.sessionId = msg.id;
           if (msg.shell) tab.shellType = msg.shell;
+          if (msg.clientCount != null) tab.clientCount = msg.clientCount;
           saveSessionIds();
           fetchServerSessions();
+        } else if (msg.type === 'client_count') {
+          tab.clientCount = msg.count;
+          tabs = [...tabs];
+        } else if (msg.type === 'renamed') {
+          tab.label = msg.label;
+          tabs = [...tabs];
+          saveSessionIds();
         } else if (msg.type === 'exit') {
           tab.exited = true;
           const tabLabel = tab.label;
@@ -372,6 +397,10 @@
   function submitRenameTab(idx: number) {
     if (renameValue.trim()) {
       tabs[idx].label = renameValue.trim();
+      // Propagate rename to server — broadcasts to all clients via 'renamed' message
+      if (tabs[idx].ws?.readyState === WebSocket.OPEN) {
+        tabs[idx].ws.send(JSON.stringify({ type: 'rename', label: renameValue.trim() }));
+      }
       tabs = [...tabs];
       saveSessionIds();
     }
@@ -416,6 +445,17 @@
     addTab(session.id, session.label);
   }
 
+  async function copyAttachCommand(session: ServerSession) {
+    const port = location.port || '5555';
+    const cmd = `node scripts/attach.mjs ${session.id} --port ${port}`;
+    try {
+      await navigator.clipboard.writeText(cmd);
+      toast.info(`Copied: ${cmd}`);
+    } catch {
+      toast.info(cmd);
+    }
+  }
+
   // Mobile extra keys helpers
   function sendKey(key: string) {
     const tab = tabs[activeTab];
@@ -443,6 +483,8 @@
     ctrlMode = !ctrlMode;
   }
 
+  let showAttachHelp = $state(false);
+
   // Derived status bar info
   let currentTab = $derived(tabs[activeTab] ?? null);
   let shortSessionId = $derived(currentTab?.sessionId ? currentTab.sessionId.slice(0, 6) : '--');
@@ -451,6 +493,8 @@
   );
 
   onDestroy(() => {
+    cleanupShortcuts?.();
+    wakeLock?.release();
     for (const tab of tabs) {
       tab.ws?.close();
       tab.terminal?.dispose();
@@ -499,17 +543,90 @@
         {#each serverSessions as session}
           <!-- svelte-ignore a11y_click_events_have_key_events -->
           <!-- svelte-ignore a11y_no_static_element_interactions -->
-          <button
-            class="session-badge"
-            class:active={currentTab?.sessionId === session.id}
-            onclick={() => attachToSession(session)}
-            title="PID {session.pid} — {formatUptime(session.uptime)}"
-          >
-            <Badge variant={currentTab?.sessionId === session.id ? 'accent' : 'default'} size="sm" dot pulse>
-              {session.label}:{session.id.slice(0, 4)}
-            </Badge>
-          </button>
+          <div class="session-badge-group">
+            <button
+              class="session-badge"
+              class:active={currentTab?.sessionId === session.id}
+              onclick={() => attachToSession(session)}
+              title="PID {session.pid} — {formatUptime(session.uptime)}"
+            >
+              <Badge variant={currentTab?.sessionId === session.id ? 'accent' : 'default'} size="sm" dot pulse>
+                {session.label}:{session.id.slice(0, 4)}
+                {#if session.clientCount > 1}
+                  <span class="client-count-badge">{session.clientCount}</span>
+                {/if}
+              </Badge>
+            </button>
+            <button
+              class="attach-copy-btn"
+              onclick={() => copyAttachCommand(session)}
+              title="Copy attach command for system terminal"
+            >
+              <Icon name="terminal" size={10} />
+            </button>
+          </div>
         {/each}
+      </div>
+    {/if}
+
+    <!-- Attach help panel -->
+    <div class="attach-help-bar">
+      <button class="attach-help-toggle" onclick={() => (showAttachHelp = !showAttachHelp)}>
+        <Icon name="terminal" size={12} />
+        Connect from system terminal
+        <Icon name={showAttachHelp ? 'chevron-up' : 'chevron-down'} size={12} />
+      </button>
+    </div>
+
+    {#if showAttachHelp}
+      <div class="attach-help-panel">
+        <div class="attach-help-section">
+          <div class="attach-help-title">Option A — Attach to an app session</div>
+          <p class="attach-help-desc">
+            Start a shell here, then join it from your system terminal. Both sides are fully interactive.
+          </p>
+          <div class="attach-help-steps">
+            <div class="attach-step">
+              <span class="step-num">1</span>
+              <span>Open a new tab above → note the session ID in the status bar (e.g. <code>a3f2b1c4</code>)</span>
+            </div>
+            <div class="attach-step">
+              <span class="step-num">2</span>
+              <span>In your system terminal, from the project root:</span>
+            </div>
+          </div>
+          <pre class="attach-code">node scripts/attach.mjs              # list active sessions
+node scripts/attach.mjs &lt;session-id&gt;  # attach to one</pre>
+          <div class="attach-help-hint">
+            Detach with <code>Ctrl-Q</code> or <code>Ctrl-B d</code> — session stays alive.
+          </div>
+        </div>
+
+        <div class="attach-help-divider"></div>
+
+        <div class="attach-help-section">
+          <div class="attach-help-title">Option B — Attach to an existing terminal (tmux)</div>
+          <p class="attach-help-desc">
+            If you have a session already running in iTerm/Terminal.app, wrap it in tmux so the app can join it.
+          </p>
+          <div class="attach-help-steps">
+            <div class="attach-step">
+              <span class="step-num">1</span>
+              <span>In your system terminal, start or attach a named tmux session:</span>
+            </div>
+          </div>
+          <pre class="attach-code">tmux new-session -s my-work     # new session
+tmux attach -t my-work          # or resume existing</pre>
+          <div class="attach-step" style="margin: 8px 0 6px;">
+            <span class="step-num">2</span>
+            <span>In the app, open a new tab and run:</span>
+          </div>
+          <pre class="attach-code">tmux attach -t my-work</pre>
+          <div class="attach-help-hint">
+            Now both your system terminal and the app see the same tmux session. Use <code>Ctrl-B d</code> to detach without
+            killing it.
+          </div>
+        </div>
       </div>
     {/if}
 
@@ -538,7 +655,12 @@
                 onblur={() => submitRenameTab(i)}
               />
             {:else}
-              <span class="tab-label" ondblclick={() => startRenameTab(i)}>{tab.label}</span>
+              <span class="tab-label" ondblclick={() => startRenameTab(i)}>
+                {tab.label}
+                {#if tab.clientCount > 1}
+                  <span class="tab-client-count" title="{tab.clientCount} clients connected">{tab.clientCount}</span>
+                {/if}
+              </span>
             {/if}
             <button
               class="tab-close"
@@ -605,6 +727,13 @@
         <span class="status-item">{currentTab.shellType || 'shell'}</span>
         <span class="status-sep">|</span>
         <span class="status-item">{currentTab.cols} x {currentTab.rows}</span>
+        {#if currentTab.clientCount > 1}
+          <span class="status-sep">|</span>
+          <span class="status-item status-clients">
+            <Icon name="users" size={10} />
+            {currentTab.clientCount} clients
+          </span>
+        {/if}
       </div>
     {/if}
   </div>
@@ -735,6 +864,204 @@
 
   .session-badge.active {
     transform: scale(1.05);
+  }
+
+  .attach-help-bar {
+    display: flex;
+    align-items: center;
+    padding: 4px 0 0;
+  }
+
+  .attach-help-toggle {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-faint);
+    font-size: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 8px 4px 0;
+    border-radius: 4px;
+    transition: color 0.15s;
+  }
+
+  .attach-help-toggle:hover {
+    color: var(--text-secondary);
+  }
+
+  .attach-help-panel {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    margin: 6px 0 8px;
+    display: flex;
+    gap: 24px;
+    font-size: 0.8rem;
+  }
+
+  @media (max-width: 700px) {
+    .attach-help-panel {
+      flex-direction: column;
+      gap: 16px;
+    }
+  }
+
+  .attach-help-section {
+    flex: 1;
+  }
+
+  .attach-help-title {
+    font-weight: 600;
+    font-size: 0.8rem;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+  }
+
+  .attach-help-desc {
+    color: var(--text-faint);
+    margin: 0 0 8px;
+    line-height: 1.5;
+  }
+
+  .attach-help-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 6px;
+  }
+
+  .attach-step {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    color: var(--text-secondary);
+    line-height: 1.4;
+  }
+
+  .step-num {
+    background: var(--bg-tertiary, var(--bg-hover));
+    color: var(--text-faint);
+    border-radius: 50%;
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    font-weight: 700;
+  }
+
+  .attach-code {
+    background: var(--bg-tertiary, #1a1a1a);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 8px 10px;
+    font-family: 'JetBrains Mono', 'SF Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--text-primary);
+    white-space: pre;
+    overflow-x: auto;
+    margin: 6px 0;
+    line-height: 1.6;
+  }
+
+  .attach-help-hint {
+    color: var(--text-faint);
+    font-size: 0.75rem;
+    margin-top: 6px;
+    line-height: 1.5;
+  }
+
+  .attach-help-hint code {
+    background: var(--bg-tertiary, #1a1a1a);
+    border-radius: 3px;
+    padding: 1px 4px;
+    font-size: 0.7rem;
+  }
+
+  .attach-help-divider {
+    width: 1px;
+    background: var(--border);
+    align-self: stretch;
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 700px) {
+    .attach-help-divider {
+      width: auto;
+      height: 1px;
+    }
+  }
+
+  .session-badge-group {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .attach-copy-btn {
+    background: none;
+    border: none;
+    padding: 2px 4px;
+    cursor: pointer;
+    color: var(--text-faint);
+    border-radius: 4px;
+    opacity: 0;
+    transition:
+      opacity 0.15s,
+      color 0.15s;
+    display: flex;
+    align-items: center;
+  }
+
+  .session-badge-group:hover .attach-copy-btn {
+    opacity: 1;
+  }
+
+  .attach-copy-btn:hover {
+    color: var(--accent);
+    background: var(--bg-hover);
+  }
+
+  .client-count-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent);
+    color: var(--bg-primary);
+    border-radius: 8px;
+    font-size: 0.6rem;
+    font-weight: 700;
+    min-width: 14px;
+    height: 14px;
+    padding: 0 3px;
+    margin-left: 3px;
+  }
+
+  .tab-client-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent);
+    color: var(--bg-primary);
+    border-radius: 8px;
+    font-size: 0.55rem;
+    font-weight: 700;
+    min-width: 13px;
+    height: 13px;
+    padding: 0 3px;
+    margin-left: 3px;
+    vertical-align: middle;
+  }
+
+  .status-clients {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--accent);
   }
 
   .terminal-header {

@@ -3,7 +3,7 @@ import { errorMessage } from '$lib/server/errors';
 import fs from 'node:fs/promises';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import os from 'node:os';
+import { CONFIG_DIR, PATHS } from '$lib/server/paths';
 import { createLogger } from './logger';
 
 const log = createLogger('services');
@@ -36,8 +36,7 @@ export interface ServiceStatus {
 
 // --- Storage ---
 
-const CONFIG_DIR = path.join(os.homedir(), '.home-server');
-const CONFIG_FILE = path.join(CONFIG_DIR, 'services.json');
+const CONFIG_FILE = PATHS.services;
 const HISTORY_FILE = path.join(CONFIG_DIR, 'services-history.json');
 
 async function ensureDir() {

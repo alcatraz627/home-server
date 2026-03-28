@@ -7,8 +7,7 @@ import type { RequestHandler } from './$types';
 import { APP } from '$lib/constants/app';
 import { NAV_GROUPS } from '$lib/constants/nav';
 import { errorMessage } from '$lib/server/errors';
-
-const DATA_DIR = path.join(os.homedir(), '.home-server');
+import { CONFIG_DIR } from '$lib/server/paths';
 
 interface StorageEntry {
   name: string;
@@ -42,11 +41,11 @@ function getDirSize(dirPath: string): { sizeBytes: number; fileCount: number } {
 
 function getStorageBreakdown(): StorageEntry[] {
   const dirs = [
-    { name: 'Logs', path: path.join(DATA_DIR, 'logs') },
-    { name: 'Notes', path: path.join(DATA_DIR, 'notes') },
-    { name: 'Screenshots', path: path.join(DATA_DIR, 'screenshots') },
-    { name: 'Keeper Logs', path: path.join(DATA_DIR, 'keeper-logs') },
-    { name: 'Icon Cache', path: path.join(DATA_DIR, 'icon-cache') },
+    { name: 'Logs', path: path.join(CONFIG_DIR, 'logs') },
+    { name: 'Notes', path: path.join(CONFIG_DIR, 'notes') },
+    { name: 'Screenshots', path: path.join(CONFIG_DIR, 'screenshots') },
+    { name: 'Keeper Logs', path: path.join(CONFIG_DIR, 'keeper-logs') },
+    { name: 'Icon Cache', path: path.join(CONFIG_DIR, 'icon-cache') },
     { name: 'Uploads', path: path.resolve(process.env.UPLOAD_DIR || './uploads') },
   ];
 
@@ -74,7 +73,7 @@ function getStorageBreakdown(): StorageEntry[] {
   let configSize = 0;
   let configCount = 0;
   for (const file of configFiles) {
-    const fp = path.join(DATA_DIR, file);
+    const fp = path.join(CONFIG_DIR, file);
     try {
       if (fs.existsSync(fp)) {
         configSize += fs.statSync(fp).size;
@@ -83,7 +82,7 @@ function getStorageBreakdown(): StorageEntry[] {
     } catch {}
   }
   if (configCount > 0) {
-    entries.push({ name: 'Config Files', path: DATA_DIR, sizeBytes: configSize, fileCount: configCount });
+    entries.push({ name: 'Config Files', path: CONFIG_DIR, sizeBytes: configSize, fileCount: configCount });
   }
 
   return entries.sort((a, b) => b.sizeBytes - a.sizeBytes);
@@ -149,6 +148,6 @@ export const GET: RequestHandler = async () => {
     })(),
     storage,
     totalStorageBytes,
-    dataDir: DATA_DIR,
+    dataDir: CONFIG_DIR,
   });
 };

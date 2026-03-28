@@ -45,6 +45,7 @@ export interface DocumentRenderer {
 // Import renderers
 import { excelRenderer } from './excel';
 import { wordRenderer } from './word';
+import { epubRenderer } from './epub';
 import { markdownRenderer } from './markdown';
 import { jsonRenderer } from './json';
 import { textRenderer } from './text';
@@ -56,6 +57,7 @@ import { textRenderer } from './text';
 const RENDERERS: DocumentRenderer[] = [
   excelRenderer,
   wordRenderer,
+  epubRenderer,
   markdownRenderer,
   jsonRenderer,
   textRenderer, // catch-all for text/* types

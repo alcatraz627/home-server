@@ -1,28 +1,23 @@
 import crypto from 'node:crypto';
 import { json } from '@sveltejs/kit';
 import fs from 'node:fs';
-import path from 'node:path';
-import os from 'node:os';
 import type { RequestHandler } from './$types';
+import { CONFIG_DIR, PATHS } from '$lib/server/paths';
+import { ensureTag, releaseTag } from '$lib/server/tags';
+import type { KanbanCard } from '$lib/types/productivity';
 
-const DATA_DIR = path.join(os.homedir(), '.home-server');
-const FILE = path.join(DATA_DIR, 'kanban.json');
+const FILE = PATHS.kanban;
 
-interface KanbanCard {
-  id: string;
-  title: string;
-  description: string;
-  color: string;
-  dueDate: string | null;
-  column: 'todo' | 'doing' | 'done' | 'archive';
-  order: number;
-  priority: 'P1' | 'P2' | 'P3' | '';
-  assignee: string;
-  createdAt: string;
+/** Diff old vs new tags and call ensureTag/releaseTag accordingly */
+function syncTags(oldTags: string[], newTags: string[]) {
+  const added = newTags.filter((t) => !oldTags.includes(t));
+  const removed = oldTags.filter((t) => !newTags.includes(t));
+  for (const t of added) ensureTag(t);
+  for (const t of removed) releaseTag(t);
 }
 
 function ensureDir() {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+  if (!fs.existsSync(CONFIG_DIR)) fs.mkdirSync(CONFIG_DIR, { recursive: true });
 }
 
 function readCards(): KanbanCard[] {
@@ -49,6 +44,10 @@ export const POST: RequestHandler = async ({ request }) => {
   const cards = readCards();
 
   if (body._action === 'delete') {
+    const card = cards.find((c) => c.id === body.id);
+    if (card) {
+      for (const t of card.tags ?? []) releaseTag(t);
+    }
     const filtered = cards.filter((c) => c.id !== body.id);
     writeCards(filtered);
     return json({ ok: true });
@@ -72,11 +71,18 @@ export const POST: RequestHandler = async ({ request }) => {
     if (body.dueDate !== undefined) cards[idx].dueDate = body.dueDate || null;
     if (body.priority !== undefined) cards[idx].priority = body.priority;
     if (body.assignee !== undefined) cards[idx].assignee = body.assignee;
+    if (body.tags !== undefined) {
+      syncTags(cards[idx].tags ?? [], body.tags);
+      cards[idx].tags = body.tags;
+    }
+    if (body.checklist !== undefined) cards[idx].checklist = body.checklist;
     writeCards(cards);
     return json(cards[idx]);
   }
 
   // Create
+  const newTags: string[] = Array.isArray(body.tags) ? body.tags : [];
+  for (const t of newTags) ensureTag(t);
   const card: KanbanCard = {
     id: crypto.randomUUID().slice(0, 8),
     title: body.title || 'Untitled',
@@ -87,6 +93,8 @@ export const POST: RequestHandler = async ({ request }) => {
     order: cards.filter((c) => c.column === (body.column || 'todo')).length,
     priority: body.priority || '',
     assignee: body.assignee || '',
+    tags: newTags,
+    checklist: Array.isArray(body.checklist) ? body.checklist : [],
     createdAt: new Date().toISOString(),
   };
   cards.push(card);

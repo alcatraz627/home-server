@@ -1,8 +1,7 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import { existsSync, readFileSync } from 'node:fs';
-import path from 'node:path';
-import os from 'node:os';
+import { CONFIG_DIR, PATHS } from '$lib/server/paths';
 import { createLogger } from './logger';
 
 const log = createLogger('notifications');
@@ -24,8 +23,7 @@ export interface AppNotification {
 
 // --- Storage ---
 
-const CONFIG_DIR = path.join(os.homedir(), '.home-server');
-const NOTIFICATIONS_FILE = path.join(CONFIG_DIR, 'notifications.json');
+const NOTIFICATIONS_FILE = PATHS.notifications;
 
 async function ensureDir() {
   await fs.mkdir(CONFIG_DIR, { recursive: true });

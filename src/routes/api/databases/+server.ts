@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { execSync } from 'node:child_process';
 import os from 'node:os';
+import { isCommandAvailable } from '$lib/server/security';
 import type { RequestHandler } from './$types';
 
 const platform = os.platform();
@@ -26,9 +27,7 @@ function cmd(command: string, timeout = 5000): string {
   }
 }
 
-function isInstalled(bin: string): boolean {
-  return !!cmd(`which ${bin} 2>/dev/null`);
-}
+const isInstalled = isCommandAvailable;
 
 function getPidInfo(name: string): { pid: number | null; memMB: number } {
   try {

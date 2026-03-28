@@ -1,7 +1,6 @@
-import { getServiceStatuses } from '$lib/server/services';
+import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async () => {
-  const statuses = await getServiceStatuses();
-  return { statuses };
+export const load: PageServerLoad = () => {
+  redirect(301, '/infrastructure#services');
 };

@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { CLIPBOARD_MAX_ENTRIES, CLIPBOARD_MAX_CONTENT_LENGTH } from '$lib/constants/defaults';
 
 interface ClipboardEntry {
   id: string;
@@ -10,7 +11,7 @@ interface ClipboardEntry {
   timestamp: string;
 }
 
-const MAX_ENTRIES = 50;
+const MAX_ENTRIES = CLIPBOARD_MAX_ENTRIES;
 const entries: ClipboardEntry[] = [];
 
 export const GET: RequestHandler = async () => {
@@ -34,7 +35,7 @@ export const POST: RequestHandler = async ({ request }) => {
   // Add new entry
   const entry: ClipboardEntry = {
     id: crypto.randomUUID().slice(0, 8) + Date.now().toString(36),
-    content: String(body.content || '').slice(0, 10000),
+    content: String(body.content || '').slice(0, CLIPBOARD_MAX_CONTENT_LENGTH),
     deviceId: body.deviceId || 'unknown',
     deviceName: body.deviceName || 'Unknown Device',
     timestamp: new Date().toISOString(),

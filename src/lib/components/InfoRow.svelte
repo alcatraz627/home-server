@@ -5,11 +5,13 @@
     label,
     value = '',
     mono = false,
+    code = false,
     children,
   }: {
     label: string;
     value?: string;
     mono?: boolean;
+    code?: boolean;
     children?: Snippet;
   } = $props();
 </script>
@@ -19,6 +21,8 @@
   <span class="info-row-value" class:mono>
     {#if children}
       {@render children()}
+    {:else if code}
+      <code>{value}</code>
     {:else}
       {value}
     {/if}
@@ -52,5 +56,13 @@
   .info-row-value.mono {
     font-family: 'JetBrains Mono', monospace;
     font-size: 0.72rem;
+  }
+
+  .info-row-value code {
+    font-size: 0.72rem;
+    background: var(--code-bg);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: 'JetBrains Mono', monospace;
   }
 </style>

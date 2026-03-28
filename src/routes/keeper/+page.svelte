@@ -4,10 +4,14 @@
   import EmptyState from '$lib/components/EmptyState.svelte';
   import Button from '$lib/components/Button.svelte';
   import Badge from '$lib/components/Badge.svelte';
-  import SearchInput from '$lib/components/SearchInput.svelte';
+  import FilterBar from '$lib/components/FilterBar.svelte';
   import Icon from '$lib/components/Icon.svelte';
+  import AgentLogViewer from '$lib/components/AgentLogViewer.svelte';
+  import PageHeader from '$lib/components/PageHeader.svelte';
+  import InteractiveChip from '$lib/components/InteractiveChip.svelte';
   import { toast } from '$lib/toast';
-  import { fetchApi } from '$lib/api';
+  import { fetchApi, postJson } from '$lib/api';
+  import { getErrorMessage } from '$lib/errors';
 
   let { data } = $props<{ data: PageData }>();
   // svelte-ignore state_referenced_locally
@@ -21,9 +25,15 @@
   let showHowItWorks = $state(false);
 
   import { onMount } from 'svelte';
+  import { useShortcuts, SHORTCUT_DEFAULTS } from '$lib/shortcuts';
+
   onMount(() => {
     // Fetch claude availability on load
     refresh();
+    return useShortcuts([
+      { ...SHORTCUT_DEFAULTS.find((d) => d.id === 'keeper:new')!, handler: () => (showForm = true) },
+      { ...SHORTCUT_DEFAULTS.find((d) => d.id === 'keeper:refresh')!, handler: () => refresh() },
+    ]);
   });
 
   // UI state
@@ -45,6 +55,53 @@
   let logOffsets = $state<Record<string, number>>({});
   let logPollers = $state<Record<string, ReturnType<typeof setInterval>>>({});
   let userMessage = $state('');
+  let followUpMessage = $state('');
+
+  // Image attachments
+  let requestImages = $state<Record<string, string[]>>({});
+
+  async function fetchImages(id: string) {
+    try {
+      const res = await fetchApi(`/api/keeper/${id}/images`);
+      if (!res.ok) return;
+      const data = await res.json();
+      requestImages[id] = data.images;
+    } catch {
+      // ignore
+    }
+  }
+
+  async function uploadImages(id: string, files: FileList) {
+    const formData = new FormData();
+    for (const file of files) {
+      formData.append('images', file);
+    }
+    try {
+      const res = await fetchApi(`/api/keeper/${id}/images`, { method: 'POST', body: formData });
+      if (!res.ok) {
+        toast.error('Failed to upload images');
+        return;
+      }
+      const data = await res.json();
+      toast.success(`${data.count} image(s) uploaded`);
+      await fetchImages(id);
+    } catch {
+      toast.error('Failed to upload images');
+    }
+  }
+
+  async function deleteImage(id: string, filename: string) {
+    try {
+      const res = await postJson(`/api/keeper/${id}/images`, { filename }, { method: 'DELETE' });
+      if (!res.ok) {
+        toast.error('Failed to delete image');
+        return;
+      }
+      await fetchImages(id);
+    } catch {
+      toast.error('Failed to delete image');
+    }
+  }
 
   // Agent start times for elapsed display
   let agentStartTimes = $state<Record<string, string>>({});
@@ -60,14 +117,14 @@
     return () => clearInterval(interval);
   });
 
-  const SCOPES: { value: FeatureScope; label: string; desc: string }[] = [
-    { value: 'bug-fix', label: 'Bug Fix', desc: 'Small fix, < 30 min' },
-    { value: 'tweak', label: 'Tweak', desc: 'UI adjustment, config change' },
-    { value: 'feature', label: 'Feature', desc: 'New capability, 1-2 hours' },
-    { value: 'enhancement', label: 'Enhancement', desc: 'Improve existing feature' },
-    { value: 'refactor', label: 'Refactor', desc: 'Code quality, no behavior change' },
-    { value: 'research', label: 'Research', desc: 'Investigate, produce a doc' },
-    { value: 'epic', label: 'Epic', desc: 'Large, may need multiple sessions' },
+  const SCOPES: { value: FeatureScope; label: string; desc: string; icon: string }[] = [
+    { value: 'bug-fix', label: 'Bug Fix', desc: 'Small fix, < 30 min', icon: 'warning' },
+    { value: 'tweak', label: 'Tweak', desc: 'UI adjustment, config change', icon: 'sliders' },
+    { value: 'feature', label: 'Feature', desc: 'New capability, 1-2 hours', icon: 'star' },
+    { value: 'enhancement', label: 'Enhancement', desc: 'Improve existing feature', icon: 'speed' },
+    { value: 'refactor', label: 'Refactor', desc: 'Code quality, no behavior change', icon: 'rotate' },
+    { value: 'research', label: 'Research', desc: 'Investigate, produce a doc', icon: 'search' },
+    { value: 'epic', label: 'Epic', desc: 'Large, may need multiple sessions', icon: 'bookmark' },
   ];
 
   const STATUS_FLOW: { value: FeatureStatus; label: string; color: string }[] = [
@@ -84,6 +141,10 @@
 
   function scopeLabel(scope: FeatureScope): string {
     return SCOPES.find((s) => s.value === scope)?.label || scope;
+  }
+
+  function scopeIcon(scope: FeatureScope): string {
+    return SCOPES.find((s) => s.value === scope)?.icon || 'help';
   }
 
   let filtered = $derived.by(() => {
@@ -114,51 +175,44 @@
       if (result.claudeAvailable !== undefined) {
         claudeAvailable = result.claudeAvailable;
       }
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to refresh keeper', { key: 'keeper-refresh' });
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, 'Failed to refresh keeper'), { key: 'keeper-refresh' });
     }
   }
 
   async function createRequest() {
     try {
-      const res = await fetchApi('/api/keeper', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: formTitle, goal: formGoal, scope: formScope, details: formDetails }),
+      const res = await postJson('/api/keeper', {
+        title: formTitle,
+        goal: formGoal,
+        scope: formScope,
+        details: formDetails,
       });
       if (!res.ok) throw new Error('Failed to create request');
       clearForm();
       await refresh();
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to create request');
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, 'Failed to create request'));
     }
   }
 
   async function updateStatus(id: string, status: FeatureStatus) {
     try {
-      const res = await fetchApi('/api/keeper', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, status }),
-      });
+      const res = await postJson('/api/keeper', { id, status }, { method: 'PUT' });
       if (!res.ok) throw new Error('Failed to update status');
       await refresh();
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to update status');
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, 'Failed to update status'));
     }
   }
 
   async function deleteReq(id: string) {
     try {
-      const res = await fetchApi('/api/keeper', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id }),
-      });
+      const res = await postJson('/api/keeper', { id }, { method: 'DELETE' });
       if (!res.ok) throw new Error('Failed to delete request');
       await refresh();
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to delete request');
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, 'Failed to delete request'));
     }
   }
 
@@ -183,22 +237,22 @@
   async function saveEdit() {
     if (!editingId) return;
     try {
-      const res = await fetchApi('/api/keeper', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      const res = await postJson(
+        '/api/keeper',
+        {
           id: editingId,
           title: formTitle,
           goal: formGoal,
           scope: formScope,
           details: formDetails,
-        }),
-      });
+        },
+        { method: 'PUT' },
+      );
       if (!res.ok) throw new Error('Failed to save edit');
       clearForm();
       await refresh();
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to save changes');
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, 'Failed to save changes'));
     }
   }
 
@@ -225,6 +279,10 @@
       tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (e.target as HTMLElement)?.isContentEditable;
     if (isEditable) return;
 
+    if (e.key === 'Escape' && modalLogId) {
+      closeLogModal();
+      return;
+    }
     if (e.key === 'ArrowDown' || e.key === 'j') {
       e.preventDefault();
       focusedIndex = Math.min(focusedIndex + 1, filtered.length - 1);
@@ -281,6 +339,8 @@
       }
       // Fetch agent status for start time
       fetchAgentStatus(id);
+      // Fetch attached images
+      fetchImages(id);
     }
   }
 
@@ -292,8 +352,8 @@
       if (data.startedAt) {
         agentStartTimes[id] = data.startedAt;
       }
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to fetch agent status');
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, 'Failed to fetch agent status'));
     }
   }
 
@@ -307,8 +367,8 @@
         logContent[id] = (logContent[id] || '') + data.content;
         logOffsets[id] = data.size;
       }
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to fetch log', { key: 'keeper-log' });
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, 'Failed to fetch log'), { key: 'keeper-log' });
     }
   }
 
@@ -328,11 +388,7 @@
   // Agent actions
   async function startAgentAction(id: string) {
     try {
-      const res = await fetchApi(`/api/keeper/${id}/agent`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'start' }),
-      });
+      const res = await postJson(`/api/keeper/${id}/agent`, { action: 'start' });
       const data = await res.json();
       if (!res.ok) {
         toast.error(data.error || 'Failed to start agent');
@@ -348,11 +404,7 @@
 
   async function stopAgentAction(id: string) {
     try {
-      const res = await fetchApi(`/api/keeper/${id}/agent`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'stop' }),
-      });
+      const res = await postJson(`/api/keeper/${id}/agent`, { action: 'stop' });
       const data = await res.json();
       if (!res.ok) {
         toast.error(data.error || 'Failed to stop agent');
@@ -366,13 +418,9 @@
     }
   }
 
-  async function resumeAgentAction(id: string) {
+  async function resumeAgentAction(id: string, followUp?: string) {
     try {
-      const res = await fetchApi(`/api/keeper/${id}/agent`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'resume' }),
-      });
+      const res = await postJson(`/api/keeper/${id}/agent`, { action: 'resume', followUp: followUp || undefined });
       const data = await res.json();
       if (!res.ok) {
         toast.error(data.error || 'Failed to resume agent');
@@ -396,11 +444,7 @@
   async function sendMessage(id: string) {
     if (!userMessage.trim()) return;
     try {
-      const res = await fetchApi(`/api/keeper/${id}/message`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userMessage }),
-      });
+      const res = await postJson(`/api/keeper/${id}/message`, { message: userMessage });
       if (!res.ok) {
         toast.error('Failed to send message');
         return;
@@ -413,16 +457,23 @@
 
   async function saveResult(id: string) {
     try {
-      const res = await fetchApi('/api/keeper', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, result: editingResult }),
-      });
+      const res = await postJson('/api/keeper', { id, result: editingResult }, { method: 'PUT' });
       if (!res.ok) throw new Error('Failed to save result');
       await refresh();
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to save result');
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, 'Failed to save result'));
     }
+  }
+
+  // Modal state for expanded log view
+  let modalLogId = $state<string | null>(null);
+  let modalLogContent = $derived(modalLogId ? logContent[modalLogId] || '' : '');
+
+  function openLogModal(id: string) {
+    modalLogId = id;
+  }
+  function closeLogModal() {
+    modalLogId = null;
   }
 
   let copiedResult = $state<string | null>(null);
@@ -434,49 +485,6 @@
     }, 2000);
   }
 
-  // ANSI to HTML converter
-  function ansiToHtml(text: string): string {
-    const ansiMap: Record<string, string> = {
-      '30': '#4a4a4a',
-      '31': '#e06c75',
-      '32': '#98c379',
-      '33': '#e5c07b',
-      '34': '#61afef',
-      '35': '#c678dd',
-      '36': '#56b6c2',
-      '37': '#abb2bf',
-      '90': '#5c6370',
-      '91': '#e06c75',
-      '92': '#98c379',
-      '93': '#e5c07b',
-      '94': '#61afef',
-      '95': '#c678dd',
-      '96': '#56b6c2',
-      '97': '#ffffff',
-    };
-
-    // Escape HTML first
-    let html = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
-    // Replace ANSI codes with spans
-    html = html.replace(/\x1b\[(\d+(?:;\d+)*)m/g, (_, codes) => {
-      const parts = codes.split(';');
-      for (const code of parts) {
-        if (code === '0' || code === '') return '</span>';
-        if (ansiMap[code]) return `<span style="color:${ansiMap[code]}">`;
-        if (code === '1') return '<span style="font-weight:bold">';
-        if (code === '3') return '<span style="font-style:italic">';
-        if (code === '4') return '<span style="text-decoration:underline">';
-      }
-      return '';
-    });
-
-    // Clean up any remaining escape sequences
-    html = html.replace(/\x1b\[[^m]*m/g, '');
-
-    return html;
-  }
-
   // Cleanup pollers on unmount
   $effect(() => {
     return () => {
@@ -485,18 +493,6 @@
       }
     };
   });
-
-  const MAX_LOG_LINES = 800;
-
-  function getDisplayContent(content: string): string {
-    const lines = content.split('\n');
-    if (lines.length <= MAX_LOG_LINES) return content;
-    return lines.slice(-MAX_LOG_LINES).join('\n');
-  }
-
-  function isLogTruncated(content: string): boolean {
-    return content.split('\n').length > MAX_LOG_LINES;
-  }
 </script>
 
 <svelte:window onkeydown={handleKeydown} />
@@ -505,44 +501,38 @@
   <title>Keeper | Home Server</title>
 </svelte:head>
 
-<div class="header">
-  <h2 class="page-title">Claude Keeper</h2>
-  <div class="controls">
-    <label class="toggle-completed">
-      <input type="checkbox" bind:checked={showCompleted} />
-      <span>Show completed</span>
-    </label>
-    <Button onclick={refresh}>Refresh</Button>
-    <Button
-      variant="accent"
-      onclick={() => {
-        showForm = !showForm;
-        if (!showForm) clearForm();
-      }}
-    >
-      {showForm ? 'Cancel' : '+ New Request'}
-    </Button>
-  </div>
-</div>
-<p class="page-desc">Queue and track Claude AI agent requests. Monitor progress from backlog through completion.</p>
+<PageHeader
+  title="Claude Keeper"
+  icon="bookmark"
+  description="Queue and track Claude AI agent requests. Monitor progress from backlog through completion."
+>
+  <label class="toggle-completed">
+    <input type="checkbox" bind:checked={showCompleted} />
+    <span>Show completed</span>
+  </label>
+  <Button icon="refresh" onclick={refresh}>Refresh</Button>
+  <Button
+    variant="accent"
+    onclick={() => {
+      showForm = !showForm;
+      if (!showForm) clearForm();
+    }}
+  >
+    {showForm ? 'Cancel' : '+ New Request'}
+  </Button>
+</PageHeader>
 
 <!-- Stats bar -->
 <div class="stats-bar">
   {#each STATUS_FLOW as s}
-    <button
-      class="stat-chip"
-      class:active={filterStatus === s.value}
-      style="--chip-color: {s.color}"
-      onclick={() => (filterStatus = filterStatus === s.value ? '' : s.value)}
+    <InteractiveChip
+      active={filterStatus === s.value}
+      color={s.color}
+      dot
+      pulse={s.value === 'running' && (stats.running || 0) > 0}
+      count={stats[s.value] || 0}
+      onclick={() => (filterStatus = filterStatus === s.value ? '' : s.value)}>{s.label}</InteractiveChip
     >
-      <span
-        class="stat-dot"
-        class:running-dot={s.value === 'running' && (stats.running || 0) > 0}
-        style="background: {s.color}"
-      ></span>
-      {s.label}
-      <span class="stat-count">{stats[s.value] || 0}</span>
-    </button>
   {/each}
 </div>
 
@@ -589,15 +579,14 @@
 
 <!-- Search + scope filter -->
 {#if requests.length > 0}
-  <div class="filter-bar">
-    <SearchInput bind:value={search} placeholder="Search requests..." clearable />
+  <FilterBar search bind:searchValue={search} searchPlaceholder="Search requests...">
     <select class="scope-filter" bind:value={filterScope}>
       <option value="">All scopes</option>
       {#each SCOPES as s}
         <option value={s.value}>{s.label}</option>
       {/each}
     </select>
-  </div>
+  </FilterBar>
 {/if}
 
 <!-- Create / Edit form -->
@@ -622,7 +611,7 @@
         <div class="scope-grid">
           {#each SCOPES as s}
             <button class="scope-btn" class:active={formScope === s.value} onclick={() => (formScope = s.value)}>
-              <strong>{s.label}</strong>
+              <strong><Icon name={s.icon} size={12} /> {s.label}</strong>
               <span>{s.desc}</span>
             </button>
           {/each}
@@ -703,7 +692,7 @@
                   />{/if}</span
               >
               <h3>{req.title}</h3>
-              <span class="scope-badge">{scopeLabel(req.scope)}</span>
+              <span class="scope-badge"><Icon name={scopeIcon(req.scope)} size={10} />{scopeLabel(req.scope)}</span>
               <Badge
                 variant={req.status === 'draft'
                   ? 'default'
@@ -758,21 +747,58 @@
               </div>
             {/if}
 
+            <!-- Attached images -->
+            <div class="detail-section">
+              <div class="detail-header">
+                <span class="detail-label">Attachments</span>
+                <div class="detail-actions">
+                  <label class="upload-btn">
+                    <Icon name="upload" size={12} /> Add Images
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      hidden
+                      onchange={(e) => {
+                        const input = e.target as HTMLInputElement;
+                        if (input.files?.length) uploadImages(req.id, input.files);
+                        input.value = '';
+                      }}
+                    />
+                  </label>
+                </div>
+              </div>
+              {#if requestImages[req.id]?.length}
+                <div class="image-grid">
+                  {#each requestImages[req.id] as img}
+                    <div class="image-thumb">
+                      <img src="/api/keeper/{req.id}/images?file={encodeURIComponent(img)}" alt={img} loading="lazy" />
+                      <button class="image-delete" onclick={() => deleteImage(req.id, img)}>
+                        <Icon name="close" size={10} />
+                      </button>
+                    </div>
+                  {/each}
+                </div>
+              {:else}
+                <p class="no-attachments">No images attached</p>
+              {/if}
+            </div>
+
             <!-- Log viewer -->
             {#if logContent[req.id]}
               <div class="detail-section">
                 <div class="detail-header">
                   <span class="detail-label">Agent Log</span>
                   <div class="detail-actions">
+                    <Button size="xs" onclick={() => openLogModal(req.id)}>
+                      <Icon name="maximize" size={12} /> Expand
+                    </Button>
                     <Button size="xs" onclick={() => copyResult(req.id, logContent[req.id] || '')}>
                       {copiedResult === req.id ? 'Copied!' : 'Copy Log'}
                     </Button>
                   </div>
                 </div>
-                {#if isLogTruncated(logContent[req.id])}
-                  <p class="log-truncated">Showing last {MAX_LOG_LINES} lines of output</p>
-                {/if}
-                <div class="log-viewer">{@html ansiToHtml(getDisplayContent(logContent[req.id]))}</div>
+                <AgentLogViewer content={logContent[req.id]} />
               </div>
             {/if}
 
@@ -788,8 +814,38 @@
                     if (e.key === 'Enter') sendMessage(req.id);
                   }}
                 />
-                <Button size="sm" variant="primary" onclick={() => sendMessage(req.id)}>Send</Button>
+                <Button size="sm" variant="primary" onclick={() => sendMessage(req.id)}>
+                  <Icon name="send" size={12} /> Send
+                </Button>
               </div>
+            {:else if req.status === 'halted' || (req.status === 'done' && logContent[req.id])}
+              <!-- Follow-up input for halted/done agents -->
+              <div class="chat-input-row">
+                <input
+                  type="text"
+                  class="chat-input"
+                  placeholder="Follow-up instructions for the agent..."
+                  bind:value={followUpMessage}
+                  onkeydown={(e) => {
+                    if (e.key === 'Enter' && followUpMessage.trim()) {
+                      resumeAgentAction(req.id, followUpMessage);
+                      followUpMessage = '';
+                    }
+                  }}
+                />
+                <Button
+                  size="sm"
+                  variant="accent"
+                  onclick={() => {
+                    resumeAgentAction(req.id, followUpMessage);
+                    followUpMessage = '';
+                  }}
+                  disabled={!followUpMessage.trim()}
+                >
+                  <Icon name="play" size={12} /> Resume
+                </Button>
+              </div>
+              <p class="followup-hint">Send follow-up instructions and resume the agent with previous context</p>
             {/if}
 
             <div class="detail-section">
@@ -821,6 +877,35 @@
         {/if}
       </div>
     {/each}
+  </div>
+{/if}
+
+<!-- Expanded log modal -->
+{#if modalLogId}
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="log-modal-overlay" onclick={closeLogModal}>
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="log-modal" onclick={(e) => e.stopPropagation()}>
+      <div class="log-modal-header">
+        <h3>
+          Agent Log
+          {#if requests.find((r) => r.id === modalLogId)}
+            — {requests.find((r) => r.id === modalLogId)?.title}
+          {/if}
+        </h3>
+        <div class="log-modal-actions">
+          <Button size="sm" onclick={() => copyResult(modalLogId!, modalLogContent)}>
+            {copiedResult === modalLogId ? 'Copied!' : 'Copy'}
+          </Button>
+          <Button size="sm" onclick={closeLogModal}><Icon name="close" size={16} /></Button>
+        </div>
+      </div>
+      <div class="log-modal-body">
+        <AgentLogViewer content={modalLogContent} maxLines={5000} />
+      </div>
+    </div>
   </div>
 {/if}
 
@@ -857,20 +942,6 @@
     outline-offset: -2px;
   }
 
-  .header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 16px;
-  }
-  h2 {
-    font-size: 1.3rem;
-  }
-  .controls {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-  }
   .toggle-completed {
     display: flex;
     align-items: center;
@@ -903,47 +974,7 @@
     gap: 6px;
     margin-bottom: 14px;
   }
-  .stat-chip {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 5px 12px;
-    font-size: 0.75rem;
-    border-radius: 16px;
-    border: 1px solid var(--border);
-    background: var(--bg-secondary);
-    color: var(--text-muted);
-    cursor: pointer;
-    font-family: inherit;
-    transition: all 0.15s;
-  }
-  .stat-chip:hover {
-    border-color: var(--chip-color);
-  }
-  .stat-chip.active {
-    border-color: var(--chip-color);
-    background: color-mix(in srgb, var(--chip-color) 10%, transparent);
-    color: var(--chip-color);
-  }
-  .stat-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-  }
-  .stat-dot.running-dot {
-    animation: pulse-glow 1.5s ease-in-out infinite;
-  }
-  .stat-count {
-    font-weight: 600;
-    font-family: 'JetBrains Mono', monospace;
-  }
 
-  /* Filter bar */
-  .filter-bar {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 14px;
-  }
   .scope-filter {
     padding: 7px 12px;
     font-size: 0.8rem;
@@ -1115,6 +1146,9 @@
     white-space: nowrap;
   }
   .scope-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
     font-size: 0.6rem;
     padding: 2px 8px;
     border-radius: 10px;
@@ -1196,30 +1230,6 @@
     gap: 4px;
   }
 
-  .log-truncated {
-    font-size: 0.65rem;
-    color: var(--text-faint);
-    text-align: right;
-    margin: 0 0 4px;
-    font-style: italic;
-  }
-
-  /* Log viewer */
-  .log-viewer {
-    max-height: 400px;
-    overflow-y: auto;
-    padding: 12px;
-    font-size: 0.75rem;
-    font-family: 'JetBrains Mono', monospace;
-    line-height: 1.5;
-    border-radius: 6px;
-    border: 1px solid var(--border);
-    background: var(--code-bg);
-    color: var(--text-primary);
-    white-space: pre-wrap;
-    word-break: break-all;
-  }
-
   /* Chat input */
   .chat-input-row {
     display: flex;
@@ -1239,6 +1249,74 @@
   .chat-input:focus {
     outline: none;
     border-color: var(--accent);
+  }
+  /* Image attachments */
+  .upload-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.68rem;
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: var(--btn-bg);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .upload-btn:hover {
+    border-color: var(--accent);
+  }
+  .image-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .image-thumb {
+    position: relative;
+    width: 80px;
+    height: 80px;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  .image-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .image-delete {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.6);
+    border: none;
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+  .image-thumb:hover .image-delete {
+    opacity: 1;
+  }
+  .no-attachments {
+    font-size: 0.7rem;
+    color: var(--text-faint);
+    font-style: italic;
+    margin: 0;
+  }
+
+  .followup-hint {
+    font-size: 0.65rem;
+    color: var(--text-faint);
+    margin: -4px 0 0;
+    font-style: italic;
   }
 
   .result-editor {
@@ -1385,6 +1463,66 @@
   .how-it-works-btn:hover {
     border-color: var(--accent);
     color: var(--text-secondary);
+  }
+
+  /* Log modal */
+  .log-modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    backdrop-filter: blur(4px);
+  }
+  .log-modal {
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    width: 100%;
+    max-width: 900px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  }
+  .log-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-secondary);
+  }
+  .log-modal-header h3 {
+    font-size: 0.9rem;
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .log-modal-actions {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+  .log-modal-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0;
+  }
+  .log-modal-body :global(.alv-root) {
+    border: none;
+    border-radius: 0;
+  }
+  .log-modal-body :global(.alv-events) {
+    max-height: none;
+  }
+  .log-modal-body :global(.alv-raw) {
+    max-height: none;
   }
 
   @media (max-width: 640px) {

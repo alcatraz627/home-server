@@ -1,5 +1,6 @@
 import dgram from 'node:dgram';
 import os from 'node:os';
+import { LIGHTS_DISCOVERY_TIMEOUT_MS } from '$lib/constants/defaults';
 import { createLogger } from './logger';
 
 const log = createLogger('wiz');
@@ -20,7 +21,7 @@ export interface WizBulb {
 }
 
 const WIZ_PORT = 38899;
-const DISCOVERY_TIMEOUT = 3000;
+const DISCOVERY_TIMEOUT = LIGHTS_DISCOVERY_TIMEOUT_MS;
 
 /** Discover all Wiz bulbs on the local network */
 export async function discoverBulbs(): Promise<WizBulb[]> {

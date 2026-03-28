@@ -1,14 +1,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import os from 'node:os';
+import { LOG_MAX_FILE_SIZE, LOG_MAX_FILES, LOG_RETENTION_DAYS } from '$lib/constants/defaults';
+import { PATHS } from '$lib/server/paths';
 
-const DATA_DIR = path.join(os.homedir(), '.home-server');
-const LOG_DIR = path.join(DATA_DIR, 'logs');
+const LOG_DIR = PATHS.logs;
 
 // ── Config ────────────────────────────────────────────────────────────────────
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB per log file
-const MAX_FILES = 10; // Keep 10 rotated files
-const RETENTION_DAYS = 30; // Delete logs older than 30 days
+const MAX_FILE_SIZE = LOG_MAX_FILE_SIZE; // 5MB per log file
+const MAX_FILES = LOG_MAX_FILES; // Keep 10 rotated files
+const RETENTION_DAYS = LOG_RETENTION_DAYS; // Delete logs older than 30 days
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
@@ -151,47 +151,62 @@ export interface LogQueryOptions {
   module?: string;
   since?: string; // ISO timestamp
   limit?: number;
+  offset?: number;
   search?: string; // text search in message
 }
 
-export function queryLogs(opts: LogQueryOptions = {}): LogEntry[] {
-  const { logName = 'app', level, module, since, limit = 200, search } = opts;
+export function queryLogs(opts: LogQueryOptions = {}): { entries: LogEntry[]; total: number } {
+  const { logName = 'app', level, module, since, limit = 200, offset = 0, search } = opts;
   const logPath = getLogPath(logName);
 
-  if (!fs.existsSync(logPath)) return [];
+  if (!fs.existsSync(logPath)) return { entries: [], total: 0 };
 
   try {
     const content = fs.readFileSync(logPath, 'utf-8');
     const lines = content.trim().split('\n').filter(Boolean);
+    const hasFilters = !!(level || module || since || search);
+    const searchLower = search?.toLowerCase();
 
-    let entries: LogEntry[] = [];
-    for (const line of lines) {
+    // When no filters, read from end (most recent) and stop early
+    if (!hasFilters) {
+      const result: LogEntry[] = [];
+      const needed = offset + limit;
+      for (let i = lines.length - 1; i >= 0 && result.length < needed; i--) {
+        try {
+          result.push(JSON.parse(lines[i]));
+        } catch {
+          // Skip malformed lines
+        }
+      }
+      return { entries: result.slice(offset, offset + limit), total: lines.length };
+    }
+
+    // With filters, scan all lines but in reverse to get most recent first
+    const matched: LogEntry[] = [];
+    let totalMatched = 0;
+    for (let i = lines.length - 1; i >= 0; i--) {
+      let entry: LogEntry;
       try {
-        entries.push(JSON.parse(line));
+        entry = JSON.parse(lines[i]);
       } catch {
-        // Skip malformed lines
+        continue;
+      }
+      if (level && entry.level !== level) continue;
+      if (module && entry.module !== module) continue;
+      if (since && entry.timestamp < since) continue;
+      if (searchLower) {
+        const msgMatch = entry.message.toLowerCase().includes(searchLower);
+        const dataMatch = entry.data ? JSON.stringify(entry.data).toLowerCase().includes(searchLower) : false;
+        if (!msgMatch && !dataMatch) continue;
+      }
+      totalMatched++;
+      if (totalMatched > offset && matched.length < limit) {
+        matched.push(entry);
       }
     }
-
-    // Filters
-    if (level) entries = entries.filter((e) => e.level === level);
-    if (module) entries = entries.filter((e) => e.module === module);
-    if (since) entries = entries.filter((e) => e.timestamp >= since);
-    if (search) {
-      const q = search.toLowerCase();
-      entries = entries.filter(
-        (e) =>
-          e.message.toLowerCase().includes(q) ||
-          JSON.stringify(e.data || '')
-            .toLowerCase()
-            .includes(q),
-      );
-    }
-
-    // Return most recent first, limited
-    return entries.reverse().slice(0, limit);
+    return { entries: matched, total: totalMatched };
   } catch {
-    return [];
+    return { entries: [], total: 0 };
   }
 }
 
@@ -218,17 +233,41 @@ export function getLogStats(): {
   const files = getLogFiles();
   const totalSize = files.reduce((s, f) => s + f.size, 0);
 
-  // Quick count from main log
-  const entries = queryLogs({ limit: 10000 });
-  const errorCount = entries.filter((e) => e.level === 'error').length;
-  const warnCount = entries.filter((e) => e.level === 'warn').length;
+  // Scan the main log file line-by-line without full JSON parsing
+  // Just extract level and timestamp with fast string matching
+  const logPath = getLogPath('app');
+  let errorCount = 0;
+  let warnCount = 0;
+  let oldestEntry: string | null = null;
+  let newestEntry: string | null = null;
 
-  return {
-    totalFiles: files.length,
-    totalSize,
-    oldestEntry: entries.length > 0 ? entries[entries.length - 1].timestamp : null,
-    newestEntry: entries.length > 0 ? entries[0].timestamp : null,
-    errorCount,
-    warnCount,
-  };
+  if (fs.existsSync(logPath)) {
+    try {
+      const content = fs.readFileSync(logPath, 'utf-8');
+      const lines = content.trim().split('\n');
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (!line) continue;
+        // Fast string search avoids JSON.parse per line
+        if (line.includes('"level":"error"')) errorCount++;
+        else if (line.includes('"level":"warn"')) warnCount++;
+
+        // First and last lines for timestamps
+        if (i === 0 || i === lines.length - 1) {
+          try {
+            const entry = JSON.parse(line);
+            if (i === 0) oldestEntry = entry.timestamp;
+            if (i === lines.length - 1) newestEntry = entry.timestamp;
+          } catch {
+            // skip
+          }
+        }
+      }
+    } catch {
+      // stats failure is non-critical
+    }
+  }
+
+  return { totalFiles: files.length, totalSize, oldestEntry, newestEntry, errorCount, warnCount };
 }

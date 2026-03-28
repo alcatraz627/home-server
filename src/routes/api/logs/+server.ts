@@ -3,10 +3,11 @@ import { errorMessage, errorCode } from '$lib/server/errors';
 import { queryLogs, getLogFiles, getLogStats, type LogLevel } from '$lib/server/logger';
 import fs from 'node:fs';
 import path from 'node:path';
-import os from 'node:os';
 import type { RequestHandler } from './$types';
+import { PATHS } from '$lib/server/paths';
+import { LOG_QUERY_DEFAULT_LIMIT, LOG_QUERY_MAX_LIMIT, LOG_PREVIEW_MAX_LINES } from '$lib/constants/limits';
 
-const LOG_DIR = path.join(os.homedir(), '.home-server', 'logs');
+const LOG_DIR = PATHS.logs;
 
 /** GET /api/logs — query logs with filters */
 export const GET: RequestHandler = async ({ url }) => {
@@ -28,7 +29,11 @@ export const GET: RequestHandler = async ({ url }) => {
       const content = fs.readFileSync(filePath, 'utf-8');
       const lines = content.trim().split('\n');
       // Return last 500 lines (most recent)
-      return json({ content: lines.slice(-500).join('\n'), totalLines: lines.length, filename: safeName });
+      return json({
+        content: lines.slice(-LOG_PREVIEW_MAX_LINES).join('\n'),
+        totalLines: lines.length,
+        filename: safeName,
+      });
     } catch (e: unknown) {
       return json({ error: errorMessage(e) }, { status: 500 });
     }
@@ -61,8 +66,8 @@ export const GET: RequestHandler = async ({ url }) => {
 
   // Diagnose — return recent errors and warnings for agent analysis
   if (action === 'diagnose') {
-    const errors = queryLogs({ level: 'error', limit: 50 });
-    const warnings = queryLogs({ level: 'warn', limit: 50 });
+    const { entries: errors } = queryLogs({ level: 'error', limit: 50 });
+    const { entries: warnings } = queryLogs({ level: 'warn', limit: 50 });
     const stats = getLogStats();
     return json({
       stats,
@@ -77,19 +82,21 @@ export const GET: RequestHandler = async ({ url }) => {
   const module = url.searchParams.get('module');
   const since = url.searchParams.get('since');
   const search = url.searchParams.get('search');
-  const limit = parseInt(url.searchParams.get('limit') || '200');
+  const limit = parseInt(url.searchParams.get('limit') || String(LOG_QUERY_DEFAULT_LIMIT));
+  const offset = parseInt(url.searchParams.get('offset') || '0');
   const logName = url.searchParams.get('log') || 'app';
 
-  const entries = queryLogs({
+  const { entries, total } = queryLogs({
     logName,
     level: level || undefined,
     module: module || undefined,
     since: since || undefined,
     search: search || undefined,
-    limit: Math.min(limit, 1000),
+    limit: Math.min(limit, LOG_QUERY_MAX_LIMIT),
+    offset: Math.max(offset, 0),
   });
 
-  return json({ entries, count: entries.length });
+  return json({ entries, count: entries.length, total, offset, hasMore: offset + entries.length < total });
 };
 
 /** POST /api/logs — receive client-side error reports */

@@ -59,7 +59,7 @@ function getNetworkThroughput(): { bytesIn: number; bytesOut: number } {
         return { bytesIn: parseInt(parts[0], 10) || 0, bytesOut: parseInt(parts[1], 10) || 0 };
       }
     } else {
-      const out = execSync("cat /proc/net/dev | awk '/eth0|ens|wlan0/ {print $2, $10}' | head -1", {
+      const out = execSync(`cat /proc/net/dev | awk '/${iface}/ {print $2, $10}' | head -1`, {
         encoding: 'utf-8',
         timeout: 3000,
         shell: '/bin/sh',

@@ -14,3 +14,13 @@ export async function fetchApi(path: string, init?: RequestInit): Promise<Respon
   const base = getApiBase(target, devices);
   return fetch(`${base}${path}`, init);
 }
+
+/** POST JSON shorthand — sets method, content-type, and stringifies the body. */
+export async function postJson(path: string, data: unknown, init?: RequestInit): Promise<Response> {
+  return fetchApi(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+    ...init,
+  });
+}

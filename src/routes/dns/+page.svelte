@@ -1,8 +1,12 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
+  import { useShortcuts, SHORTCUT_DEFAULTS } from '$lib/shortcuts';
   import { toast } from '$lib/toast';
   import EmptyState from '$lib/components/EmptyState.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
-  import { fetchApi } from '$lib/api';
+  import Button from '$lib/components/Button.svelte';
+  import { postJson } from '$lib/api';
+  import { SK_DNS_HISTORY } from '$lib/constants/storage-keys';
 
   interface DnsResult {
     provider: string;
@@ -17,6 +21,7 @@
     results: DnsResult[];
   }
 
+  let domainInputEl = $state<HTMLInputElement | undefined>();
   let domain = $state('example.com');
   let recordType = $state('A');
   let loading = $state(false);
@@ -29,7 +34,7 @@
 
   function loadHistory() {
     try {
-      const raw = localStorage.getItem('dns-history');
+      const raw = localStorage.getItem(SK_DNS_HISTORY);
       if (raw) history = JSON.parse(raw);
     } catch {
       // ignore
@@ -38,7 +43,7 @@
 
   function saveHistory() {
     try {
-      localStorage.setItem('dns-history', JSON.stringify(history.slice(0, 20)));
+      localStorage.setItem(SK_DNS_HISTORY, JSON.stringify(history.slice(0, 20)));
     } catch {
       // ignore
     }
@@ -56,11 +61,7 @@
     loading = true;
     result = null;
     try {
-      const res = await fetchApi('/api/dns', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ domain: domain.trim(), type: recordType }),
-      });
+      const res = await postJson('/api/dns', { domain: domain.trim(), type: recordType });
       if (!res.ok) throw new Error();
       result = await res.json();
 
@@ -82,16 +83,26 @@
     recordType = t;
     lookup();
   }
+
+  onMount(() => {
+    return useShortcuts([
+      { ...SHORTCUT_DEFAULTS.find((d) => d.id === 'dns:focus-input')!, handler: () => domainInputEl?.focus() },
+    ]);
+  });
 </script>
 
 <div class="page">
-  <h2 class="page-title">DNS Lookup</h2>
-  <p class="page-desc">Query DNS records for any domain. Supports A, AAAA, MX, CNAME, TXT, NS, and more.</p>
+  <PageHeader
+    title="DNS Lookup"
+    icon="dns"
+    description="Query DNS records for any domain. Supports A, AAAA, MX, CNAME, TXT, NS, and more."
+  />
 
   <div class="card query-card">
     <div class="query-row">
       <input
         type="text"
+        bind:this={domainInputEl}
         bind:value={domain}
         placeholder="Enter domain name..."
         onkeydown={(e) => e.key === 'Enter' && lookup()}
@@ -101,9 +112,9 @@
           <option value={rt}>{rt}</option>
         {/each}
       </select>
-      <button class="btn-primary" onclick={lookup} disabled={loading}>
+      <Button variant="primary" icon="search" onclick={lookup} disabled={loading} {loading}>
         {loading ? 'Looking up...' : 'Lookup'}
-      </button>
+      </Button>
     </div>
   </div>
 
@@ -149,15 +160,6 @@
 </div>
 
 <style>
-  .page {
-    padding: 1.5rem;
-    max-width: 900px;
-    margin: 0 auto;
-  }
-  h1 {
-    margin-bottom: 1.5rem;
-    color: var(--text-primary);
-  }
   .query-card {
     padding: 1.25rem;
     margin-bottom: 1.5rem;
@@ -188,21 +190,6 @@
     color: var(--text-primary);
     font-size: 0.9rem;
     min-width: 80px;
-  }
-  .btn-primary {
-    padding: 0.5rem 1.25rem;
-    background: var(--accent);
-    color: #fff;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    font-weight: 600;
-    font-size: 0.9rem;
-    white-space: nowrap;
-  }
-  .btn-primary:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
   }
   .results {
     margin-bottom: 2rem;

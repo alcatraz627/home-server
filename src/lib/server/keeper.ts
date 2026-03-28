@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import os from 'node:os';
+import { CONFIG_DIR, PATHS } from '$lib/server/paths';
 import { createLogger } from './logger';
 
 const log = createLogger('keeper');
@@ -28,9 +28,9 @@ export interface FeatureRequest {
 
 // --- Storage ---
 
-export const CONFIG_DIR = path.join(os.homedir(), '.home-server');
+export { CONFIG_DIR };
 const REQUESTS_FILE = path.join(CONFIG_DIR, 'keeper-requests.json');
-export const LOGS_DIR = path.join(CONFIG_DIR, 'keeper-logs');
+export const LOGS_DIR = PATHS.keeperLogs;
 
 async function ensureDir() {
   await fs.mkdir(CONFIG_DIR, { recursive: true });
@@ -130,6 +130,43 @@ export async function reorderRequests(ids: string[]): Promise<void> {
   });
   requests.sort((a, b) => a.priority - b.priority);
   await saveRequests(requests);
+}
+
+// --- Images ---
+
+export const IMAGES_DIR = path.join(CONFIG_DIR, 'keeper-images');
+
+export async function getImageDir(requestId: string): Promise<string> {
+  const dir = path.join(IMAGES_DIR, requestId);
+  await fs.mkdir(dir, { recursive: true });
+  return dir;
+}
+
+export async function listImages(requestId: string): Promise<string[]> {
+  const dir = path.join(IMAGES_DIR, requestId);
+  if (!existsSync(dir)) return [];
+  const files = await fs.readdir(dir);
+  return files.filter((f) => /\.(png|jpe?g|gif|webp|svg|bmp)$/i.test(f)).sort();
+}
+
+export async function saveImage(requestId: string, filename: string, data: Buffer): Promise<string> {
+  const dir = await getImageDir(requestId);
+  // Sanitize filename
+  const safe = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const ts = Date.now();
+  const finalName = `${ts}-${safe}`;
+  const filePath = path.join(dir, finalName);
+  await fs.writeFile(filePath, data);
+  log.info('Image saved', { requestId, filename: finalName });
+  return finalName;
+}
+
+export async function deleteImage(requestId: string, filename: string): Promise<boolean> {
+  const filePath = path.join(IMAGES_DIR, requestId, filename);
+  if (!existsSync(filePath)) return false;
+  await fs.unlink(filePath);
+  log.info('Image deleted', { requestId, filename });
+  return true;
 }
 
 // --- Stats ---

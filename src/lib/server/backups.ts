@@ -2,9 +2,10 @@ import { execSync, spawn } from 'node:child_process';
 import { errorMessage, errorCode } from '$lib/server/errors';
 import fs from 'node:fs/promises';
 import { existsSync, readFileSync } from 'node:fs';
-import path from 'node:path';
-import os from 'node:os';
+import { CONFIG_DIR, PATHS } from '$lib/server/paths';
+import { BACKUP_HISTORY_LIMIT } from '$lib/constants/defaults';
 import { createLogger } from './logger';
+import { isCommandAvailable } from './security';
 
 const log = createLogger('backups');
 
@@ -37,9 +38,8 @@ export interface BackupStatus {
   nextRun: string | null;
 }
 
-const CONFIG_DIR = path.join(os.homedir(), '.home-server');
-const CONFIG_FILE = path.join(CONFIG_DIR, 'backups.json');
-const HISTORY_FILE = path.join(CONFIG_DIR, 'backup-history.json');
+const CONFIG_FILE = PATHS.backups;
+const HISTORY_FILE = PATHS.backupHistory;
 
 // In-memory tracking for running backups
 const runningBackups = new Map<string, { process: any; run: BackupRun }>();
@@ -97,8 +97,8 @@ async function appendHistory(run: BackupRun): Promise<void> {
   const idx = history.findIndex((r) => r.id === run.id);
   if (idx >= 0) history[idx] = run;
   else history.push(run);
-  // Keep last 100 runs
-  const trimmed = history.slice(-100);
+  // Keep last N runs
+  const trimmed = history.slice(-BACKUP_HISTORY_LIMIT);
   await fs.writeFile(HISTORY_FILE, JSON.stringify(trimmed, null, 2));
 }
 
@@ -253,10 +253,5 @@ export async function dryRunBackup(configId: string): Promise<{ files: string[];
 
 /** Check if rsync is available */
 export function isRsyncAvailable(): boolean {
-  try {
-    execSync('which rsync', { encoding: 'utf-8', timeout: 3000 });
-    return true;
-  } catch {
-    return false;
-  }
+  return isCommandAvailable('rsync');
 }

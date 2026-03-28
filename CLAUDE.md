@@ -1,45 +1,91 @@
 # Home Server — Agent Instructions
 
-## Build Version Tag
+> SvelteKit 2 + Svelte 5 (Runes) fullstack dashboard for personal device/server management.
+> Version: `4.22.1-swift-elm-9` | Node 20 | adapter-node | No CSS framework | No database
 
-After making any change, update `APP.version` in `src/lib/constants/app.ts`.
+## Tech Stack
 
-**Format:** `major.minor.patch-word-word-number`
+**Frontend**: Svelte 5 (Runes), SvelteKit 2, lucide-svelte icons, xterm.js terminal, epubjs reader
+**Backend**: SvelteKit server routes, node-pty, node-cron, ws (WebSocket), mammoth (docx), xlsx
+**Infra**: Docker (compose), Tailscale VPN, ntfy.sh push notifications, JSON file storage in `~/.home-server/`
 
-**Versioning rules:**
-- **major**: Breaking changes, large rewrites, architectural shifts
-- **minor**: New features, new widgets, new pages, new API endpoints
-- **patch**: Bug fixes, tweaks, small UI improvements, config changes
-- **phrase**: Random `word-word-number` tag (e.g., `crisp-sage-42`, `bold-fern-7`) — pick a new random one each time
+## Directory Structure
 
-**When to update:**
-- After every set of changes, before finishing your response
-- Determine which semantic number to bump based on the scope of changes
-- Reset patch to 0 when bumping minor; reset minor and patch to 0 when bumping major
+```
+src/
+  app.css                  # Global styles, CSS custom properties, 25 themes
+  hooks.server.ts          # Server hooks (security, CSRF)
+  service-worker.ts        # PWA service worker
+  lib/
+    api.ts                 # fetchApi() wrapper for multi-device support
+    components/            # 34 shared components (PageHeader, AsyncState, FilterBar, etc.)
+    server/                # 27 domain modules (1 per feature — backups, terminal, keeper, etc.)
+    constants/             # App version (APP.version in app.ts), config
+    types/                 # Shared TypeScript types
+    utils/                 # Client utilities
+    renderers/             # File preview renderers
+  routes/
+    api/                   # API routes — thin wrappers around server modules
+    <page>/                # 37+ pages (files, docker, lights, tasks, keeper, etc.)
+      +page.svelte         # Page component (Svelte 5 runes)
+      +page.server.ts      # SSR data load
+      +server.ts           # API endpoint for client mutations
+docs/
+  pages/<name>.md          # Per-page specs (35 files) — READ before modifying a page
+  architecture.md          # Server module pattern, data flow
+  linux-support.md         # Cross-platform compatibility matrix
+```
 
-**Output requirement:**
-- Print the new version string at the end of your response so the user can verify the browser matches
+## Mandatory Rules
 
-**Do not update** if no files were modified.
+1. **Version bump**: After every change set, update `APP.version` in `src/lib/constants/app.ts`. Format: `major.minor.patch-word-word-number`. Print the new version at end of response.
+2. **Cross-platform**: Both macOS + Linux paths (`os.platform()` checks). Wrap shell commands in try/catch. Read `docs/linux-support.md` first.
+3. **Formatting**: Run `npx prettier --write` on changed `.ts`, `.svelte`, `.css` files. 2-space indent, single quotes, trailing commas, 120 char width.
 
-## Cross-Platform Support (macOS + Linux)
+## Component Patterns
 
-This project must work on both macOS and Linux (including Raspberry Pi / ARM).
+Use shared components from `src/lib/components/` -- do not reinvent:
 
-**Before adding or modifying any feature that uses system commands:**
+- **PageHeader**: Title + description + icon + action buttons. Use `{#snippet titleExtra()}` for badges, `{#snippet children()}` for actions.
+- **AsyncState**: Replaces manual loading/error/empty tristate chains. Props: `loading`, `error`, `empty`. Inner `{#if data}` still needed for TypeScript narrowing.
+- **FilterBar**: Single-row flex wrapper for filters/search. `search` prop for simple cases; use SearchInput as child when you need `bind:inputEl` or `debounce`.
+- **Button**: Has `confirm`/`confirmText` props for inline confirmation. Use **ConfirmDialog** for modal confirmation with custom copy.
+- **InfoRow**: Flex label-value pairs. `code` prop for monospace values. Not for CSS Grid layouts (breaks column alignment).
+- **StatCard**, **DataChip**, **InteractiveChip**, **Tabs**, **ProgressBar**: Check `docs/audit-components.md` for usage.
 
-1. Read `docs/linux-support.md` — it has the full inventory of platform-specific code, Linux equivalents, and required patterns.
-2. Implement both macOS and Linux code paths using `os.platform()` checks.
-3. Wrap system commands in try/catch — return empty/null on failure, never crash.
-4. Use the shared patterns documented there (platform-gated execution, dynamic interface detection, graceful degradation).
-5. After changes, update the compatibility matrix and tech debt backlog in `docs/linux-support.md`.
+## API / Backend Patterns
 
-**Never** add a macOS-only system command without a Linux fallback or an explicit `// TODO: Linux support` with an entry in the tech debt backlog.
+- **Server modules** (`src/lib/server/`): One file per domain. API routes are thin wrappers. No cross-imports between modules.
+- **Data storage**: JSON files in `~/.home-server/`. File metadata as `.meta.json` sidecars. No database.
+- **fetchApi()**: Use `$lib/api.ts` wrapper instead of raw `fetch('/api/...')` for multi-device support.
+- **Logging**: `createLogger('module-name')` from `$lib/server/logger.ts`. Structured JSONL logs.
+- **SSE streaming**: Long operations (port scan) use `ReadableStream` + `text/event-stream`. Client reads with `getReader()`, not `EventSource` (no POST support).
+- **Cron scheduling**: `node-cron` via `$lib/server/scheduler.ts`. Min 1-minute granularity.
 
-## Code Formatting
+## Testing
 
-After editing any `.ts`, `.svelte`, or `.css` files, run `npx prettier --write` on the changed files before committing. The project uses Prettier with `prettier-plugin-svelte`.
+No test framework configured. 25 test files exist but are not wired to a runner. Validate manually against the running server (`npm run dev`). Use `npm run check` for TypeScript/Svelte type checking.
 
-**Key settings:** 2-space indent (no tabs), single quotes, trailing commas, 120 char print width.
+## Key Gotchas (from 1000+ sessions)
 
-A pre-commit hook automatically formats staged files, but always verify formatting is clean before committing.
+1. **`os.freemem()` lies on macOS** -- reports near-zero due to aggressive caching. Use `vm_stat` to get actual available memory (Free + Inactive + Purgeable + Speculative pages).
+2. **`+layout.server.ts` blocks ALL navigation** -- heavy computations in layout loads block every page transition. Use module-level cache with TTL for expensive operations.
+3. **Svelte 5 runes require `.svelte.ts`** -- `$state()` in plain `.ts` files crashes SSR. Always use `.svelte.ts` extension for files containing runes.
+4. **`crypto.randomUUID()` fails on HTTP** -- Tailscale serves over HTTP, not HTTPS. Always provide fallbacks for secure-context APIs.
+5. **`sanitizeShellArg` must not strip `/`** -- it is a path separator, not a shell injection vector.
+6. **Icon additions need both import AND map entry** -- `Icon.svelte` uses `ICON_MAP` lookup. Import from lucide-svelte and add lowercase key. Missing entries silently render HelpCircle.
+7. **Grid layouts break with InfoRow** -- pages using `grid-template-columns` for label-value alignment cannot adopt flex-based InfoRow.
+8. **`async onMount` loses cleanup** -- Svelte ignores the return value of async onMount. Store cleanup in a variable and call it in `onDestroy` manually.
+9. **Audit docs go stale** -- always verify audit findings against current code before applying. Prior sessions may have already fixed items.
+10. **Parallel agents conflict on shared files** -- `+layout.svelte`, `app.css`, `nav.ts` are shared. Only modify these from the main context.
+
+## Doc Index (read on demand)
+
+| Category | Docs |
+|----------|------|
+| Architecture | `docs/architecture.md`, `docs/api-reference.md`, `docs/security.md`, `docs/deployment.md` |
+| UI/Components | `docs/audit-components.md`, `docs/audit-icons.md`, `docs/audit-tooltips.md`, `docs/widgets.md` |
+| Per-page specs | `docs/pages/<name>.md` (35 files) |
+| Roadmap | `docs/roadmap.md`, `docs/code-cleanup-plan.md`, `docs/page-merge-audit.md` |
+| Research | `docs/research-android-readiness.md`, `docs/decentralization.md`, `docs/auth-implementation.md` |
+| Runtime notes | `.claude/skills/runtime-notes.md` -- append-only log of session insights (1000+ entries) |

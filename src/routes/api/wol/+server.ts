@@ -2,13 +2,11 @@ import crypto from 'node:crypto';
 import { errorMessage, errorCode } from '$lib/server/errors';
 import { json } from '@sveltejs/kit';
 import fs from 'node:fs';
-import path from 'node:path';
-import os from 'node:os';
 import { sendMagicPacket, pingHost } from '$lib/server/wol';
 import type { RequestHandler } from './$types';
+import { CONFIG_DIR, PATHS } from '$lib/server/paths';
 
-const DATA_DIR = path.join(os.homedir(), '.home-server');
-const FILE = path.join(DATA_DIR, 'wol-devices.json');
+const FILE = PATHS.wolDevices;
 
 interface WolDevice {
   id: string;
@@ -18,7 +16,7 @@ interface WolDevice {
 }
 
 function ensureDir() {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+  if (!fs.existsSync(CONFIG_DIR)) fs.mkdirSync(CONFIG_DIR, { recursive: true });
 }
 
 function readDevices(): WolDevice[] {

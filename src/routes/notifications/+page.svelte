@@ -2,7 +2,7 @@
   import type { PageData } from './$types';
   import type { AppNotification, NotificationType, NotificationSource } from '$lib/server/notifications';
   import { toast } from '$lib/toast';
-  import { fetchApi } from '$lib/api';
+  import { fetchApi, postJson } from '$lib/api';
   import Button from '$lib/components/Button.svelte';
   import Badge from '$lib/components/Badge.svelte';
   import Icon from '$lib/components/Icon.svelte';
@@ -65,11 +65,7 @@
 
   async function markRead(id: string) {
     try {
-      await fetchApi('/api/notifications', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'markRead', id }),
-      });
+      await postJson('/api/notifications', { action: 'markRead', id });
       const n = notifications.find((n) => n.id === id);
       if (n) {
         n.read = true;
@@ -83,11 +79,7 @@
 
   async function markAllRead() {
     try {
-      await fetchApi('/api/notifications', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'markAllRead' }),
-      });
+      await postJson('/api/notifications', { action: 'markAllRead' });
       notifications = notifications.map((n) => ({ ...n, read: true }));
       unreadCount = 0;
       toast.success('All marked as read');
@@ -98,11 +90,7 @@
 
   async function clearAll() {
     try {
-      await fetchApi('/api/notifications', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'clearAll' }),
-      });
+      await postJson('/api/notifications', { action: 'clearAll' });
       notifications = [];
       unreadCount = 0;
       toast.success('All notifications cleared');
@@ -213,14 +201,6 @@
 </div>
 
 <style>
-  .page {
-    max-width: 900px;
-    margin: 0 auto;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-  }
-
   .page-header {
     display: flex;
     align-items: center;

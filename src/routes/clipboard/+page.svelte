@@ -2,8 +2,11 @@
   import { toast } from '$lib/toast';
   import EmptyState from '$lib/components/EmptyState.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
-  import { fetchApi } from '$lib/api';
+  import Button from '$lib/components/Button.svelte';
+  import { fetchApi, postJson } from '$lib/api';
   import Icon from '$lib/components/Icon.svelte';
+  import { createAutoRefresh } from '$lib/auto-refresh.svelte';
+  import { SK_CLIPBOARD_DEVICE_ID, SK_CLIPBOARD_DEVICE_NAME } from '$lib/constants/storage-keys';
 
   interface ClipEntry {
     id: string;
@@ -17,25 +20,23 @@
   let newContent = $state('');
   let deviceId = $state('');
   let deviceName = $state('');
-  let autoRefresh = $state(true);
-  let refreshTimer: ReturnType<typeof setInterval> | null = null;
   let editingName = $state(false);
 
   function initDevice() {
-    let id = localStorage.getItem('clipboard-device-id');
+    let id = localStorage.getItem(SK_CLIPBOARD_DEVICE_ID);
     if (!id) {
       id =
         typeof crypto !== 'undefined' && crypto.randomUUID
           ? crypto.randomUUID()
           : Math.random().toString(36).slice(2) + Date.now().toString(36);
-      localStorage.setItem('clipboard-device-id', id);
+      localStorage.setItem(SK_CLIPBOARD_DEVICE_ID, id);
     }
     deviceId = id;
 
-    let name = localStorage.getItem('clipboard-device-name');
+    let name = localStorage.getItem(SK_CLIPBOARD_DEVICE_NAME);
     if (!name) {
       name = `Device ${id.slice(0, 4)}`;
-      localStorage.setItem('clipboard-device-name', name);
+      localStorage.setItem(SK_CLIPBOARD_DEVICE_NAME, name);
     }
     deviceName = name;
   }
@@ -49,39 +50,17 @@
     }
   }
 
-  function startAutoRefresh() {
-    stopAutoRefresh();
-    if (autoRefresh) {
-      refreshTimer = setInterval(fetchEntries, 2000);
-    }
-  }
-
-  function stopAutoRefresh() {
-    if (refreshTimer) {
-      clearInterval(refreshTimer);
-      refreshTimer = null;
-    }
-  }
-
   import { onMount } from 'svelte';
-  import { browser } from '$app/environment';
+  import { useShortcuts, SHORTCUT_DEFAULTS } from '$lib/shortcuts';
+
+  const autoRefresh = createAutoRefresh(fetchEntries, 2000);
 
   onMount(() => {
     initDevice();
     fetchEntries();
-    if (autoRefresh) startAutoRefresh();
-    return () => stopAutoRefresh();
-  });
-
-  $effect(() => {
-    if (!browser) return;
-    // Only react to autoRefresh toggle
-    const shouldRefresh = autoRefresh;
-    if (shouldRefresh) {
-      startAutoRefresh();
-    } else {
-      stopAutoRefresh();
-    }
+    return useShortcuts([
+      { ...SHORTCUT_DEFAULTS.find((d) => d.id === 'clipboard:refresh')!, handler: () => fetchEntries() },
+    ]);
   });
 
   async function addEntry() {
@@ -90,14 +69,10 @@
       return;
     }
     try {
-      const res = await fetchApi('/api/clipboard', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          content: newContent.trim(),
-          deviceId,
-          deviceName,
-        }),
+      const res = await postJson('/api/clipboard', {
+        content: newContent.trim(),
+        deviceId,
+        deviceName,
       });
       if (!res.ok) throw new Error();
       const entry = await res.json();
@@ -111,11 +86,7 @@
 
   async function deleteEntry(id: string) {
     try {
-      await fetchApi('/api/clipboard', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ _action: 'delete', id }),
-      });
+      await postJson('/api/clipboard', { _action: 'delete', id });
       entries = entries.filter((e) => e.id !== id);
     } catch {
       toast.error('Failed to delete');
@@ -124,11 +95,7 @@
 
   async function clearAll() {
     try {
-      await fetchApi('/api/clipboard', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ _action: 'clear' }),
-      });
+      await postJson('/api/clipboard', { _action: 'clear' });
       entries = [];
       toast.success('Clipboard cleared');
     } catch {
@@ -160,7 +127,7 @@
 
   function updateDeviceName() {
     editingName = false;
-    localStorage.setItem('clipboard-device-name', deviceName);
+    localStorage.setItem(SK_CLIPBOARD_DEVICE_NAME, deviceName);
     toast.success('Device name updated');
   }
 
@@ -210,7 +177,7 @@
   }
 </script>
 
-<div class="page">
+<div class="page page-sm">
   <h2 class="page-title">Clipboard</h2>
   <p class="page-desc">Share text and content between devices on your network. Entries sync automatically.</p>
 
@@ -246,7 +213,7 @@
       <h2>Share Content</h2>
       <div class="paste-controls">
         <label class="auto-toggle">
-          <input type="checkbox" bind:checked={autoRefresh} />
+          <input type="checkbox" bind:checked={autoRefresh.enabled} />
           Auto-refresh
         </label>
       </div>
@@ -254,9 +221,13 @@
     <textarea bind:value={newContent} placeholder="Paste or type content to share across devices..." rows="5"
     ></textarea>
     <div class="paste-actions">
-      <button class="btn-primary" onclick={addEntry} disabled={!newContent.trim()}> Share to Clipboard </button>
+      <Button variant="primary" icon="clipboard" onclick={addEntry} disabled={!newContent.trim()}
+        >Share to Clipboard</Button
+      >
       {#if entries.length > 0}
-        <button class="btn-danger-sm" onclick={clearAll}>Clear All</button>
+        <Button variant="ghost" size="sm" icon="delete" confirm confirmText="Clear all?" onclick={clearAll}
+          >Clear All</Button
+        >
       {/if}
     </div>
   </div>
@@ -318,11 +289,6 @@
 
 <style>
   .page {
-    padding: 1.5rem;
-    max-width: 700px;
-    margin: 0 auto;
-    display: flex;
-    flex-direction: column;
     gap: 1rem;
   }
 
@@ -438,32 +404,6 @@
     display: flex;
     gap: 0.5rem;
     align-items: center;
-  }
-  .btn-primary {
-    padding: 0.5rem 1.25rem;
-    background: var(--accent);
-    color: #fff;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    font-weight: 600;
-    font-size: 0.85rem;
-    font-family: inherit;
-  }
-  .btn-primary:disabled {
-    opacity: 0.5;
-    cursor: default;
-  }
-  .btn-danger-sm {
-    padding: 0.4rem 0.75rem;
-    background: transparent;
-    color: var(--danger);
-    border: 1px solid var(--danger);
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 0.75rem;
-    font-family: inherit;
-    margin-left: auto;
   }
 
   /* Empty state */

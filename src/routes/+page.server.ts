@@ -6,8 +6,7 @@ import { getSystemDiskUsage } from '$lib/server/operator';
 import { listProcesses } from '$lib/server/processes';
 import { getUnreadCount as getNotifCount } from '$lib/server/notifications';
 import fs from 'node:fs';
-import path from 'node:path';
-import os from 'node:os';
+import { PATHS } from '$lib/server/paths';
 
 export const load: PageServerLoad = async () => {
   const [taskStatuses, backupStatuses, keeperStats, disk] = await Promise.all([
@@ -78,7 +77,7 @@ export const load: PageServerLoad = async () => {
 
 function countNotes(): number {
   try {
-    const dir = path.join(os.homedir(), '.home-server', 'notes');
+    const dir = PATHS.notes;
     if (!fs.existsSync(dir)) return 0;
     return fs.readdirSync(dir).filter((f) => f.endsWith('.json')).length;
   } catch {
@@ -99,8 +98,7 @@ function countDocker(): { running: number; total: number } {
 
 function countServices(): { healthy: number; total: number } {
   try {
-    const dir = path.join(os.homedir(), '.home-server');
-    const file = path.join(dir, 'services.json');
+    const file = PATHS.services;
     if (!fs.existsSync(file)) return { healthy: 0, total: 0 };
     const services = JSON.parse(fs.readFileSync(file, 'utf-8'));
     return { healthy: services.filter((s: any) => s.enabled !== false).length, total: services.length };

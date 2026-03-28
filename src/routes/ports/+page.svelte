@@ -1,11 +1,16 @@
 <script lang="ts">
   import { toast } from '$lib/toast';
-  import { fetchApi } from '$lib/api';
+  import { postJson } from '$lib/api';
+  import { getErrorMessage } from '$lib/errors';
   import { createHistory } from '$lib/history.svelte';
+  import { SK_PORT_SCAN_HISTORY } from '$lib/constants/storage-keys';
   import SearchInput from '$lib/components/SearchInput.svelte';
   import Button from '$lib/components/Button.svelte';
   import Badge from '$lib/components/Badge.svelte';
   import Icon from '$lib/components/Icon.svelte';
+  import { createTableSort } from '$lib/sort.svelte';
+  import PageHeader from '$lib/components/PageHeader.svelte';
+  import ProgressBar from '$lib/components/ProgressBar.svelte';
 
   interface ScanResult {
     port: number;
@@ -21,14 +26,13 @@
   let scanInfo = $state<{ host: string; total: number; open: number } | null>(null);
   let showOnlyOpen = $state(false);
   let search = $state('');
-  let sortKey = $state<'port' | 'service' | 'open'>('port');
-  let sortDir = $state<'asc' | 'desc'>('asc');
+  const sort = createTableSort<'port' | 'service' | 'open'>('port', 'asc');
 
   // Streaming state
   let streamProgress = $state<{ scanned: number; total: number; open: number } | null>(null);
 
   const scanHistory = createHistory<{ host: string; preset: string; open: number; total: number; time: string }>(
-    'hs:port-scan-history',
+    SK_PORT_SCAN_HISTORY,
   );
 
   const displayed = $derived.by(() => {
@@ -47,39 +51,27 @@
     }
 
     // Sort
+    const sk = sort.key;
+    const sd = sort.dir;
     arr.sort((a, b) => {
       let av: any, bv: any;
-      if (sortKey === 'port') {
+      if (sk === 'port') {
         av = a.port;
         bv = b.port;
-      } else if (sortKey === 'service') {
+      } else if (sk === 'service') {
         av = a.service.toLowerCase();
         bv = b.service.toLowerCase();
       } else {
         av = a.open ? 1 : 0;
         bv = b.open ? 1 : 0;
       }
-      if (av < bv) return sortDir === 'asc' ? -1 : 1;
-      if (av > bv) return sortDir === 'asc' ? 1 : -1;
+      if (av < bv) return sd === 'asc' ? -1 : 1;
+      if (av > bv) return sd === 'asc' ? 1 : -1;
       return 0;
     });
 
     return arr;
   });
-
-  function toggleSort(key: typeof sortKey) {
-    if (sortKey === key) {
-      sortDir = sortDir === 'asc' ? 'desc' : 'asc';
-    } else {
-      sortKey = key;
-      sortDir = key === 'port' ? 'asc' : 'desc';
-    }
-  }
-
-  function sortIcon(key: typeof sortKey): string {
-    if (sortKey !== key) return '';
-    return sortDir === 'asc' ? ' \u25B2' : ' \u25BC';
-  }
 
   async function scan() {
     if (!host.trim()) {
@@ -104,11 +96,7 @@
         payload.ports = portInput.trim();
       }
 
-      const res = await fetchApi('/api/ports', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+      const res = await postJson('/api/ports', payload);
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.error || 'Scan failed');
@@ -124,8 +112,8 @@
         time: new Date().toISOString(),
       });
       toast.success(`Scan complete: ${data.open} open port(s) found`);
-    } catch (err: any) {
-      toast.error(err.message || 'Scan failed');
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, 'Scan failed'));
     } finally {
       loading = false;
     }
@@ -133,11 +121,7 @@
 
   async function scanStreaming() {
     try {
-      const res = await fetchApi('/api/ports', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ host: host.trim(), preset: 'all' }),
-      });
+      const res = await postJson('/api/ports', { host: host.trim(), preset: 'all' });
 
       if (!res.ok) throw new Error('Streaming scan failed');
       if (!res.body) throw new Error('No stream body');
@@ -176,8 +160,8 @@
           } catch {}
         }
       }
-    } catch (e: any) {
-      toast.error(e.message || 'Streaming scan failed');
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, 'Streaming scan failed'));
     } finally {
       loading = false;
       streamProgress = null;
@@ -189,10 +173,12 @@
   <title>Port Scanner | Home Server</title>
 </svelte:head>
 
-<div class="page">
-  <h2 class="page-title">Port Scanner</h2>
-  <p class="page-desc">Scan open ports on any host. Choose common ports, a custom range, or scan all 65535 ports.</p>
+<PageHeader
+  title="Port Scanner"
+  description="Scan open ports on any host. Choose common ports, a custom range, or scan all 65535 ports."
+/>
 
+<div class="page">
   <div class="card config-card">
     <div class="form-row">
       <label class="host-label">
@@ -224,16 +210,14 @@
         <Icon name="alert-triangle" size={14} /> Full scan takes several minutes. Open ports stream back as discovered.
       </p>
     {/if}
-    <Button variant="primary" onclick={scan} disabled={loading} {loading}>
+    <Button variant="primary" icon="search" onclick={scan} disabled={loading} {loading}>
       {loading ? 'Scanning...' : 'Scan'}
     </Button>
   </div>
 
   {#if loading && streamProgress}
     <div class="card progress-card">
-      <div class="progress-bar">
-        <div class="progress-fill-real" style="width: {(streamProgress.scanned / streamProgress.total) * 100}%"></div>
-      </div>
+      <ProgressBar value={streamProgress.scanned} max={streamProgress.total} />
       <p>
         Scanned {streamProgress.scanned.toLocaleString()} / {streamProgress.total.toLocaleString()} ports — {streamProgress.open}
         open found
@@ -241,9 +225,7 @@
     </div>
   {:else if loading}
     <div class="card progress-card">
-      <div class="progress-bar">
-        <div class="progress-fill"></div>
-      </div>
+      <ProgressBar value={40} animated />
       <p>Scanning ports on {host}...</p>
     </div>
   {/if}
@@ -271,9 +253,9 @@
       <table>
         <thead>
           <tr>
-            <th class="sortable" onclick={() => toggleSort('port')}>Port{sortIcon('port')}</th>
-            <th class="sortable" onclick={() => toggleSort('open')}>Status{sortIcon('open')}</th>
-            <th class="sortable" onclick={() => toggleSort('service')}>Service{sortIcon('service')}</th>
+            <th class="sortable" onclick={() => sort.toggle('port')}>Port{sort.indicator('port')}</th>
+            <th class="sortable" onclick={() => sort.toggle('open', 'desc')}>Status{sort.indicator('open')}</th>
+            <th class="sortable" onclick={() => sort.toggle('service', 'desc')}>Service{sort.indicator('service')}</th>
           </tr>
         </thead>
         <tbody>
@@ -320,9 +302,7 @@
 
 <style>
   .page {
-    padding: 1.5rem;
     max-width: 800px;
-    margin: 0 auto;
   }
 
   .config-card {
@@ -393,43 +373,6 @@
     color: var(--text-secondary);
     margin: 0.75rem 0 0;
     font-size: 0.82rem;
-  }
-
-  .progress-bar {
-    height: 6px;
-    background: var(--bg-primary);
-    border-radius: 3px;
-    overflow: hidden;
-  }
-
-  .progress-fill {
-    height: 100%;
-    width: 40%;
-    background: var(--accent);
-    border-radius: 3px;
-    animation: indeterminate 1.5s ease-in-out infinite;
-  }
-
-  .progress-fill-real {
-    height: 100%;
-    background: var(--accent);
-    border-radius: 3px;
-    transition: width 0.3s;
-  }
-
-  @keyframes indeterminate {
-    0% {
-      transform: translateX(-100%);
-      width: 40%;
-    }
-    50% {
-      transform: translateX(100%);
-      width: 60%;
-    }
-    100% {
-      transform: translateX(300%);
-      width: 40%;
-    }
   }
 
   .summary {

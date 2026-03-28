@@ -31,6 +31,7 @@ const MIME_MAP: Record<string, string> = {
   '.m4a': 'audio/mp4',
   '.aac': 'audio/aac',
   // Documents
+  '.epub': 'application/epub+zip',
   '.pdf': 'application/pdf',
   '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   '.xls': 'application/vnd.ms-excel',
@@ -253,6 +254,28 @@ export async function moveFile(filename: string, fromPath: string | undefined, t
     return true;
   } catch {
     return false;
+  }
+}
+
+/** Duplicate a file in the same directory */
+export async function duplicateFile(filename: string, subpath?: string): Promise<string | null> {
+  const base = getUploadDir();
+  const dir = subpath ? safePath(base, subpath) : base;
+  const src = safePath(dir, filename);
+
+  try {
+    const ext = path.extname(filename);
+    const stem = path.basename(filename, ext);
+    let copyName = `${stem} (copy)${ext}`;
+    let n = 2;
+    while (existsSync(path.join(dir, copyName))) {
+      copyName = `${stem} (copy ${n})${ext}`;
+      n++;
+    }
+    await fs.copyFile(src, path.join(dir, copyName));
+    return copyName;
+  } catch {
+    return null;
   }
 }
 

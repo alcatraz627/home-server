@@ -5,11 +5,11 @@ import path from 'node:path';
 import os from 'node:os';
 import { execSync } from 'node:child_process';
 import type { RequestHandler } from './$types';
+import { CONFIG_DIR, PATHS } from '$lib/server/paths';
 
-const DATA_DIR = path.join(os.homedir(), '.home-server');
-const SCREENSHOTS_DIR = path.join(DATA_DIR, 'screenshots');
+const SCREENSHOTS_DIR = PATHS.screenshots;
 
-const META_FILE = path.join(DATA_DIR, 'screenshots-meta.json');
+const META_FILE = path.join(CONFIG_DIR, 'screenshots-meta.json');
 
 function ensureDir() {
   if (!fs.existsSync(SCREENSHOTS_DIR)) fs.mkdirSync(SCREENSHOTS_DIR, { recursive: true });
@@ -21,6 +21,7 @@ interface ScreenshotMeta {
     device?: string;
     platform?: string;
     takenAt?: string;
+    mode?: string;
   };
 }
 
@@ -96,18 +97,31 @@ export const POST: RequestHandler = async ({ request }) => {
   const body = await request.json();
 
   if (body._action === 'capture') {
+    const mode: string = body.mode || 'fullscreen'; // fullscreen | window | timed
+    const delay: number = body.delay || 0; // seconds (for timed mode)
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const filename = `screenshot-${timestamp}.png`;
+    const filename = `screenshot-${mode}-${timestamp}.png`;
     const filePath = path.join(SCREENSHOTS_DIR, filename);
 
     try {
       const platform = os.platform();
       if (platform === 'darwin') {
-        // macOS screencapture — try main display, fall back to clipboard
+        // macOS screencapture modes
         try {
-          execSync(`screencapture -x -t png "${filePath}"`, { timeout: 10000 });
+          if (mode === 'window') {
+            // -w captures the frontmost window
+            execSync(`screencapture -x -w -t png "${filePath}"`, { timeout: 15000 });
+          } else if (mode === 'timed' && delay > 0) {
+            // -T sets a delay in seconds
+            execSync(`screencapture -x -T ${Math.min(delay, 10)} -t png "${filePath}"`, {
+              timeout: (delay + 5) * 1000,
+            });
+          } else {
+            // Default: full screen
+            execSync(`screencapture -x -t png "${filePath}"`, { timeout: 10000 });
+          }
         } catch {
-          // If direct capture fails (no screen recording permission), try clipboard mode
+          // Fallback: clipboard mode
           try {
             execSync(`screencapture -x -c -t png`, { timeout: 10000 });
             execSync(
@@ -127,10 +141,22 @@ export const POST: RequestHandler = async ({ request }) => {
       } else {
         // Linux: try scrot, import, or gnome-screenshot
         try {
-          execSync(`scrot "${filePath}" 2>/dev/null || import -window root "${filePath}" 2>/dev/null`, {
-            timeout: 10000,
-            shell: '/bin/sh',
-          });
+          if (mode === 'window') {
+            execSync(
+              `scrot -u "${filePath}" 2>/dev/null || import -window "$(xdotool getactivewindow)" "${filePath}" 2>/dev/null`,
+              { timeout: 10000, shell: '/bin/sh' },
+            );
+          } else if (mode === 'timed' && delay > 0) {
+            execSync(`scrot -d ${Math.min(delay, 10)} "${filePath}" 2>/dev/null`, {
+              timeout: (delay + 5) * 1000,
+              shell: '/bin/sh',
+            });
+          } else {
+            execSync(`scrot "${filePath}" 2>/dev/null || import -window root "${filePath}" 2>/dev/null`, {
+              timeout: 10000,
+              shell: '/bin/sh',
+            });
+          }
         } catch {
           return json({ error: 'No screenshot tool available (install scrot or imagemagick)' }, { status: 500 });
         }
@@ -150,6 +176,7 @@ export const POST: RequestHandler = async ({ request }) => {
         device: os.hostname(),
         platform: os.platform(),
         takenAt: new Date().toISOString(),
+        mode,
       };
       writeMeta(meta);
       return json(

@@ -1,9 +1,8 @@
 import fs from 'node:fs';
-import path from 'node:path';
-import os from 'node:os';
 import type { PageServerLoad } from './$types';
+import { PATHS } from '$lib/server/paths';
 
-const FILE = path.join(os.homedir(), '.home-server', 'bookmarks.json');
+const FILE = PATHS.bookmarks;
 
 export const load: PageServerLoad = async () => {
   try {
