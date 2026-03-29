@@ -135,6 +135,13 @@
           newChecklistText = '';
         },
       },
+      {
+        ...SHORTCUT_DEFAULTS.find((d) => d.id === 'kanban:focus-search')!,
+        handler: () => {
+          const el = document.querySelector<HTMLInputElement>('.fq-input');
+          el?.focus();
+        },
+      },
     ]);
   });
 

@@ -4,7 +4,9 @@
   import Icon from '$lib/components/Icon.svelte';
   import Badge from '$lib/components/Badge.svelte';
   import Button from '$lib/components/Button.svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { toast } from '$lib/toast';
+  import { useShortcuts, SHORTCUT_DEFAULTS } from '$lib/shortcuts';
 
   let { data } = $props<{ data: PageData }>();
   let importInput = $state<HTMLInputElement | undefined>();
@@ -107,6 +109,21 @@
       toast.error('Import failed — invalid file format');
     }
   }
+
+  let cleanupShortcuts: (() => void) | undefined;
+
+  onMount(() => {
+    cleanupShortcuts = useShortcuts([
+      {
+        ...SHORTCUT_DEFAULTS.find((d) => d.id === 'workflows:export')!,
+        handler: exportData,
+      },
+    ]);
+  });
+
+  onDestroy(() => {
+    cleanupShortcuts?.();
+  });
 
   function actionColor(type: string): string {
     switch (type) {

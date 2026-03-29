@@ -140,6 +140,20 @@ export const SHORTCUT_DEFAULTS: ShortcutDef[] = [
 
   // Kanban
   { id: 'kanban:new-task', page: 'Kanban', description: 'New task', defaultKey: 'n', category: 'Actions' },
+  { id: 'kanban:focus-search', page: 'Kanban', description: 'Focus search', defaultKey: '/', category: 'Navigation' },
+
+  // Reminders
+  { id: 'reminders:new', page: 'Reminders', description: 'New reminder', defaultKey: 'n', category: 'Actions' },
+  {
+    id: 'reminders:focus-search',
+    page: 'Reminders',
+    description: 'Focus search',
+    defaultKey: '/',
+    category: 'Navigation',
+  },
+
+  // Workflows
+  { id: 'workflows:export', page: 'Workflows', description: 'Export data', defaultKey: 'e', category: 'Actions' },
 ];
 
 const STORAGE_KEY = 'shortcuts-custom';

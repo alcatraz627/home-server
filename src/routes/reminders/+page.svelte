@@ -10,6 +10,7 @@
   import LinkedItems from '$lib/components/LinkedItems.svelte';
   import FilterQueryBar from '$lib/components/FilterQueryBar.svelte';
   import { parseFilterQuery, matchItem, type FilterNode } from '$lib/utils/filter-query';
+  import { useShortcuts, SHORTCUT_DEFAULTS } from '$lib/shortcuts';
   import type { Reminder, ReminderPriority, Recurrence, RecurrencePattern } from '$lib/types/productivity';
 
   type Priority = ReminderPriority;
@@ -91,6 +92,8 @@
     overdue: reminders.filter((r) => isOverdue(r)).length,
   });
 
+  let cleanupShortcuts: (() => void) | undefined;
+
   onMount(() => {
     if ('Notification' in window) {
       notifPermission = Notification.permission;
@@ -99,11 +102,26 @@
     pollPending();
     // Tick every 30s to update relative times
     tickTimer = setInterval(() => (now = Date.now()), 30_000);
+
+    cleanupShortcuts = useShortcuts([
+      {
+        ...SHORTCUT_DEFAULTS.find((d) => d.id === 'reminders:new')!,
+        handler: () => (showForm = true),
+      },
+      {
+        ...SHORTCUT_DEFAULTS.find((d) => d.id === 'reminders:focus-search')!,
+        handler: () => {
+          const el = document.querySelector<HTMLInputElement>('.fq-input');
+          el?.focus();
+        },
+      },
+    ]);
   });
 
   onDestroy(() => {
     if (pollTimer) clearInterval(pollTimer);
     if (tickTimer) clearInterval(tickTimer);
+    cleanupShortcuts?.();
   });
 
   async function requestPermission() {
