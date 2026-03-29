@@ -17,6 +17,9 @@ import {
   MACOS_CONVERSATIONS_LIMIT,
   MACOS_MESSAGES_LIMIT,
   MACOS_CONTACTS_LIMIT,
+  MACOS_SEND_MESSAGE_TIMEOUT_MS,
+  MACOS_SEND_ATTACHMENT_TIMEOUT_MS,
+  ERROR_MESSAGE_TRUNCATE_LENGTH,
 } from '$lib/constants/limits';
 import { createLogger } from './logger';
 
@@ -81,7 +84,7 @@ function query<T = Record<string, unknown>>(sql: string): T[] {
     if (!out) return [];
     return JSON.parse(out) as T[];
   } catch (e: any) {
-    log.warn('sqlite3 query failed', { error: e?.message?.slice(0, 200) });
+    log.warn('sqlite3 query failed', { error: e?.message?.slice(0, ERROR_MESSAGE_TRUNCATE_LENGTH) });
     return [];
   }
 }
@@ -337,12 +340,12 @@ export async function sendMessage(handle: string, text: string): Promise<{ ok: b
 end tell`;
 
   try {
-    execSync(`osascript -e ${JSON.stringify(script)}`, { timeout: 10000, stdio: 'pipe' });
+    execSync(`osascript -e ${JSON.stringify(script)}`, { timeout: MACOS_SEND_MESSAGE_TIMEOUT_MS, stdio: 'pipe' });
     return { ok: true };
   } catch (e: any) {
     const errMsg = e?.stderr?.toString() || e?.message || 'Failed to send';
-    log.warn('Send message failed', { handle: safeHandle, error: errMsg.slice(0, 200) });
-    return { ok: false, error: errMsg.slice(0, 200) };
+    log.warn('Send message failed', { handle: safeHandle, error: errMsg.slice(0, ERROR_MESSAGE_TRUNCATE_LENGTH) });
+    return { ok: false, error: errMsg.slice(0, ERROR_MESSAGE_TRUNCATE_LENGTH) };
   }
 }
 
@@ -359,10 +362,10 @@ export async function sendAttachment(handle: string, filePath: string): Promise<
 end tell`;
 
   try {
-    execSync(`osascript -e ${JSON.stringify(script)}`, { timeout: 15000, stdio: 'pipe' });
+    execSync(`osascript -e ${JSON.stringify(script)}`, { timeout: MACOS_SEND_ATTACHMENT_TIMEOUT_MS, stdio: 'pipe' });
     return { ok: true };
   } catch (e: any) {
     const errMsg = e?.stderr?.toString() || e?.message || 'Failed to send attachment';
-    return { ok: false, error: errMsg.slice(0, 200) };
+    return { ok: false, error: errMsg.slice(0, ERROR_MESSAGE_TRUNCATE_LENGTH) };
   }
 }

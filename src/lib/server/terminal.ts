@@ -1,6 +1,11 @@
 import crypto from 'node:crypto';
 import * as pty from 'node-pty';
-import { TERMINAL_SCROLLBACK_LIMIT, TERMINAL_DEFAULT_COLS, TERMINAL_DEFAULT_ROWS } from '$lib/constants/limits';
+import {
+  TERMINAL_SCROLLBACK_LIMIT,
+  TERMINAL_DEFAULT_COLS,
+  TERMINAL_DEFAULT_ROWS,
+  TERMINAL_RESIZE_DEBOUNCE_MS,
+} from '$lib/constants/limits';
 import { createLogger } from './logger';
 
 const log = createLogger('terminal');
@@ -100,7 +105,7 @@ export function createSession(cols = TERMINAL_DEFAULT_COLS, rows = TERMINAL_DEFA
       const minCols = Math.max(40, Math.min(...[...clientDims.values()].map((d) => d.cols)));
       const minRows = Math.max(10, Math.min(...[...clientDims.values()].map((d) => d.rows)));
       term.resize(minCols, minRows);
-    }, 100);
+    }, TERMINAL_RESIZE_DEBOUNCE_MS);
   }
 
   term.onData((data: string) => {

@@ -3,7 +3,16 @@ import { errorMessage, errorCode } from '$lib/server/errors';
 import crypto from 'node:crypto';
 import { execSync } from 'node:child_process';
 import type { RequestHandler } from './$types';
-import { SPEEDTEST_DEFAULT_SIZE_KB, SPEEDTEST_MAX_SIZE_KB } from '$lib/constants/limits';
+import {
+  SPEEDTEST_DEFAULT_SIZE_KB,
+  SPEEDTEST_MAX_SIZE_KB,
+  SPEEDTEST_DOWNLOAD_SIZE_BYTES,
+  SPEEDTEST_UPLOAD_SIZE_BYTES,
+  SPEEDTEST_PING_COUNT,
+  SPEEDTEST_CURL_MAX_TIME_SECS,
+  SPEEDTEST_CURL_TIMEOUT_MS,
+  SPEEDTEST_LATENCY_TIMEOUT_MS,
+} from '$lib/constants/limits';
 
 /** GET: generate random blob for download speed test */
 export const GET: RequestHandler = async ({ url }) => {
@@ -31,8 +40,8 @@ export const GET: RequestHandler = async ({ url }) => {
       // Download test: fetch 10MB from Cloudflare
       const dlStart = Date.now();
       const dlOut = execSync(
-        'curl -s -o /dev/null -w "%{speed_download}" --max-time 15 https://speed.cloudflare.com/__down?bytes=10000000 2>/dev/null',
-        { encoding: 'utf-8', timeout: 20000 },
+        `curl -s -o /dev/null -w "%{speed_download}" --max-time ${SPEEDTEST_CURL_MAX_TIME_SECS} https://speed.cloudflare.com/__down?bytes=${SPEEDTEST_DOWNLOAD_SIZE_BYTES} 2>/dev/null`,
+        { encoding: 'utf-8', timeout: SPEEDTEST_CURL_TIMEOUT_MS },
       );
       const dlTime = Date.now() - dlStart;
       const dlBytesPerSec = parseFloat(dlOut.trim()) || 0;
@@ -41,8 +50,8 @@ export const GET: RequestHandler = async ({ url }) => {
       // Upload test: send 2MB to Cloudflare
       const ulStart = Date.now();
       const ulOut = execSync(
-        'curl -s -o /dev/null -w "%{speed_upload}" --max-time 15 -X POST --data-binary @/dev/urandom https://speed.cloudflare.com/__up 2>/dev/null | head -c 2097152',
-        { encoding: 'utf-8', timeout: 20000, shell: '/bin/sh' },
+        `curl -s -o /dev/null -w "%{speed_upload}" --max-time ${SPEEDTEST_CURL_MAX_TIME_SECS} -X POST --data-binary @/dev/urandom https://speed.cloudflare.com/__up 2>/dev/null | head -c ${SPEEDTEST_UPLOAD_SIZE_BYTES}`,
+        { encoding: 'utf-8', timeout: SPEEDTEST_CURL_TIMEOUT_MS, shell: '/bin/sh' },
       );
       const ulTime = Date.now() - ulStart;
       const ulBytesPerSec = parseFloat(ulOut.trim()) || 0;
@@ -51,9 +60,9 @@ export const GET: RequestHandler = async ({ url }) => {
       // Latency: ping Cloudflare
       let extLatency = 0;
       try {
-        const pingOut = execSync('ping -c 3 -W 2 1.1.1.1 2>/dev/null', {
+        const pingOut = execSync(`ping -c ${SPEEDTEST_PING_COUNT} -W 2 1.1.1.1 2>/dev/null`, {
           encoding: 'utf-8',
-          timeout: 10000,
+          timeout: SPEEDTEST_LATENCY_TIMEOUT_MS,
         });
         const avgMatch = pingOut.match(/avg\s*=\s*([\d.]+)/);
         extLatency = avgMatch ? Math.round(parseFloat(avgMatch[1])) : 0;

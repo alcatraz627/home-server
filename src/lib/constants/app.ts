@@ -10,5 +10,5 @@
  */
 export const APP = {
   title: 'Home Server',
-  version: '4.58.0-autorefresh-25',
+  version: '4.58.1-constants-26',
 } as const;

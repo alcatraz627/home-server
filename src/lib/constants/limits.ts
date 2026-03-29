@@ -80,3 +80,36 @@ export const WIZ_UDP_TIMEOUT_MS = 2000;
 export const WOL_BROADCAST_PORT = 9;
 export const WOL_MAC_REPETITIONS = 16;
 export const NTFY_DEFAULT_SERVER = 'https://ntfy.sh';
+
+// ---- Speedtest ----
+export const SPEEDTEST_DOWNLOAD_SIZE_BYTES = 10_000_000;
+export const SPEEDTEST_UPLOAD_SIZE_BYTES = 2_097_152;
+export const SPEEDTEST_PING_COUNT = 3;
+export const SPEEDTEST_CURL_MAX_TIME_SECS = 15;
+export const SPEEDTEST_CURL_TIMEOUT_MS = 20_000;
+export const SPEEDTEST_LATENCY_TIMEOUT_MS = 10_000;
+
+// ---- WiFi Diagnostics ----
+export const WIFI_DIAG_GATEWAY_TIMEOUT_MS = 3000;
+export const WIFI_DIAG_PING_TIMEOUT_MS = 15_000;
+export const WIFI_DIAG_DNS_TIMEOUT_MS = 5000;
+export const WIFI_DIAG_TRACEROUTE_TIMEOUT_MS = 15_000;
+export const WIFI_DIAG_INTERNET_TIMEOUT_MS = 8000;
+export const WIFI_DIAG_INTERNET_MAX_TIME_SECS = 5;
+
+// ---- Messages (macOS send) ----
+export const MACOS_SEND_MESSAGE_TIMEOUT_MS = 10_000;
+export const MACOS_SEND_ATTACHMENT_TIMEOUT_MS = 15_000;
+
+// ---- Search ----
+export const SEARCH_EXCERPT_MAX_LEN = 80;
+export const SEARCH_RESULTS_LIMIT = 20;
+
+// ---- Health ----
+export const HEALTH_LATENCY_THRESHOLD_MS = 2000;
+
+// ---- Error Handling ----
+export const ERROR_MESSAGE_TRUNCATE_LENGTH = 200;
+
+// ---- Terminal ----
+export const TERMINAL_RESIZE_DEBOUNCE_MS = 100;

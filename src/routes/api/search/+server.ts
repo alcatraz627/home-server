@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { RequestHandler } from './$types';
 import { PATHS } from '$lib/server/paths';
+import { SEARCH_EXCERPT_MAX_LEN, SEARCH_RESULTS_LIMIT } from '$lib/constants/limits';
 
 export interface SearchResult {
   id: string;
@@ -21,7 +22,7 @@ function readJson<T>(file: string, fallback: T): T {
   }
 }
 
-function excerpt(text: string, q: string, maxLen = 80): string {
+function excerpt(text: string, q: string, maxLen = SEARCH_EXCERPT_MAX_LEN): string {
   const lc = text.toLowerCase();
   const idx = lc.indexOf(q);
   if (idx === -1) return text.slice(0, maxLen);
@@ -133,5 +134,5 @@ export const GET: RequestHandler = async ({ url }) => {
     }
   } catch {}
 
-  return json({ results: results.slice(0, 20) });
+  return json({ results: results.slice(0, SEARCH_RESULTS_LIMIT) });
 };

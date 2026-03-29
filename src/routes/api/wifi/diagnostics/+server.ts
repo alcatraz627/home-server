@@ -2,6 +2,14 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { exec } from 'child_process';
 import os from 'os';
+import {
+  WIFI_DIAG_GATEWAY_TIMEOUT_MS,
+  WIFI_DIAG_PING_TIMEOUT_MS,
+  WIFI_DIAG_DNS_TIMEOUT_MS,
+  WIFI_DIAG_TRACEROUTE_TIMEOUT_MS,
+  WIFI_DIAG_INTERNET_TIMEOUT_MS,
+  WIFI_DIAG_INTERNET_MAX_TIME_SECS,
+} from '$lib/constants/limits';
 
 interface DiagResult {
   test: string;
@@ -23,11 +31,14 @@ function getGateway(): Promise<string> {
   return new Promise(async (resolve) => {
     try {
       if (platform === 'darwin') {
-        const { stdout } = await runCmd('netstat -rn | grep default | head -1', 3000);
+        const { stdout } = await runCmd('netstat -rn | grep default | head -1', WIFI_DIAG_GATEWAY_TIMEOUT_MS);
         const gw = stdout.trim().split(/\s+/)[1];
         resolve(gw || '');
       } else {
-        const { stdout } = await runCmd("ip route | grep default | head -1 | awk '{print $3}'", 3000);
+        const { stdout } = await runCmd(
+          "ip route | grep default | head -1 | awk '{print $3}'",
+          WIFI_DIAG_GATEWAY_TIMEOUT_MS,
+        );
         resolve(stdout.trim());
       }
     } catch {
@@ -44,7 +55,7 @@ export const POST: RequestHandler = async ({ request }) => {
 
   if (test === 'ping' || test === 'all') {
     if (gateway) {
-      const { stdout, code } = await runCmd(`ping -c 4 -W 2 ${gateway} 2>&1`, 15000);
+      const { stdout, code } = await runCmd(`ping -c 4 -W 2 ${gateway} 2>&1`, WIFI_DIAG_PING_TIMEOUT_MS);
       const avgMatch = stdout.match(/avg\s*=\s*([\d.]+)/);
       results.push({
         test: 'Ping Gateway',
@@ -62,7 +73,7 @@ export const POST: RequestHandler = async ({ request }) => {
     const dnsTargets = ['google.com', 'cloudflare.com'];
     for (const target of dnsTargets) {
       const start = Date.now();
-      const { stdout, code } = await runCmd(`nslookup ${target} 2>&1 | head -6`, 5000);
+      const { stdout, code } = await runCmd(`nslookup ${target} 2>&1 | head -6`, WIFI_DIAG_DNS_TIMEOUT_MS);
       const elapsed = Date.now() - start;
       results.push({
         test: `DNS: ${target}`,
@@ -77,7 +88,7 @@ export const POST: RequestHandler = async ({ request }) => {
     if (gateway) {
       const platform = os.platform();
       const cmd = platform === 'darwin' ? `traceroute -m 5 -w 2 ${gateway} 2>&1` : `tracepath -m 5 ${gateway} 2>&1`;
-      const { stdout } = await runCmd(cmd, 15000);
+      const { stdout } = await runCmd(cmd, WIFI_DIAG_TRACEROUTE_TIMEOUT_MS);
       results.push({
         test: 'Traceroute to Gateway',
         status: 'pass',
@@ -91,7 +102,10 @@ export const POST: RequestHandler = async ({ request }) => {
   if (test === 'internet' || test === 'all') {
     // Quick HTTP connectivity test
     const start = Date.now();
-    const { stdout, code } = await runCmd('curl -s -o /dev/null -w "%{http_code}" --max-time 5 https://1.1.1.1', 8000);
+    const { stdout, code } = await runCmd(
+      `curl -s -o /dev/null -w "%{http_code}" --max-time ${WIFI_DIAG_INTERNET_MAX_TIME_SECS} https://1.1.1.1`,
+      WIFI_DIAG_INTERNET_TIMEOUT_MS,
+    );
     const elapsed = Date.now() - start;
     const httpCode = parseInt(stdout.trim());
     results.push({

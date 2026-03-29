@@ -3,6 +3,7 @@ import { errorMessage, errorCode } from '$lib/server/errors';
 import type { RequestHandler } from './$types';
 import os from 'node:os';
 import { execSync } from 'node:child_process';
+import { HEALTH_LATENCY_THRESHOLD_MS } from '$lib/constants/limits';
 
 function getMemPercent(): number {
   const totalMem = os.totalmem();
@@ -73,7 +74,7 @@ export const GET: RequestHandler = async ({ url }) => {
 
     // Determine status based on latency + remote health
     let status: 'green' | 'yellow' | 'red' = data.status || 'green';
-    if (latency > 2000) status = 'red';
+    if (latency > HEALTH_LATENCY_THRESHOLD_MS) status = 'red';
     else if (latency > 500) status = status === 'red' ? 'red' : 'yellow';
 
     return json({
