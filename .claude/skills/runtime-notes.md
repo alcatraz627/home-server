@@ -2,6 +2,21 @@
 
 Append-only log of skill run insights. Newest entries at top.
 
+## session: autonomous sweep — shortcuts, themes, auto-refresh, constants — 2026-03-29
+
+**Purpose:** Completed remaining cleanup tasks: keyboard shortcuts on productivity pages, theme CSS generation from single source of truth, auto-refresh on 8 dynamic pages, and second round of constants extraction.
+
+**Insights:**
+
+1. Synthwave '84 theme label contains a single quote — the generate-theme-css.mjs script needed quote-aware output (double quotes when label contains single quote). Always test generator scripts with edge-case data.
+2. The `createAutoRefresh` utility handles its own `onMount`/`onDestroy` — calling it at top-level script scope is correct, NOT inside onMount (which would double-mount or miss cleanup).
+3. Vercel plugin false-positives: any file path containing `/workflows/` triggers Workflow DevKit validation recommendations. These are irrelevant for SvelteKit pages with adapter-node — always ignore.
+4. `useShortcuts` cleanup must be stored in a variable and called in `onDestroy` because async `onMount` loses return values in Svelte 5.
+5. Theme data extraction: parsing TypeScript as plain text via regex (in the .mjs generator script) avoids needing tsx/ts-node as a build dependency. Fragile but acceptable for structured, machine-maintained files.
+6. Vitest shows 41 "failed" test files that are actually empty stubs with no test suites — not real failures. The 95 actual tests all pass.
+
+---
+
 ## session: Pattern reference guide — 11 docs, 2598 lines — 2026-03-28
 
 **Purpose:** Created comprehensive `docs/patterns/` documentation suite covering all code patterns, component APIs, architecture decisions, and caveats — designed as a bootstrap reference for agents building new codebases.

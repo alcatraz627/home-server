@@ -10,5 +10,5 @@
  */
 export const APP = {
   title: 'Home Server',
-  version: '4.60.0-themes-fonts-28',
+  version: '4.60.1-ssr-guard-29',
 } as const;

@@ -278,6 +278,7 @@
 
   /** One-line text summary per widget — powers the collapsed section header */
   function getWidgetSummary(typeId: string): string {
+    if (!dashboard || !system) return 'Loading…';
     switch (typeId) {
       case 'system-stats':
         return `MEM ${system.memUsedPercent}% · CPU ${system.loadAvg} · UP ${system.uptime}h`;
@@ -509,7 +510,7 @@
             <Icon name="grip" size={14} />
           </span>
           <span class="section-drag-label">{widgetLabel(widget)}</span>
-          {#if getWidgetSummary(widget.typeId)}
+          {#if dashboard && system && getWidgetSummary(widget.typeId)}
             <span class="section-summary">{getWidgetSummary(widget.typeId)}</span>
           {/if}
           <div class="section-size-toggle">
@@ -526,7 +527,11 @@
           </div>
         </div>
 
-        <DashboardWidget {widget} {dashboard} {system} {starredFiles} {navWidgets} onrefresh={refreshData} />
+        {#if dashboard && system}
+          <DashboardWidget {widget} {dashboard} {system} {starredFiles} {navWidgets} onrefresh={refreshData} />
+        {:else}
+          <div class="widget-loading">Loading…</div>
+        {/if}
       </div>
     {/if}
   {/each}
@@ -577,6 +582,13 @@
 
   .dashboard-section.drag-over {
     border-top: 2px solid var(--accent);
+  }
+
+  .widget-loading {
+    padding: 2rem;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.85rem;
   }
 
   /* ── Drag header ────────────────────────────────────────────────────── */
