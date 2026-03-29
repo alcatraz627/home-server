@@ -225,13 +225,32 @@ function getCurrentConnection(): CurrentConnection | null {
         const iface = parts[0];
         const connName = parts[3] || '';
 
-        let ip = '';
+        let ip = '',
+          bssid = '',
+          channel = '',
+          signal = 0;
         try {
           const ipOut = execSync(`ip -4 addr show ${iface} 2>/dev/null`, { timeout: 3000 }).toString();
           ip = ipOut.match(/inet\s+(\d+\.\d+\.\d+\.\d+)/)?.[1] || '';
         } catch {}
+        // Get bssid, channel, signal from nmcli wifi list
+        try {
+          const wifiOut = execSync('nmcli -t -f ACTIVE,SSID,BSSID,CHAN,SIGNAL dev wifi 2>/dev/null', {
+            encoding: 'utf-8',
+            timeout: 5000,
+          });
+          const active = wifiOut.split('\n').find((l) => l.startsWith('yes:'));
+          if (active) {
+            const wp = active.split(':');
+            // BSSID occupies fields 2-7 (has colons)
+            bssid = wp.slice(2, 8).join(':');
+            channel = wp[8] || '';
+            const pct = parseInt(wp[9] || '0');
+            signal = pct > 0 ? Math.round(-100 + pct * 0.6) : -100;
+          }
+        } catch {}
 
-        return { ssid: connName, bssid: '', channel: '', signal: 0, ip, interface: iface };
+        return { ssid: connName, bssid, channel, signal, ip, interface: iface };
       }
     }
   } catch {}

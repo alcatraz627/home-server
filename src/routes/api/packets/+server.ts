@@ -39,7 +39,7 @@ function getInterfaces(): string[] {
         .filter(Boolean);
     }
   } catch {
-    return [getPrimaryInterface(), 'lo0'];
+    return [getPrimaryInterface(), os.platform() === 'darwin' ? 'lo0' : 'lo'];
   }
 }
 

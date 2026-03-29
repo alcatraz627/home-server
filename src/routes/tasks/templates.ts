@@ -137,7 +137,10 @@ export const TEMPLATES: Template[] = [
   },
   {
     name: 'Tailscale Status',
-    command: '/Applications/Tailscale.app/Contents/MacOS/Tailscale status',
+    command:
+      process.platform === 'darwin'
+        ? '/Applications/Tailscale.app/Contents/MacOS/Tailscale status'
+        : 'tailscale status',
     timeout: 10,
     retries: 0,
     schedule: null,

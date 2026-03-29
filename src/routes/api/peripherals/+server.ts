@@ -445,6 +445,21 @@ function getCurrentWifi(): { ssid: string; rssi: number } | null {
       if (ssidMatch) {
         return { ssid: ssidMatch[1].trim(), rssi: parseInt(rssiMatch?.[1] || '0') };
       }
+    } else {
+      // Linux: use nmcli to get current WiFi connection
+      const raw = execSync('nmcli -t -f ACTIVE,SSID,SIGNAL dev wifi 2>/dev/null', {
+        encoding: 'utf-8',
+        timeout: 5000,
+      });
+      const active = raw.split('\n').find((l) => l.startsWith('yes:'));
+      if (active) {
+        const parts = active.split(':');
+        const ssid = parts[1] || '';
+        const signal = parseInt(parts[2] || '0');
+        // nmcli signal is 0-100%, convert to approximate dBm (-30 to -90)
+        const rssi = signal > 0 ? Math.round(-30 - (100 - signal) * 0.6) : 0;
+        return { ssid, rssi };
+      }
     }
     return null;
   } catch {

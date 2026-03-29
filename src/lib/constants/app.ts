@@ -10,5 +10,5 @@
  */
 export const APP = {
   title: 'Home Server',
-  version: '4.51.0-cross-link-18',
+  version: '4.52.0-linux-fix-19',
 } as const;
