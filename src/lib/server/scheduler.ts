@@ -4,6 +4,7 @@ import { getTaskConfigs, runTask } from './operator';
 import { getBackupConfigs, runBackup } from './backups';
 import { notifyTaskComplete, notifyBackupComplete, isNotifyConfigured } from './notify';
 import { checkReminders } from './reminders';
+import { TASK_COMPLETION_MAX_ATTEMPTS, TASK_COMPLETION_POLL_MS } from '$lib/constants/limits';
 import { createLogger } from './logger';
 
 const log = createLogger('scheduler');
@@ -105,9 +106,9 @@ export async function scheduleAll(): Promise<void> {
 
 async function waitForCompletion(id: string, type: 'task' | 'backup'): Promise<void> {
   // Simple polling — check every 2s, max 30 min
-  const maxAttempts = 900;
+  const maxAttempts = TASK_COMPLETION_MAX_ATTEMPTS;
   for (let i = 0; i < maxAttempts; i++) {
-    await new Promise((r) => setTimeout(r, 2000));
+    await new Promise((r) => setTimeout(r, TASK_COMPLETION_POLL_MS));
 
     if (type === 'task') {
       const { getTaskHistory } = await import('./operator');

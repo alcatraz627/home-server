@@ -1,5 +1,6 @@
 import { execSync } from 'node:child_process';
 import { errorMessage, errorCode } from '$lib/server/errors';
+import { PROCESS_LSOF_MAX_FILES, PROCESS_LSOF_MAX_CONNECTIONS } from '$lib/constants/limits';
 import { createLogger } from './logger';
 
 const log = createLogger('processes');
@@ -78,7 +79,7 @@ export function getProcessDetail(pid: number): ProcessDetail | null {
     // Open files via lsof
     let openFiles: string[] = [];
     try {
-      const lsofRaw = execSync(`lsof -p ${pid} -Fn 2>/dev/null | grep ^n | head -50`, {
+      const lsofRaw = execSync(`lsof -p ${pid} -Fn 2>/dev/null | grep ^n | head -${PROCESS_LSOF_MAX_FILES}`, {
         encoding: 'utf-8',
         timeout: 5000,
       });
@@ -127,10 +128,13 @@ export function getProcessDetail(pid: number): ProcessDetail | null {
     // Network connections
     let connections: string[] = [];
     try {
-      const connRaw = execSync(`lsof -i -a -p ${pid} -Fn 2>/dev/null | grep ^n | head -20`, {
-        encoding: 'utf-8',
-        timeout: 5000,
-      });
+      const connRaw = execSync(
+        `lsof -i -a -p ${pid} -Fn 2>/dev/null | grep ^n | head -${PROCESS_LSOF_MAX_CONNECTIONS}`,
+        {
+          encoding: 'utf-8',
+          timeout: 5000,
+        },
+      );
       connections = connRaw
         .trim()
         .split('\n')

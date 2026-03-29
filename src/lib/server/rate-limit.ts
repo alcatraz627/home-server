@@ -3,6 +3,8 @@
  * Tracks request counts per IP per window.
  */
 
+import { RATE_LIMITER_CLEANUP_INTERVAL_MS } from '$lib/constants/limits';
+
 interface RateWindow {
   count: number;
   resetAt: number;
@@ -11,15 +13,12 @@ interface RateWindow {
 const store = new Map<string, RateWindow>();
 
 // Clean up expired entries every 5 minutes
-setInterval(
-  () => {
-    const now = Date.now();
-    for (const [key, window] of store) {
-      if (now > window.resetAt) store.delete(key);
-    }
-  },
-  5 * 60 * 1000,
-);
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, window] of store) {
+    if (now > window.resetAt) store.delete(key);
+  }
+}, RATE_LIMITER_CLEANUP_INTERVAL_MS);
 
 /**
  * Check if a request should be rate-limited.

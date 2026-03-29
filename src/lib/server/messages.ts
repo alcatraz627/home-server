@@ -10,6 +10,14 @@ import { execSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import {
+  MACOS_EPOCH_OFFSET_SECONDS,
+  MACOS_NANOSECOND_THRESHOLD,
+  MACOS_SQLITE3_MAX_BUFFER,
+  MACOS_CONVERSATIONS_LIMIT,
+  MACOS_MESSAGES_LIMIT,
+  MACOS_CONTACTS_LIMIT,
+} from '$lib/constants/limits';
 import { createLogger } from './logger';
 
 const log = createLogger('messages');
@@ -21,7 +29,7 @@ export const ATTACHMENTS_DIR = path.join(HOME, 'Library/Messages/Attachments');
 const SQLITE3 = '/usr/bin/sqlite3';
 
 // Mac absolute time epoch = 2001-01-01 00:00:00 UTC
-const MAC_EPOCH_OFFSET_S = 978307200;
+const MAC_EPOCH_OFFSET_S = MACOS_EPOCH_OFFSET_SECONDS;
 
 export function isMacOs(): boolean {
   return IS_MACOS;
@@ -55,7 +63,7 @@ export function checkDbAccess(): { ok: boolean; reason?: string } {
 export function macDateToMs(macDate: number): number {
   if (!macDate) return 0;
   // Newer macOS stores nanoseconds (value > 1e14)
-  const secs = macDate > 1e14 ? macDate / 1e9 : macDate;
+  const secs = macDate > MACOS_NANOSECOND_THRESHOLD ? macDate / 1e9 : macDate;
   return Math.round((secs + MAC_EPOCH_OFFSET_S) * 1000);
 }
 
@@ -65,7 +73,7 @@ function query<T = Record<string, unknown>>(sql: string): T[] {
   try {
     const out = execSync(`"${SQLITE3}" -json -readonly "${DB_PATH}" ${JSON.stringify(sql)}`, {
       timeout: 5000,
-      maxBuffer: 20 * 1024 * 1024,
+      maxBuffer: MACOS_SQLITE3_MAX_BUFFER,
       stdio: 'pipe',
     })
       .toString()
@@ -121,7 +129,7 @@ export interface KnownContact {
 
 // ─── Queries ────────────────────────────────────────────────────────────────
 
-export function getConversations(limit = 50): Conversation[] {
+export function getConversations(limit = MACOS_CONVERSATIONS_LIMIT): Conversation[] {
   const rows = query<{
     chat_id: number;
     chat_identifier: string;
@@ -175,7 +183,7 @@ export function getConversations(limit = 50): Conversation[] {
   }));
 }
 
-export function getMessages(chatIdentifier: string, limit = 100, beforeRowid?: number): Message[] {
+export function getMessages(chatIdentifier: string, limit = MACOS_MESSAGES_LIMIT, beforeRowid?: number): Message[] {
   // Sanitize identifier — only allow phone/email safe chars
   const safeId = chatIdentifier.replace(/[^+\d\w@.\-_]/g, '');
   const beforeClause = beforeRowid ? `AND m.rowid < ${Number(beforeRowid)}` : '';
@@ -284,7 +292,7 @@ export function getAttachment(rowid: number): { path: string; mimeType: string |
 }
 
 /** Return all unique contacts seen in chat history, ordered by most recent. */
-export function getKnownContacts(limit = 200): KnownContact[] {
+export function getKnownContacts(limit = MACOS_CONTACTS_LIMIT): KnownContact[] {
   const rows = query<{
     handle_id: string;
     display_name: string;

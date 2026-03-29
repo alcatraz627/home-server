@@ -42,3 +42,41 @@ export const TERMINAL_DEFAULT_ROWS = 24;
 
 // ---- Agent ----
 export const AGENT_KILL_GRACE_MS = 5000;
+
+// ---- Shell Command Timeouts ----
+export const SHELL_TIMEOUT_SHORT_MS = 3000;
+export const SHELL_TIMEOUT_MEDIUM_MS = 5000;
+export const SHELL_TIMEOUT_LONG_MS = 10_000;
+
+// ---- Task Scheduler ----
+export const TASK_COMPLETION_MAX_ATTEMPTS = 900;
+export const TASK_COMPLETION_POLL_MS = 2000;
+export const TASK_RETRY_BACKOFF_BASE_MS = 1000;
+
+// ---- Backup ----
+export const BACKUP_RSYNC_TIMEOUT_MS = 30_000;
+
+// ---- Processes ----
+export const PROCESS_LSOF_MAX_FILES = 50;
+export const PROCESS_LSOF_MAX_CONNECTIONS = 20;
+
+// ---- Services ----
+export const SERVICE_HISTORY_LIMIT = 100;
+
+// ---- Rate Limiting ----
+export const RATE_LIMITER_CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
+
+// ---- Messages (macOS) ----
+export const MACOS_SQLITE3_MAX_BUFFER = 20 * 1024 * 1024;
+export const MACOS_EPOCH_OFFSET_SECONDS = 978307200;
+export const MACOS_NANOSECOND_THRESHOLD = 1e14;
+export const MACOS_CONVERSATIONS_LIMIT = 50;
+export const MACOS_MESSAGES_LIMIT = 100;
+export const MACOS_CONTACTS_LIMIT = 200;
+
+// ---- Network Protocols ----
+export const WIZ_UDP_PORT = 38899;
+export const WIZ_UDP_TIMEOUT_MS = 2000;
+export const WOL_BROADCAST_PORT = 9;
+export const WOL_MAC_REPETITIONS = 16;
+export const NTFY_DEFAULT_SERVER = 'https://ntfy.sh';

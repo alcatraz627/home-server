@@ -1,5 +1,6 @@
 import dgram from 'node:dgram';
 import { spawnSync } from 'node:child_process';
+import { WOL_BROADCAST_PORT } from '$lib/constants/limits';
 import { createLogger } from './logger';
 
 const log = createLogger('wol');
@@ -37,7 +38,7 @@ export function sendMagicPacket(mac: string): Promise<void> {
 
     socket.bind(() => {
       socket.setBroadcast(true);
-      socket.send(magicPacket, 0, magicPacket.length, 9, '255.255.255.255', (err) => {
+      socket.send(magicPacket, 0, magicPacket.length, WOL_BROADCAST_PORT, '255.255.255.255', (err) => {
         socket.close();
         if (err) {
           log.error('Magic packet send failed', err);

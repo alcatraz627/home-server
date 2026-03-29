@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { CONFIG_DIR, PATHS } from '$lib/server/paths';
+import { SERVICE_HISTORY_LIMIT } from '$lib/constants/limits';
 import { createLogger } from './logger';
 
 const log = createLogger('services');
@@ -105,9 +106,9 @@ async function appendCheck(serviceId: string, check: ServiceCheck): Promise<void
   const history = await getHistory();
   if (!history[serviceId]) history[serviceId] = [];
   history[serviceId].push(check);
-  // Keep last 100 per service
-  if (history[serviceId].length > 100) {
-    history[serviceId] = history[serviceId].slice(-100);
+  // Keep last N per service
+  if (history[serviceId].length > SERVICE_HISTORY_LIMIT) {
+    history[serviceId] = history[serviceId].slice(-SERVICE_HISTORY_LIMIT);
   }
   await saveHistory(history);
 }

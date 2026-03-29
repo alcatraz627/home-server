@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import { existsSync, readFileSync } from 'node:fs';
 import { CONFIG_DIR, PATHS } from '$lib/server/paths';
 import { BACKUP_HISTORY_LIMIT } from '$lib/constants/defaults';
+import { BACKUP_RSYNC_TIMEOUT_MS } from '$lib/constants/limits';
 import { createLogger } from './logger';
 import { isCommandAvailable } from './security';
 
@@ -232,7 +233,7 @@ export async function dryRunBackup(configId: string): Promise<{ files: string[];
   try {
     const output = execSync(`rsync ${args.map((a) => `'${a}'`).join(' ')}`, {
       encoding: 'utf-8',
-      timeout: 30000,
+      timeout: BACKUP_RSYNC_TIMEOUT_MS,
     });
     const lines = output.split('\n').filter(Boolean);
     const files = lines.filter(

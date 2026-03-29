@@ -1,4 +1,5 @@
 import { env } from '$env/dynamic/private';
+import { NTFY_DEFAULT_SERVER } from '$lib/constants/limits';
 import { createLogger } from './logger';
 
 const log = createLogger('notify');
@@ -25,7 +26,7 @@ export async function sendNotification(notification: Notification): Promise<bool
   const topic = env.NTFY_TOPIC;
   if (!topic) return false;
 
-  const server = env.NTFY_SERVER || 'https://ntfy.sh';
+  const server = env.NTFY_SERVER || NTFY_DEFAULT_SERVER;
   const url = `${server}/${topic}`;
 
   try {

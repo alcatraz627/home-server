@@ -1,6 +1,7 @@
 import dgram from 'node:dgram';
 import os from 'node:os';
 import { LIGHTS_DISCOVERY_TIMEOUT_MS } from '$lib/constants/defaults';
+import { WIZ_UDP_PORT, WIZ_UDP_TIMEOUT_MS } from '$lib/constants/limits';
 import { createLogger } from './logger';
 
 const log = createLogger('wiz');
@@ -20,7 +21,7 @@ export interface WizBulb {
   rssi: number | null;
 }
 
-const WIZ_PORT = 38899;
+const WIZ_PORT = WIZ_UDP_PORT;
 const DISCOVERY_TIMEOUT = LIGHTS_DISCOVERY_TIMEOUT_MS;
 
 /** Discover all Wiz bulbs on the local network */
@@ -110,7 +111,7 @@ function parseBulbResult(ip: string, r: any): WizBulb {
   };
 }
 
-function sendUdp(ip: string, message: object, timeout = 2000): Promise<any> {
+function sendUdp(ip: string, message: object, timeout = WIZ_UDP_TIMEOUT_MS): Promise<any> {
   return new Promise((resolve) => {
     const socket = dgram.createSocket('udp4');
     const buf = Buffer.from(JSON.stringify(message));
