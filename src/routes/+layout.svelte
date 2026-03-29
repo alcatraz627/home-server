@@ -102,6 +102,26 @@
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
   }
+  // ── Navigation timeout — detect stuck navigation when server is offline ──
+  let navStuck = $state(false);
+  let navTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  const NAV_TIMEOUT_MS = 10_000;
+
+  $effect(() => {
+    if ($navigating) {
+      navStuck = false;
+      navTimeoutId = setTimeout(() => {
+        navStuck = true;
+      }, NAV_TIMEOUT_MS);
+    } else {
+      navStuck = false;
+      if (navTimeoutId) {
+        clearTimeout(navTimeoutId);
+        navTimeoutId = null;
+      }
+    }
+  });
+
   let unreadNotifications = $state(0);
   let healthStatus = $state<'green' | 'yellow' | 'red' | 'unknown'>('unknown');
   let healthLatency = $state(0);
@@ -889,7 +909,18 @@
 
     <main>
       {#if $navigating}
-        <div class="loading-bar"></div>
+        {#if navStuck}
+          <div class="nav-stuck-banner">
+            <span
+              >Server appears unreachable. <button class="nav-stuck-retry" onclick={() => window.location.reload()}
+                >Reload</button
+              >
+              or <a href="/">go home</a></span
+            >
+          </div>
+        {:else}
+          <div class="loading-bar"></div>
+        {/if}
       {/if}
       <ErrorBoundary title="This page encountered an error">
         {@render children()}
@@ -1797,6 +1828,33 @@
     background-size: 200% 100%;
     animation: shimmer 1.2s ease-in-out infinite;
     z-index: 50;
+  }
+
+  .nav-stuck-banner {
+    background: var(--danger-bg);
+    border-bottom: 1px solid var(--danger);
+    color: var(--text-primary);
+    padding: 10px 16px;
+    font-size: 0.85rem;
+    text-align: center;
+    z-index: 50;
+  }
+
+  .nav-stuck-banner a {
+    color: var(--accent);
+    text-decoration: underline;
+  }
+
+  .nav-stuck-retry {
+    background: var(--danger);
+    color: var(--bg-primary);
+    border: none;
+    padding: 2px 10px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-family: inherit;
+    cursor: pointer;
+    font-weight: 500;
   }
 
   @keyframes shimmer {
