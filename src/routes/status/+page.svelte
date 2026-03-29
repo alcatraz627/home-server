@@ -1,6 +1,7 @@
 <script lang="ts">
   import { fetchApi } from '$lib/api';
   import { onMount } from 'svelte';
+  import { createAutoRefresh } from '$lib/auto-refresh.svelte';
   import { useShortcuts } from '$lib/shortcuts';
   import Badge from '$lib/components/Badge.svelte';
   import Button from '$lib/components/Button.svelte';
@@ -37,6 +38,8 @@
     } catch {}
     loading = false;
   }
+
+  createAutoRefresh(refresh, 10000);
 
   onMount(() => {
     refresh();

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { browser } from '$app/environment';
+  import { createAutoRefresh } from '$lib/auto-refresh.svelte';
   import { toast } from '$lib/toast';
   import { fetchApi, postJson } from '$lib/api';
   import { getErrorMessage } from '$lib/errors';
@@ -225,6 +226,8 @@
       btToggling = null;
     }
   }
+
+  createAutoRefresh(refresh, 15000);
 
   onMount(refresh);
 

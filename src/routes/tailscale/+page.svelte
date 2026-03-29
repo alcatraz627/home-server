@@ -3,6 +3,7 @@
   import type { TailscaleDevice } from '$lib/server/tailscale';
   import { toast } from '$lib/toast';
   import { getErrorMessage } from '$lib/errors';
+  import { createAutoRefresh } from '$lib/auto-refresh.svelte';
   import Button from '$lib/components/Button.svelte';
   import Badge from '$lib/components/Badge.svelte';
   import AsyncState from '$lib/components/AsyncState.svelte';
@@ -17,6 +18,8 @@
   let error = $state<string | undefined>(initialError);
   let refreshing = $state(false);
   let expandedHostnames = $state<Set<string>>(new Set()); // keyed by ipv4 or hostname
+
+  createAutoRefresh(refresh, 30000);
 
   async function refresh() {
     refreshing = true;

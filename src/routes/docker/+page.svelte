@@ -14,6 +14,7 @@
   import InfoRow from '$lib/components/InfoRow.svelte';
   import { onMount } from 'svelte';
   import { useShortcuts, SHORTCUT_DEFAULTS } from '$lib/shortcuts';
+  import { createAutoRefresh } from '$lib/auto-refresh.svelte';
 
   let { data } = $props<{ data: PageData }>();
   const dockerInstalled = $derived(data.installed);
@@ -21,6 +22,8 @@
   let containers = $state<DockerContainer[]>([]);
   let loading = $state(true);
   let actionLoading = $state<string | null>(null);
+
+  createAutoRefresh(refresh, 15000);
 
   onMount(() => {
     (async () => {

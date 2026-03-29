@@ -10,5 +10,5 @@
  */
 export const APP = {
   title: 'Home Server',
-  version: '4.57.0-shortcuts-24',
+  version: '4.58.0-autorefresh-25',
 } as const;

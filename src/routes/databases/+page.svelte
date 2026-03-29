@@ -2,6 +2,7 @@
   import { fetchApi, postJson } from '$lib/api';
   import { toast } from '$lib/toast';
   import { onMount } from 'svelte';
+  import { createAutoRefresh } from '$lib/auto-refresh.svelte';
   import Button from '$lib/components/Button.svelte';
   import Badge from '$lib/components/Badge.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
@@ -96,6 +97,8 @@
     if (sec < 3600) return `${Math.floor(sec / 60)}m`;
     return `${Math.floor(sec / 3600)}h ${Math.floor((sec % 3600) / 60)}m`;
   }
+
+  createAutoRefresh(refresh, 30000);
 
   onMount(refresh);
 </script>

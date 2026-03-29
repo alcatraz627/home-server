@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { toast } from '$lib/toast';
+  import { createAutoRefresh } from '$lib/auto-refresh.svelte';
   import { getErrorMessage } from '$lib/errors';
   import { useShortcuts } from '$lib/shortcuts';
   import PageHeader from '$lib/components/PageHeader.svelte';
@@ -131,6 +132,8 @@
   }
 
   let searchInputEl = $state<HTMLInputElement | undefined>();
+
+  createAutoRefresh(fetchLogs, 10000);
 
   onMount(() => {
     fetchLogs();

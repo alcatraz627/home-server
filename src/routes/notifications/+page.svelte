@@ -3,6 +3,7 @@
   import type { AppNotification, NotificationType, NotificationSource } from '$lib/server/notifications';
   import { toast } from '$lib/toast';
   import { fetchApi, postJson } from '$lib/api';
+  import { createAutoRefresh } from '$lib/auto-refresh.svelte';
   import Button from '$lib/components/Button.svelte';
   import Badge from '$lib/components/Badge.svelte';
   import Icon from '$lib/components/Icon.svelte';
@@ -51,6 +52,8 @@
     }
     return list;
   });
+
+  createAutoRefresh(refresh, 30000);
 
   async function refresh() {
     try {

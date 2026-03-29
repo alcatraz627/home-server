@@ -1,6 +1,7 @@
 <script lang="ts">
   import { fetchApi } from '$lib/api';
   import { onMount } from 'svelte';
+  import { createAutoRefresh } from '$lib/auto-refresh.svelte';
   import Button from '$lib/components/Button.svelte';
   import Icon from '$lib/components/Icon.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
@@ -33,6 +34,8 @@
     if (b < 1048576) return `${(b / 1024).toFixed(1)} KB`;
     return `${(b / 1048576).toFixed(1)} MB`;
   }
+
+  createAutoRefresh(refresh, 30000);
 
   onMount(refresh);
 </script>
