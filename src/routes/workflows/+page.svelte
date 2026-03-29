@@ -4,8 +4,10 @@
   import Icon from '$lib/components/Icon.svelte';
   import Badge from '$lib/components/Badge.svelte';
   import Button from '$lib/components/Button.svelte';
+  import { toast } from '$lib/toast';
 
   let { data } = $props<{ data: PageData }>();
+  let importInput = $state<HTMLInputElement | undefined>();
 
   const MODULE_META: Record<string, { icon: string; label: string; href: string; color: string }> = {
     kanban: { icon: 'kanban', label: 'Kanban', href: '/kanban', color: 'var(--accent)' },
@@ -70,6 +72,42 @@
     }
   }
 
+  async function exportData() {
+    try {
+      const res = await fetch('/api/export');
+      if (!res.ok) throw new Error();
+      const blob = new Blob([JSON.stringify(await res.json(), null, 2)], { type: 'application/json' });
+      const link = document.createElement('a');
+      link.download = `home-server-export-${new Date().toISOString().slice(0, 10)}.json`;
+      link.href = URL.createObjectURL(blob);
+      link.click();
+      toast.success('Data exported');
+    } catch {
+      toast.error('Export failed');
+    }
+  }
+
+  async function importData(event: Event) {
+    const file = (event.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      const res = await fetch('/api/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...data, _importMode: 'merge' }),
+      });
+      if (!res.ok) throw new Error();
+      const result = await res.json();
+      toast.success(`Imported: ${result.imported.join(', ')}`);
+      // Reset input
+      if (importInput) importInput.value = '';
+    } catch {
+      toast.error('Import failed — invalid file format');
+    }
+  }
+
   function actionColor(type: string): string {
     switch (type) {
       case 'create':
@@ -86,7 +124,16 @@
 
 <div class="page">
   <PageHeader title="Workflows" icon="zap" description="Unified productivity hub — all tools, linked and connected.">
+    <Button icon="download" onclick={exportData}>Export</Button>
+    <Button icon="upload" onclick={() => importInput?.click()}>Import</Button>
     <a href="/activity"><Button icon="activity">Activity Feed</Button></a>
+    <input
+      type="file"
+      accept=".json"
+      bind:this={importInput}
+      onchange={importData}
+      style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)"
+    />
   </PageHeader>
 
   <!-- ── Module Overview Cards ───────────────────────────────────────── -->
