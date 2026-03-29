@@ -16,6 +16,15 @@
     notes: number;
     docker: { running: number; total: number };
     services: { healthy: number; total: number };
+    productivity?: {
+      kanbanActive: number;
+      kanbanDone: number;
+      remindersUpcoming: number;
+      remindersOverdue: number;
+      notesCount: number;
+      bookmarksCount: number;
+      activityToday: number;
+    };
   }
 
   interface SystemData {
@@ -509,6 +518,53 @@
       {/each}
     </div>
   {/if}
+{:else if widget.typeId === 'productivity'}
+  <!-- ── Productivity ───────────────────────────────────────────────────── -->
+  <div class="prod-grid">
+    <a href="/kanban" class="prod-card card-stagger" style="animation-delay: 0ms">
+      <div class="prod-icon"><Icon name="kanban" size={16} /></div>
+      <div class="prod-body">
+        <span class="prod-label">Kanban</span>
+        <span class="prod-stat">{dashboard.productivity?.kanbanActive ?? 0} active</span>
+        {#if (dashboard.productivity?.kanbanDone ?? 0) > 0}
+          <span class="prod-stat success">{dashboard.productivity?.kanbanDone} done</span>
+        {/if}
+      </div>
+    </a>
+    <a href="/reminders" class="prod-card card-stagger" style="animation-delay: 30ms">
+      <div class="prod-icon"><Icon name="bell" size={16} /></div>
+      <div class="prod-body">
+        <span class="prod-label">Reminders</span>
+        <span class="prod-stat">{dashboard.productivity?.remindersUpcoming ?? 0} upcoming</span>
+        {#if (dashboard.productivity?.remindersOverdue ?? 0) > 0}
+          <span class="prod-stat danger">{dashboard.productivity?.remindersOverdue} overdue</span>
+        {/if}
+      </div>
+    </a>
+    <a href="/notes" class="prod-card card-stagger" style="animation-delay: 60ms">
+      <div class="prod-icon"><Icon name="file-text" size={16} /></div>
+      <div class="prod-body">
+        <span class="prod-label">Notes</span>
+        <span class="prod-stat">{dashboard.productivity?.notesCount ?? 0} total</span>
+      </div>
+    </a>
+    <a href="/bookmarks" class="prod-card card-stagger" style="animation-delay: 90ms">
+      <div class="prod-icon"><Icon name="link" size={16} /></div>
+      <div class="prod-body">
+        <span class="prod-label">Bookmarks</span>
+        <span class="prod-stat">{dashboard.productivity?.bookmarksCount ?? 0} saved</span>
+      </div>
+    </a>
+    {#if (dashboard.productivity?.activityToday ?? 0) > 0}
+      <a href="/activity" class="prod-card card-stagger" style="animation-delay: 120ms">
+        <div class="prod-icon"><Icon name="activity" size={16} /></div>
+        <div class="prod-body">
+          <span class="prod-label">Today</span>
+          <span class="prod-stat accent">{dashboard.productivity?.activityToday} events</span>
+        </div>
+      </a>
+    {/if}
+  </div>
 {/if}
 
 <style>
@@ -947,5 +1003,66 @@
     .status-grid {
       grid-template-columns: 1fr;
     }
+  }
+
+  /* ── Productivity Widget ─────────────────────────────────────────────── */
+  .prod-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 0.5rem;
+  }
+  .prod-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 0.6rem 0.75rem;
+    border-radius: 8px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    text-decoration: none;
+    color: inherit;
+    transition:
+      border-color 0.15s,
+      background 0.15s;
+  }
+  .prod-card:hover {
+    border-color: var(--accent);
+    background: var(--bg-tertiary, var(--bg-secondary));
+  }
+  .prod-icon {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    color: var(--accent);
+  }
+  .prod-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+  }
+  .prod-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+  .prod-stat {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .prod-stat.success {
+    color: var(--success);
+  }
+  .prod-stat.danger {
+    color: var(--danger);
+  }
+  .prod-stat.accent {
+    color: var(--accent);
   }
 </style>

@@ -220,6 +220,18 @@ export const WIDGET_TYPES: WidgetTypeDef[] = [
     category: 'data',
     allowMultiple: false,
   },
+  {
+    id: 'productivity',
+    label: 'Productivity',
+    icon: 'zap',
+    description: 'Kanban, reminders, notes & bookmarks at a glance',
+    renderMode: 'status',
+    defaultSize: 'medium',
+    endpoint: null,
+    href: '/activity',
+    category: 'data',
+    allowMultiple: false,
+  },
 ];
 
 /** Lookup a widget type definition by ID */
