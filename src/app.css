@@ -2,6 +2,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Geist:wght@400;500;600&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600&family=Nunito:wght@400;500;600&family=Rubik:wght@400;500;600&family=Outfit:wght@400;500;600&family=Poppins:wght@400;500;600&family=Source+Sans+3:wght@400;600&family=Figtree:wght@400;500;600&family=Onest:wght@400;500&family=Open+Sans:wght@400;600&family=Raleway:wght@400;500;600&family=Urbanist:wght@400;500;600&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600&family=Merriweather:wght@400;700&family=Lora:wght@400;600&family=EB+Garamond:wght@400;500&family=Fira+Code:wght@400;500&family=IBM+Plex+Mono:wght@400;500&family=Source+Code+Pro:wght@400;500&family=Inconsolata:wght@400;500&family=Syne:wght@400;600&family=Josefin+Sans:wght@400;600&family=Bebas+Neue&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600&family=Atkinson+Hyperlegible+Next:wght@400;700&family=Commit+Mono:wght@400;700&family=Red+Hat+Display:wght@400;500;600;700&display=swap');
 
 /* ===== Theme Variables ===== */
 :root,
@@ -963,6 +964,186 @@
   --btn-bg: #f5f5f5;
   --table-header-bg: #f5f5f5;
   --code-bg: #f5f5f5;
+}
+
+[data-theme='vesper'] {
+  --bg-primary: #101010;
+  --bg-secondary: #1c1c1c;
+  --bg-inset: #0a0a0a;
+  --bg-hover: #262626;
+  --border: #2e2e2e;
+  --border-subtle: #222222;
+  --text-primary: #d4d4d4;
+  --text-secondary: #b0b0b0;
+  --text-muted: #808080;
+  --text-faint: #555555;
+  --accent: #ffc799;
+  --accent-bg: rgba(255, 199, 153, 0.08);
+  --success: #6bdfb8;
+  --success-bg: rgba(107, 223, 184, 0.1);
+  --danger: #f5a097;
+  --danger-bg: rgba(245, 160, 151, 0.1);
+  --warning: #ffd700;
+  --warning-bg: rgba(255, 215, 0, 0.1);
+  --purple: #c4a1e0;
+  --purple-bg: rgba(196, 161, 224, 0.08);
+  --cyan: #7dcfff;
+  --orange: #ffb454;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --input-bg: #0a0a0a;
+  --btn-bg: #262626;
+  --table-header-bg: #1c1c1c;
+  --code-bg: #0a0a0a;
+}
+
+[data-theme='moonlight'] {
+  --bg-primary: #1e2030;
+  --bg-secondary: #222436;
+  --bg-inset: #191a2a;
+  --bg-hover: #2f334d;
+  --border: #383c58;
+  --border-subtle: #2d3147;
+  --text-primary: #c8d3f5;
+  --text-secondary: #a9b1d6;
+  --text-muted: #7a88cf;
+  --text-faint: #545c7e;
+  --accent: #82aaff;
+  --accent-bg: rgba(130, 170, 255, 0.08);
+  --success: #c3e88d;
+  --success-bg: rgba(195, 232, 141, 0.1);
+  --danger: #ff757f;
+  --danger-bg: rgba(255, 117, 127, 0.1);
+  --warning: #ffc777;
+  --warning-bg: rgba(255, 199, 119, 0.1);
+  --purple: #c099ff;
+  --purple-bg: rgba(192, 153, 255, 0.08);
+  --cyan: #86e1fc;
+  --orange: #ff966c;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  --input-bg: #191a2a;
+  --btn-bg: #2f334d;
+  --table-header-bg: #222436;
+  --code-bg: #191a2a;
+}
+
+[data-theme='catppuccin-frappe'] {
+  --bg-primary: #303446;
+  --bg-secondary: #292c3c;
+  --bg-inset: #232634;
+  --bg-hover: #414559;
+  --border: #51576d;
+  --border-subtle: #414559;
+  --text-primary: #c6d0f5;
+  --text-secondary: #b5bfe2;
+  --text-muted: #a5adce;
+  --text-faint: #737994;
+  --accent: #8caaee;
+  --accent-bg: rgba(140, 170, 238, 0.08);
+  --success: #a6d189;
+  --success-bg: rgba(166, 209, 137, 0.1);
+  --danger: #e78284;
+  --danger-bg: rgba(231, 130, 132, 0.1);
+  --warning: #e5c890;
+  --warning-bg: rgba(229, 200, 144, 0.1);
+  --purple: #ca9ee6;
+  --purple-bg: rgba(202, 158, 230, 0.08);
+  --cyan: #85c1dc;
+  --orange: #ef9f76;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --input-bg: #232634;
+  --btn-bg: #414559;
+  --table-header-bg: #292c3c;
+  --code-bg: #232634;
+}
+
+[data-theme='flexoki-dark'] {
+  --bg-primary: #100f0f;
+  --bg-secondary: #1c1b1a;
+  --bg-inset: #0a0908;
+  --bg-hover: #282726;
+  --border: #343331;
+  --border-subtle: #282726;
+  --text-primary: #cecdc3;
+  --text-secondary: #b7b5ac;
+  --text-muted: #878580;
+  --text-faint: #575653;
+  --accent: #4385be;
+  --accent-bg: rgba(67, 133, 190, 0.1);
+  --success: #879a39;
+  --success-bg: rgba(135, 154, 57, 0.1);
+  --danger: #d14d41;
+  --danger-bg: rgba(209, 77, 65, 0.1);
+  --warning: #d0a215;
+  --warning-bg: rgba(208, 162, 21, 0.1);
+  --purple: #8b7ec8;
+  --purple-bg: rgba(139, 126, 200, 0.08);
+  --cyan: #3aa99f;
+  --orange: #da702c;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --input-bg: #0a0908;
+  --btn-bg: #282726;
+  --table-header-bg: #1c1b1a;
+  --code-bg: #0a0908;
+}
+
+[data-theme='flexoki-light'] {
+  --bg-primary: #fffcf0;
+  --bg-secondary: #f2f0e5;
+  --bg-inset: #e6e4d9;
+  --bg-hover: #dad8ce;
+  --border: #cecdc3;
+  --border-subtle: #dad8ce;
+  --text-primary: #100f0f;
+  --text-secondary: #343331;
+  --text-muted: #575653;
+  --text-faint: #878580;
+  --accent: #205ea6;
+  --accent-bg: rgba(32, 94, 166, 0.08);
+  --success: #66800b;
+  --success-bg: rgba(102, 128, 11, 0.08);
+  --danger: #af3029;
+  --danger-bg: rgba(175, 48, 41, 0.08);
+  --warning: #ad8301;
+  --warning-bg: rgba(173, 131, 1, 0.08);
+  --purple: #5e409d;
+  --purple-bg: rgba(94, 64, 157, 0.06);
+  --cyan: #24837b;
+  --orange: #bc5215;
+  --shadow: 0 1px 3px rgba(16, 15, 15, 0.06);
+  --input-bg: #fffcf0;
+  --btn-bg: #f2f0e5;
+  --table-header-bg: #f2f0e5;
+  --code-bg: #f2f0e5;
+}
+
+[data-theme='slack-aubergine'] {
+  --bg-primary: #1a1d21;
+  --bg-secondary: #222529;
+  --bg-inset: #141619;
+  --bg-hover: #2c2f33;
+  --border: #383b3f;
+  --border-subtle: #2c2f33;
+  --text-primary: #d1d2d3;
+  --text-secondary: #b9bbbe;
+  --text-muted: #8e9297;
+  --text-faint: #5d6269;
+  --accent: #1264a3;
+  --accent-bg: rgba(18, 100, 163, 0.12);
+  --success: #2bac76;
+  --success-bg: rgba(43, 172, 118, 0.12);
+  --danger: #e01e5a;
+  --danger-bg: rgba(224, 30, 90, 0.12);
+  --warning: #ecb22e;
+  --warning-bg: rgba(236, 178, 46, 0.12);
+  --purple: #611f69;
+  --purple-bg: rgba(97, 31, 105, 0.15);
+  --cyan: #36c5f0;
+  --orange: #e9943a;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  --input-bg: #141619;
+  --btn-bg: #2c2f33;
+  --table-header-bg: #222529;
+  --code-bg: #141619;
 }
 /* ===== Reset & Base ===== */
 * {

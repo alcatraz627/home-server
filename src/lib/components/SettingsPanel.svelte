@@ -38,6 +38,9 @@
         { id: 'open-sans', name: 'Open Sans', css: "'Open Sans', sans-serif" },
         { id: 'raleway', name: 'Raleway', css: "'Raleway', sans-serif" },
         { id: 'urbanist', name: 'Urbanist', css: "'Urbanist', sans-serif" },
+        { id: 'lexend', name: 'Lexend', css: "'Lexend', sans-serif" },
+        { id: 'red-hat-display', name: 'Red Hat Display', css: "'Red Hat Display', sans-serif" },
+        { id: 'atkinson', name: 'Atkinson Hyperlegible', css: "'Atkinson Hyperlegible Next', sans-serif" },
       ],
     },
     {
@@ -57,6 +60,7 @@
         { id: 'ibm-plex-mono', name: 'IBM Plex Mono', css: "'IBM Plex Mono', monospace" },
         { id: 'source-code-pro', name: 'Source Code Pro', css: "'Source Code Pro', monospace" },
         { id: 'inconsolata', name: 'Inconsolata', css: "'Inconsolata', monospace" },
+        { id: 'commit-mono', name: 'Commit Mono', css: "'Commit Mono', monospace" },
       ],
     },
     {
@@ -94,6 +98,9 @@
         { id: 'nunito', name: 'Nunito', css: "'Nunito', sans-serif" },
         { id: 'rubik', name: 'Rubik', css: "'Rubik', sans-serif" },
         { id: 'figtree', name: 'Figtree', css: "'Figtree', sans-serif" },
+        { id: 'lexend', name: 'Lexend', css: "'Lexend', sans-serif" },
+        { id: 'red-hat-display', name: 'Red Hat Display', css: "'Red Hat Display', sans-serif" },
+        { id: 'atkinson', name: 'Atkinson Hyperlegible', css: "'Atkinson Hyperlegible Next', sans-serif" },
       ],
     },
     {
@@ -111,6 +118,7 @@
         { id: 'mono', name: 'JetBrains Mono', css: "'JetBrains Mono', monospace" },
         { id: 'fira-code', name: 'Fira Code', css: "'Fira Code', monospace" },
         { id: 'ibm-plex-mono', name: 'IBM Plex Mono', css: "'IBM Plex Mono', monospace" },
+        { id: 'commit-mono', name: 'Commit Mono', css: "'Commit Mono', monospace" },
       ],
     },
   ];

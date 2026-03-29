@@ -34,7 +34,13 @@ export type Theme =
   | 'one-light'
   | 'rose-pine-dawn'
   | 'everforest-light'
-  | 'material-light';
+  | 'material-light'
+  | 'vesper'
+  | 'moonlight'
+  | 'catppuccin-frappe'
+  | 'flexoki-dark'
+  | 'flexoki-light'
+  | 'slack-aubergine';
 
 export interface ThemeDef {
   id: Theme;
@@ -75,6 +81,12 @@ export const THEMES: ThemeDef[] = [
   { id: 'rose-pine-dawn', label: 'Rosé Pine Dawn', dark: false },
   { id: 'everforest-light', label: 'Everforest Light', dark: false },
   { id: 'material-light', label: 'Material Light', dark: false },
+  { id: 'vesper', label: 'Vesper', dark: true },
+  { id: 'moonlight', label: 'Moonlight', dark: true },
+  { id: 'catppuccin-frappe', label: 'Catppuccin Frappé', dark: true },
+  { id: 'flexoki-dark', label: 'Flexoki Dark', dark: true },
+  { id: 'flexoki-light', label: 'Flexoki Light', dark: false },
+  { id: 'slack-aubergine', label: 'Slack Aubergine', dark: true },
 ];
 
 export const THEME_SWATCHES: Record<Theme, { bg: string; accent: string; text: string }> = {
@@ -110,6 +122,12 @@ export const THEME_SWATCHES: Record<Theme, { bg: string; accent: string; text: s
   'rose-pine-dawn': { bg: '#faf4ed', accent: '#56949f', text: '#575279' },
   'everforest-light': { bg: '#fdf6e3', accent: '#8da101', text: '#5c6a72' },
   'material-light': { bg: '#fafafa', accent: '#6182b8', text: '#212121' },
+  vesper: { bg: '#101010', accent: '#ffc799', text: '#d4d4d4' },
+  moonlight: { bg: '#1e2030', accent: '#82aaff', text: '#c8d3f5' },
+  'catppuccin-frappe': { bg: '#303446', accent: '#8caaee', text: '#c6d0f5' },
+  'flexoki-dark': { bg: '#100f0f', accent: '#4385be', text: '#cecdc3' },
+  'flexoki-light': { bg: '#fffcf0', accent: '#205ea6', text: '#100f0f' },
+  'slack-aubergine': { bg: '#1a1d21', accent: '#1264a3', text: '#d1d2d3' },
 };
 
 const VALID_THEMES = new Set(THEMES.map((t) => t.id));
