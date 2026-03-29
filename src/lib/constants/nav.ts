@@ -63,6 +63,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/calendar', label: 'Calendar', desc: 'Dated items timeline', icon: 'calendar' },
       { href: '/habits', label: 'Habits', desc: 'Daily habit tracker', icon: 'flame' },
       { href: '/activity', label: 'Activity', desc: 'Cross-module event feed', icon: 'activity' },
+      { href: '/workflows', label: 'Workflows', desc: 'Unified productivity hub', icon: 'zap' },
     ],
   },
   {

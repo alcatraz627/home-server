@@ -10,5 +10,5 @@
  */
 export const APP = {
   title: 'Home Server',
-  version: '4.52.0-linux-fix-19',
+  version: '4.53.0-workflows-20',
 } as const;
