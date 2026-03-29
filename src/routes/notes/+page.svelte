@@ -6,6 +6,8 @@
   import Button from '$lib/components/Button.svelte';
   import Icon from '$lib/components/Icon.svelte';
   import SearchInput from '$lib/components/SearchInput.svelte';
+  import FilterQueryBar from '$lib/components/FilterQueryBar.svelte';
+  import { parseFilterQuery, matchItem, type FilterNode } from '$lib/utils/filter-query';
   import EmptyState from '$lib/components/EmptyState.svelte';
 
   interface NoteBlock {
@@ -39,13 +41,20 @@
   let notes = $state<NoteSummary[]>([]);
   let activeNote = $state<Note | null>(null);
   let search = $state('');
+  // Filter Query Language
+  let filterQuery = $state('');
+  let parsedFilter = $derived<FilterNode | null>(parseFilterQuery(filterQuery));
   let saving = $state(false);
   let saveTimer: ReturnType<typeof setTimeout> | null = null;
 
   let filtered = $derived.by(() => {
-    if (!search) return notes;
-    const q = search.toLowerCase();
-    return notes.filter((n) => n.title.toLowerCase().includes(q));
+    let result = notes;
+    if (search) {
+      const q = search.toLowerCase();
+      result = result.filter((n) => n.title.toLowerCase().includes(q));
+    }
+    result = result.filter((n) => matchItem(parsedFilter, { title: n.title }));
+    return result;
   });
 
   async function loadNotes() {
@@ -224,6 +233,12 @@
     <div class="sidebar-search">
       <SearchInput bind:value={search} placeholder="Search notes..." size="sm" />
     </div>
+    <FilterQueryBar
+      bind:query={filterQuery}
+      placeholder="Filter notes..."
+      matchCount={parsedFilter ? filtered.length : null}
+      storageKey="hs:notes-saved-filters"
+    />
     <div class="note-list">
       {#each filtered as note (note.id)}
         <!-- svelte-ignore a11y_click_events_have_key_events -->

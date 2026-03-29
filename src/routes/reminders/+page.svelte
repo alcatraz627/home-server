@@ -8,6 +8,8 @@
   import Icon from '$lib/components/Icon.svelte';
   import ErrorBoundary from '$lib/components/ErrorBoundary.svelte';
   import LinkedItems from '$lib/components/LinkedItems.svelte';
+  import FilterQueryBar from '$lib/components/FilterQueryBar.svelte';
+  import { parseFilterQuery, matchItem, type FilterNode } from '$lib/utils/filter-query';
   import type { Reminder, ReminderPriority, Recurrence, RecurrencePattern } from '$lib/types/productivity';
 
   type Priority = ReminderPriority;
@@ -48,6 +50,22 @@
   // Filter
   let filter = $state<'upcoming' | 'fired' | 'snoozed' | 'all'>('upcoming');
 
+  // Filter Query Language
+  let filterQuery = $state('');
+  let parsedFilter = $derived<FilterNode | null>(parseFilterQuery(filterQuery));
+
+  /** Map reminder priority to P1/P2/P3 for FQL compatibility */
+  function reminderToFilterable(r: Reminder) {
+    const pMap: Record<string, string> = { urgent: 'P1', high: 'P2', normal: 'P3', low: 'P3' };
+    return {
+      title: r.title,
+      description: r.description,
+      priority: pMap[r.priority] || '',
+      dueDate: r.datetime,
+      tags: [] as string[],
+    };
+  }
+
   let filtered = $derived(
     reminders
       .filter((r) => {
@@ -56,6 +74,7 @@
         if (filter === 'snoozed') return !!r.snoozedUntil && !r.fired;
         return true;
       })
+      .filter((r) => matchItem(parsedFilter, reminderToFilterable(r)))
       .sort((a, b) => {
         // Overdue items first, then by datetime
         const aOverdue = isOverdue(a) ? 0 : 1;
@@ -565,6 +584,13 @@
         </button>
       {/each}
     </div>
+
+    <FilterQueryBar
+      bind:query={filterQuery}
+      placeholder="Filter: p1, overdue, today, or combine with & |"
+      matchCount={parsedFilter ? filtered.length : null}
+      storageKey="hs:reminders-saved-filters"
+    />
 
     {#if filtered.length === 0}
       <div class="empty">

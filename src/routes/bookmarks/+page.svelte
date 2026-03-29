@@ -9,6 +9,8 @@
   import Badge from '$lib/components/Badge.svelte';
   import SearchInput from '$lib/components/SearchInput.svelte';
   import FilterBar from '$lib/components/FilterBar.svelte';
+  import FilterQueryBar from '$lib/components/FilterQueryBar.svelte';
+  import { parseFilterQuery, matchItem, type FilterNode } from '$lib/utils/filter-query';
   import PageHeader from '$lib/components/PageHeader.svelte';
 
   interface Bookmark {
@@ -36,6 +38,14 @@
   let searchInputEl = $state<HTMLInputElement | undefined>();
   let activeTag = $state<string | null>(null);
 
+  // Filter Query Language
+  let filterQuery = $state('');
+  let parsedFilter = $derived<FilterNode | null>(parseFilterQuery(filterQuery));
+
+  function bookmarkToFilterable(b: { title: string; description: string; tags: string[] }) {
+    return { title: b.title, description: b.description, tags: b.tags };
+  }
+
   const allTags = $derived.by(() => {
     const tags = new Set<string>();
     bookmarks.forEach((b) => b.tags.forEach((t) => tags.add(t)));
@@ -55,6 +65,7 @@
           b.tags.some((t) => t.toLowerCase().includes(q)),
       );
     }
+    result = result.filter((b) => matchItem(parsedFilter, bookmarkToFilterable(b)));
     return result;
   });
 
@@ -221,6 +232,13 @@
   <FilterBar>
     <SearchInput bind:value={search} bind:inputEl={searchInputEl} placeholder="Search bookmarks..." />
   </FilterBar>
+
+  <FilterQueryBar
+    bind:query={filterQuery}
+    placeholder="Filter: #tag, text search, or combine with & |"
+    matchCount={parsedFilter ? filtered.length : null}
+    storageKey="hs:bookmarks-saved-filters"
+  />
 
   {#if allTags.length > 0}
     <div class="tag-pills">

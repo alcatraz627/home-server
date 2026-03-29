@@ -5,6 +5,8 @@
   import Button from '$lib/components/Button.svelte';
   import Badge from '$lib/components/Badge.svelte';
   import FilterBar from '$lib/components/FilterBar.svelte';
+  import FilterQueryBar from '$lib/components/FilterQueryBar.svelte';
+  import { parseFilterQuery, matchItem, type FilterNode } from '$lib/utils/filter-query';
   import Icon from '$lib/components/Icon.svelte';
   import AgentLogViewer from '$lib/components/AgentLogViewer.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
@@ -42,6 +44,9 @@
   let filterStatus = $state<FeatureStatus | ''>('');
   let filterScope = $state<FeatureScope | ''>('');
   let search = $state('');
+  // Filter Query Language
+  let filterQuery = $state('');
+  let parsedFilter = $derived<FilterNode | null>(parseFilterQuery(filterQuery));
   let showCompleted = $state(false);
 
   // Form state
@@ -161,6 +166,7 @@
           r.title.toLowerCase().includes(q) || r.goal.toLowerCase().includes(q) || r.details.toLowerCase().includes(q),
       );
     }
+    if (parsedFilter) result = result.filter((r) => matchItem(parsedFilter, { title: r.title, description: r.goal }));
     return result.sort((a, b) => a.priority - b.priority);
   });
 
@@ -583,6 +589,12 @@
       {/each}
     </select>
   </FilterBar>
+  <FilterQueryBar
+    bind:query={filterQuery}
+    placeholder="Filter: text search, or combine with & |"
+    matchCount={parsedFilter ? filtered.length : null}
+    storageKey="hs:keeper-saved-filters"
+  />
 {/if}
 
 <!-- Create / Edit form -->
