@@ -487,6 +487,27 @@
     }, 2000);
   }
 
+  async function spawnKanbanCard(req: FeatureRequest) {
+    try {
+      const cardRes = await postJson('/api/kanban', {
+        action: 'create',
+        card: { title: req.title, description: req.goal, column: 'todo', priority: 'P1', tags: [req.scope] },
+      });
+      if (!cardRes.ok) throw new Error('Failed to create kanban card');
+      const card = await cardRes.json();
+      const linkRes = await postJson('/api/links', {
+        sourceType: 'keeper',
+        sourceId: req.id,
+        targetType: 'kanban',
+        targetId: card.id,
+      });
+      if (!linkRes.ok) throw new Error('Failed to link kanban card');
+      toast.success('Kanban card created & linked');
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, 'Failed to create kanban card'));
+    }
+  }
+
   // Cleanup pollers on unmount
   $effect(() => {
     return () => {
@@ -738,6 +759,7 @@
               <Button size="sm" onclick={() => markDone(req.id)}>Mark Done</Button>
             {/if}
             {#if req.status !== 'running' && !runningAgents.includes(req.id)}
+              <Button size="sm" onclick={() => spawnKanbanCard(req)}><Icon name="kanban" size={14} /> Kanban</Button>
               <Button size="sm" onclick={() => startEdit(req)}>Edit</Button>
               <Button size="sm" variant="danger" confirm confirmText="Sure?" onclick={() => deleteReq(req.id)}
                 ><Icon name="close" size={14} /></Button

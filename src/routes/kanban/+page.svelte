@@ -396,6 +396,53 @@
     }
   }
 
+  async function openInNotes(card: KanbanCard) {
+    try {
+      // Check if a linked note already exists
+      const linksRes = await fetch(`/api/links?type=kanban&id=${card.id}`);
+      if (linksRes.ok) {
+        const links: { sourceType: string; sourceId: string; targetType: string; targetId: string }[] =
+          await linksRes.json();
+        const existingNote = links.find(
+          (l) =>
+            (l.sourceType === 'note' && l.sourceId && l.targetType === 'kanban') ||
+            (l.targetType === 'note' && l.sourceType === 'kanban'),
+        );
+        if (existingNote) {
+          const noteId = existingNote.sourceType === 'note' ? existingNote.sourceId : existingNote.targetId;
+          window.location.href = `/notes?id=${noteId}`;
+          return;
+        }
+      }
+
+      // Create a new note linked to this card
+      const res = await postJson('/api/notes', {
+        title: card.title,
+        blocks: [
+          { type: 'heading2', content: card.title },
+          ...(card.description ? [{ type: 'text', content: card.description }] : []),
+          { type: 'divider', content: '' },
+          { type: 'text', content: '' },
+        ],
+      });
+      if (!res.ok) throw new Error();
+      const note = await res.json();
+
+      // Create a bidirectional link
+      await postJson('/api/links', {
+        sourceType: 'kanban',
+        sourceId: card.id,
+        targetType: 'note',
+        targetId: note.id,
+      });
+
+      toast.success('Note created & linked');
+      window.location.href = `/notes?id=${note.id}`;
+    } catch {
+      toast.error('Failed to open in notes');
+    }
+  }
+
   function formatDate(d: string): string {
     return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   }
@@ -717,6 +764,13 @@
                         <Icon name="save" size={13} /> Save
                       </button>
                       <button class="btn-sm" onclick={cancelEdit}>Cancel</button>
+                      <button
+                        class="btn-sm btn-notes"
+                        onclick={() => openInNotes({ ...card, title: editTitle, description: editDescription })}
+                        title="Open or create a linked note"
+                      >
+                        <Icon name="file-text" size={12} /> Notes
+                      </button>
                       {#if editDueDate}
                         <button
                           class="btn-sm btn-remind"
@@ -1490,6 +1544,10 @@
     cursor: pointer;
   }
 
+  .btn-notes {
+    color: var(--info, var(--accent));
+    border-color: var(--info, var(--accent));
+  }
   .btn-remind {
     margin-left: auto;
     color: var(--accent);

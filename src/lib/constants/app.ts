@@ -10,5 +10,5 @@
  */
 export const APP = {
   title: 'Home Server',
-  version: '4.50.0-filter-query-17',
+  version: '4.51.0-cross-link-18',
 } as const;

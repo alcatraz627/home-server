@@ -12,6 +12,8 @@
   import FilterQueryBar from '$lib/components/FilterQueryBar.svelte';
   import { parseFilterQuery, matchItem, type FilterNode } from '$lib/utils/filter-query';
   import PageHeader from '$lib/components/PageHeader.svelte';
+  import Icon from '$lib/components/Icon.svelte';
+  import { remindMe } from '$lib/utils/remind-me';
 
   interface Bookmark {
     id: string;
@@ -159,6 +161,33 @@
     toast.success('Bookmarks exported');
   }
 
+  async function saveToNotes(bookmark: Bookmark) {
+    try {
+      const blocks = [
+        { type: 'heading2', content: bookmark.title },
+        { type: 'text', content: `Reference: ${bookmark.url}` },
+        ...(bookmark.description ? [{ type: 'text', content: bookmark.description }] : []),
+        { type: 'divider' },
+        { type: 'text', content: '' },
+      ];
+      const noteRes = await postJson('/api/notes', { title: bookmark.title, blocks });
+      if (!noteRes.ok) throw new Error('Failed to create note');
+      const note = await noteRes.json();
+
+      await postJson('/api/links', {
+        sourceType: 'bookmark',
+        sourceId: bookmark.id,
+        targetType: 'note',
+        targetId: note.id,
+      });
+
+      toast.success('Saved to Notes');
+      window.location.href = `/notes?id=${note.id}`;
+    } catch {
+      toast.error('Failed to save bookmark to notes');
+    }
+  }
+
   function faviconUrl(url: string): string {
     try {
       const u = new URL(url);
@@ -284,6 +313,16 @@
             </div>
           </div>
           <div class="bookmark-actions">
+            <button class="action-btn" title="Save to Notes" onclick={() => saveToNotes(bm)}>
+              <Icon name="file-text" size={14} />
+            </button>
+            <button
+              class="action-btn"
+              title="Remind me about this"
+              onclick={() => remindMe('bookmark', bm.id, bm.title)}
+            >
+              <Icon name="bell" size={14} />
+            </button>
             <Button size="sm" onclick={() => startEdit(bm)}>Edit</Button>
             <Button size="sm" variant="danger" confirm onclick={() => deleteBookmark(bm.id)}>Delete</Button>
           </div>
@@ -415,5 +454,25 @@
     display: flex;
     gap: 0.35rem;
     flex-shrink: 0;
+    align-items: center;
+  }
+  .action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition:
+      background 0.15s,
+      color 0.15s;
+  }
+  .action-btn:hover {
+    background: var(--accent);
+    color: #fff;
   }
 </style>
