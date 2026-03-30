@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { errorMessage, errorCode } from '$lib/server/errors';
 import type { RequestHandler } from './$types';
-import { execSync } from 'child_process';
+import { execSync, spawnSync } from 'child_process';
 import os from 'os';
 import { getPrimaryInterface } from '$lib/server/network-utils';
 import { lookupVendor } from '$lib/server/oui';
@@ -61,10 +61,14 @@ extension CWNetwork {
   }
 }`;
 
-  const output = execSync(`swift -e '${script.replace(/'/g, "'\\''")}'`, {
+  const result = spawnSync('swift', ['-'], {
+    input: script,
     encoding: 'utf-8',
     timeout: 20000,
-  }).trim();
+  });
+  if (result.error) throw result.error;
+  if (result.status !== 0) throw new Error(result.stderr || 'Swift script failed');
+  const output = (result.stdout || '').trim();
   if (!output) return [];
 
   const items: Array<{

@@ -332,8 +332,12 @@ export async function sendMessage(handle: string, text: string): Promise<{ ok: b
   const safeHandle = handle.replace(/[^+\d\w@.\-_]/g, '');
   if (!safeHandle) return { ok: false, error: 'Invalid handle' };
 
-  // Escape text for AppleScript string literal (escape backslashes and double quotes)
-  const safeText = text.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  // Escape text for AppleScript string literal.
+  // Newlines must be expressed as " & return & " because AppleScript strings can't span lines.
+  const safeText = text
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/\r\n|\r|\n/g, '" & return & "');
 
   const script = `tell application "Messages"
   send "${safeText}" to buddy "${safeHandle}" of service "iMessage"

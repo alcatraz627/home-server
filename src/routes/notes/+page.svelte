@@ -41,6 +41,7 @@
   let notes = $state<NoteSummary[]>([]);
   let activeNote = $state<Note | null>(null);
   let search = $state('');
+  let searchInput = $state<HTMLInputElement | undefined>();
   // Filter Query Language
   let filterQuery = $state('');
   let parsedFilter = $derived<FilterNode | null>(parseFilterQuery(filterQuery));
@@ -213,7 +214,10 @@
 
   onMount(() => {
     loadNotes();
-    return useShortcuts([{ ...SHORTCUT_DEFAULTS.find((d) => d.id === 'notes:new')!, handler: () => createNote() }]);
+    return useShortcuts([
+      { ...SHORTCUT_DEFAULTS.find((d) => d.id === 'notes:new')!, handler: () => createNote() },
+      { ...SHORTCUT_DEFAULTS.find((d) => d.id === 'notes:focus-search')!, handler: () => searchInput?.focus() },
+    ]);
   });
 </script>
 
@@ -231,7 +235,7 @@
       </Button>
     </div>
     <div class="sidebar-search">
-      <SearchInput bind:value={search} placeholder="Search notes..." size="sm" />
+      <SearchInput bind:value={search} bind:inputEl={searchInput} placeholder="Search notes..." size="sm" />
     </div>
     <FilterQueryBar
       bind:query={filterQuery}

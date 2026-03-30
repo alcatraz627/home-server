@@ -1,7 +1,9 @@
 <script lang="ts">
   import type { PageData } from './$types';
   import type { TaskStatus } from '$lib/server/operator';
+  import { onMount, onDestroy } from 'svelte';
   import { toast } from '$lib/toast';
+  import { useShortcuts, SHORTCUT_DEFAULTS } from '$lib/shortcuts';
   import { getErrorMessage } from '$lib/errors';
   import EmptyState from '$lib/components/EmptyState.svelte';
   import Button from '$lib/components/Button.svelte';
@@ -269,6 +271,27 @@
   }
 
   if (typeof window !== 'undefined') loadHiddenTasks();
+
+  let taskSearchInput = $state<HTMLInputElement | undefined>();
+
+  let cleanupShortcuts: (() => void) | undefined;
+
+  onMount(() => {
+    cleanupShortcuts = useShortcuts([
+      {
+        ...SHORTCUT_DEFAULTS.find((d) => d.id === 'tasks:new')!,
+        handler: () => {
+          showForm = true;
+        },
+      },
+      {
+        ...SHORTCUT_DEFAULTS.find((d) => d.id === 'tasks:focus-search')!,
+        handler: () => taskSearchInput?.focus(),
+      },
+    ]);
+  });
+
+  onDestroy(() => cleanupShortcuts?.());
 
   function getTaskStatusLabel(s: TaskStatus): string {
     if (s.isRunning) return 'running';
@@ -800,7 +823,7 @@
 {:else}
   {#if statuses.length > 3}
     <div class="task-search-bar">
-      <SearchInput bind:value={taskSearch} placeholder="Search tasks..." clearable />
+      <SearchInput bind:value={taskSearch} bind:inputEl={taskSearchInput} placeholder="Search tasks..." clearable />
       <select class="task-filter-select" bind:value={taskStatusFilter}>
         <option value="">All statuses</option>
         <option value="running">Running</option>

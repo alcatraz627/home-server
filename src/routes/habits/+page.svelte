@@ -1,7 +1,8 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { fetchApi } from '$lib/api';
   import { toast } from '$lib/toast';
+  import { useShortcuts, SHORTCUT_DEFAULTS } from '$lib/shortcuts';
   import PageHeader from '$lib/components/PageHeader.svelte';
   import Icon from '$lib/components/Icon.svelte';
   import AsyncState from '$lib/components/AsyncState.svelte';
@@ -51,7 +52,43 @@
     }
   }
 
-  onMount(load);
+  let cleanupShortcuts: (() => void) | undefined;
+
+  onMount(() => {
+    load();
+    cleanupShortcuts = useShortcuts([
+      {
+        ...SHORTCUT_DEFAULTS.find((d) => d.id === 'habits:new')!,
+        handler: () => {
+          showForm = true;
+        },
+      },
+      {
+        ...SHORTCUT_DEFAULTS.find((d) => d.id === 'habits:navigate-down')!,
+        handler: () => {
+          if (!habits.length) return;
+          const idx = habits.findIndex((h) => h.id === selectedId);
+          selectedId = habits[Math.min(idx + 1, habits.length - 1)].id;
+        },
+      },
+      {
+        ...SHORTCUT_DEFAULTS.find((d) => d.id === 'habits:navigate-up')!,
+        handler: () => {
+          if (!habits.length) return;
+          const idx = habits.findIndex((h) => h.id === selectedId);
+          selectedId = habits[Math.max(idx - 1, 0)].id;
+        },
+      },
+      {
+        ...SHORTCUT_DEFAULTS.find((d) => d.id === 'habits:toggle-today')!,
+        handler: () => {
+          if (selectedHabit) toggle(selectedHabit);
+        },
+      },
+    ]);
+  });
+
+  onDestroy(() => cleanupShortcuts?.());
 
   // ── Heatmap logic ──────────────────────────────────────────────────────────
 

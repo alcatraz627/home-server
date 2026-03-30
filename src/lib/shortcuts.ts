@@ -154,6 +154,37 @@ export const SHORTCUT_DEFAULTS: ShortcutDef[] = [
 
   // Workflows
   { id: 'workflows:export', page: 'Workflows', description: 'Export data', defaultKey: 'e', category: 'Actions' },
+
+  // Tasks
+  { id: 'tasks:new', page: 'Tasks', description: 'New task', defaultKey: 'n', category: 'Actions' },
+  { id: 'tasks:focus-search', page: 'Tasks', description: 'Focus search', defaultKey: '/', category: 'Navigation' },
+
+  // Notes
+  { id: 'notes:focus-search', page: 'Notes', description: 'Focus search', defaultKey: '/', category: 'Navigation' },
+
+  // Habits
+  { id: 'habits:new', page: 'Habits', description: 'New habit', defaultKey: 'n', category: 'Actions' },
+  {
+    id: 'habits:navigate-down',
+    page: 'Habits',
+    description: 'Select next habit',
+    defaultKey: 'j',
+    category: 'Navigation',
+  },
+  {
+    id: 'habits:navigate-up',
+    page: 'Habits',
+    description: 'Select previous habit',
+    defaultKey: 'k',
+    category: 'Navigation',
+  },
+  {
+    id: 'habits:toggle-today',
+    page: 'Habits',
+    description: "Toggle today's log for selected",
+    defaultKey: 'Space',
+    category: 'Actions',
+  },
 ];
 
 const STORAGE_KEY = 'shortcuts-custom';
