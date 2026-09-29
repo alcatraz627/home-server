@@ -1,6 +1,10 @@
+<p align="center">
+  <img src=".github/readme/banner.svg" alt="Home Server banner: personal device dashboard on Tailscale" width="100%">
+</p>
+
 <div align="center">
 
-# Home Server
+# <img src=".github/readme/favicon.svg" alt="" width="32" height="32"> Home Server
 
 **A personal device management platform for your Tailscale network**
 
@@ -24,6 +28,13 @@ _36 pages · 50+ API routes · 24 components · 25 themes · 38 tests · PWA · 
 > **Home Server** is a self-hosted dashboard that runs on your laptop, Raspberry Pi, or any device on your Tailscale VPN. Manage files, smart lights, processes, backups, and 20+ tools from a single web UI — no cloud required.
 
 See [PROJECT.md](PROJECT.md) for the full vision, goals, and milestones.
+
+<details>
+<summary>Riddle answer</summary>
+
+Wake-on-LAN: the UDP magic packet sender, with device management and ping status, is one of the tool pages.
+
+</details>
 
 ## Features
 
